@@ -1,0 +1,12 @@
+[package]
+name = "gui_test"
+version = "0.1.0"
+authors = ["jackyarndley <34801340+jackyarndley@users.noreply.github.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+druid = "0.6.0"
+rust_fractal = {path = "../rust-fractal"}
+config = "^0.9"
