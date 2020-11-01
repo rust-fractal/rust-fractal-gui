@@ -1,5 +1,5 @@
 use druid::widget::prelude::*;
-use druid::{AppLauncher, LocalizedString, WindowDesc, MouseButton};
+use druid::{AppLauncher, LocalizedString, WindowDesc, MouseButton, KeyCode};
 use druid::piet::{Text, ImageFormat, InterpolationMode, Color, TextLayoutBuilder, FontBuilder};
 
 use rust_fractal::renderer::FractalRenderer;
@@ -8,15 +8,15 @@ use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delt
 use config::{Config, File};
 
 struct FractalWidget {
-    renderer: Option<FractalRenderer>
+    renderer: Option<FractalRenderer>,
+    settings: Config
 }
 
 impl Widget<()> for FractalWidget {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut (), _env: &Env) {
+        ctx.request_focus();
         match event {
             Event::WindowConnected => {
-                
-
                 ctx.request_paint();
             },
             Event::MouseDown(e) => {
@@ -74,6 +74,17 @@ impl Widget<()> for FractalWidget {
                     
                 }
             },
+            Event::KeyUp(e) => {
+                if e.key_code == KeyCode::KeyD {
+                    let current_derivative = self.renderer.as_ref().unwrap().analytic_derivative;
+
+                    self.renderer.as_mut().unwrap().analytic_derivative = !current_derivative;
+                    self.renderer.as_mut().unwrap().data_export.analytic_derivative = !current_derivative;
+                    self.renderer.as_mut().unwrap().render_frame(0, String::from(""));
+
+                    ctx.request_paint();
+                }
+            }
             _ => {}
         }
         
@@ -105,14 +116,10 @@ impl Widget<()> for FractalWidget {
 
         match &self.renderer {
             None => {
-                let mut settings = Config::default();
-                settings.merge(File::with_name("start.toml")).unwrap();
-                // settings.merge(File::with_name("1e14.toml")).unwrap();
+                self.settings.set("image_width", size.x1 as i64).unwrap();
+                self.settings.set("image_height", size.y1 as i64).unwrap();
 
-                settings.set("image_width", size.x1 as i64).unwrap();
-                settings.set("image_height", size.y1 as i64).unwrap();
-
-                self.renderer = Some(FractalRenderer::new(settings));
+                self.renderer = Some(FractalRenderer::new(self.settings.clone()));
                 self.renderer.as_mut().unwrap().render_frame(0, String::from(""));
             },
             _ => {}
@@ -144,8 +151,13 @@ impl Widget<()> for FractalWidget {
 }
 
 pub fn main() {
+    let mut settings = Config::default();
+    settings.merge(File::with_name("start.toml")).unwrap();
+    // settings.merge(File::with_name("e10000.toml")).unwrap();
+
     let window = WindowDesc::new(|| FractalWidget {
-        renderer: None
+        renderer: None,
+        settings
     }).title(
         LocalizedString::new("rust-fractal"),
     ).window_size((1280.0, 720.0)).resizable(false);
