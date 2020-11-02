@@ -1,5 +1,5 @@
 rotate = 0
-approximation_order = 64
+approximation_order = 16
 glitch_percentage = 0.001
 frames = 1
 frame_offset = 0
@@ -19,6 +19,8 @@ valid_iteration_frame_multiplier = 0.10
 valid_iteration_probe_multiplier = 0.01
 
 experimental = true  
+analytic_derivative = false
 
 jitter = false
 show_output = false
+iterations = 1000
