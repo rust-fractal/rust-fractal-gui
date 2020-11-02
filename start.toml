@@ -20,8 +20,5 @@ valid_iteration_probe_multiplier = 0.01
 
 experimental = true  
 
-analytic_derivative = false
 jitter = false
-
 show_output = false
-iterations = 1000

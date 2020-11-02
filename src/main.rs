@@ -1,6 +1,7 @@
 use druid::widget::prelude::*;
-use druid::{AppLauncher, LocalizedString, WindowDesc, MouseButton, KeyCode};
-use druid::piet::{Text, ImageFormat, InterpolationMode, Color, TextLayoutBuilder, FontBuilder};
+
+use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command};
+use druid::piet::{Text, ImageFormat, InterpolationMode, TextLayoutBuilder, FontBuilder, Color};
 
 use rust_fractal::renderer::FractalRenderer;
 use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_short};
@@ -15,13 +16,13 @@ struct FractalWidget {
 impl Widget<()> for FractalWidget {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut (), _env: &Env) {
         ctx.request_focus();
+
         match event {
             Event::WindowConnected => {
                 ctx.request_paint();
             },
             Event::MouseDown(e) => {
                 if e.button == MouseButton::Left || e.button == MouseButton::Right {
-                    // println!("{}, {}", e.pos, e.window_pos);
                     // want window position
                     match &mut self.renderer {
                         Some(renderer) => {
@@ -67,16 +68,14 @@ impl Widget<()> for FractalWidget {
 
                         },
                         None => {}
-                    };
-
-                    // self.renderer.center_reference.c
-
-                    
+                    }; 
                 }
             },
             Event::KeyUp(e) => {
                 if e.key_code == KeyCode::KeyD {
                     let current_derivative = self.renderer.as_ref().unwrap().analytic_derivative;
+
+                    self.settings.set("analytic_derivative", !current_derivative).unwrap();
 
                     self.renderer.as_mut().unwrap().analytic_derivative = !current_derivative;
                     self.renderer.as_mut().unwrap().data_export.analytic_derivative = !current_derivative;
@@ -84,7 +83,39 @@ impl Widget<()> for FractalWidget {
 
                     ctx.request_paint();
                 }
-            }
+
+                if e.key_code == KeyCode::KeyO {
+                    let toml = FileSpec::new("location", &["toml"]);
+
+                    let open_dialog_options = FileDialogOptions::new()
+                        .allowed_types(vec![toml]);
+
+                    ctx.submit_command(Command::new(
+                        druid::commands::SHOW_OPEN_PANEL,
+                        open_dialog_options.clone(),
+                    ), None);
+                }
+
+                if e.key_code == KeyCode::KeyP {
+                    let toml = FileSpec::new("palette", &["toml"]);
+
+                    let open_dialog_options = FileDialogOptions::new()
+                        .allowed_types(vec![toml]);
+
+                    ctx.submit_command(Command::new(
+                        druid::commands::SHOW_OPEN_PANEL,
+                        open_dialog_options.clone(),
+                    ), None);
+                }
+            },
+            Event::Command(command) => {
+                if let Some(file_info) = command.get(commands::OPEN_FILE) {
+                    self.settings.merge(File::with_name(file_info.path().to_str().unwrap())).unwrap();
+                    self.renderer = None;
+                }
+
+                ctx.request_paint();
+            },
             _ => {}
         }
         
@@ -141,24 +172,15 @@ impl Widget<()> for FractalWidget {
             .build()
             .unwrap();
         
-        ctx.draw_text(&layout, (10.0, 34.0), &Color::rgb8(0, 0, 0))
-
-
-
-
-
+        ctx.draw_text(&layout, (10.0, 34.0), &Color::rgb8(0, 0, 0));
     }
 }
 
 pub fn main() {
-    let mut settings = Config::default();
-    settings.merge(File::with_name("start.toml")).unwrap();
+    
     // settings.merge(File::with_name("e10000.toml")).unwrap();
 
-    let window = WindowDesc::new(|| FractalWidget {
-        renderer: None,
-        settings
-    }).title(
+    let window = WindowDesc::new(ui_builder).title(
         LocalizedString::new("rust-fractal"),
     ).window_size((1280.0, 720.0)).resizable(false);
 
@@ -166,4 +188,14 @@ pub fn main() {
         .use_simple_logger()
         .launch(())
         .expect("launch failed");
+}
+
+fn ui_builder() -> impl Widget<()> {
+    let mut settings = Config::default();
+    settings.merge(File::with_name("start.toml")).unwrap();
+
+    FractalWidget {
+        renderer: None,
+        settings
+    }
 }
