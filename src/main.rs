@@ -1,5 +1,6 @@
 use druid::widget::prelude::*;
-use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command};
+use druid::widget::{Flex, CrossAxisAlignment, Label, SizedBox};
+use druid::{commands, AppLauncher, LocalizedString, Widget, WidgetExt, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command};
 use druid::piet::{Text, ImageFormat, InterpolationMode, TextLayoutBuilder, FontBuilder, Color};
 
 use rust_fractal::renderer::FractalRenderer;
@@ -274,7 +275,7 @@ impl Widget<()> for FractalWidget {
 pub fn main() {
     let window = WindowDesc::new(ui_builder).title(
         LocalizedString::new("rust-fractal"),
-    ).window_size((1280.0, 720.0)).resizable(false);
+    ).window_size((1280.0, 720.0)).resizable(true);
 
     AppLauncher::with_window(window)
         .use_simple_logger()
@@ -287,8 +288,22 @@ fn ui_builder() -> impl Widget<()> {
     let mut settings = Config::default();
     settings.merge(File::with_name("start.toml")).unwrap();
 
-    FractalWidget {
+    let render_screen = FractalWidget {
         renderer: None,
         current_settings: settings,
-    }
+    };
+
+    Flex::row()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(
+            Flex::row()
+                .must_fill_main_axis(true)
+                .with_child(
+                    render_screen
+                )
+        )
+        .with_child(
+            SizedBox::new(Label::new("test"))
+                .width(200.0)
+        )
 }
