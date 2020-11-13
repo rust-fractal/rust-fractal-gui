@@ -1,3 +1,7 @@
+real = "-0.75"
+imag = "0.0"
+zoom = "1e0"
+
 rotate = 0
 approximation_order = 16
 glitch_percentage = 0.001

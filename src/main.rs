@@ -1,6 +1,6 @@
 use druid::widget::prelude::*;
-use druid::widget::{Flex, CrossAxisAlignment, Label, SizedBox};
-use druid::{commands, AppLauncher, LocalizedString, Widget, WidgetExt, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command};
+use druid::widget::{Flex, CrossAxisAlignment, Label, SizedBox, Split};
+use druid::{commands, AppLauncher, LocalizedString, Widget, WidgetExt, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command, Selector, Data};
 use druid::piet::{Text, ImageFormat, InterpolationMode, TextLayoutBuilder, FontBuilder, Color};
 
 use rust_fractal::renderer::FractalRenderer;
@@ -13,13 +13,36 @@ struct FractalWidget {
     current_settings: Config
 }
 
-impl Widget<()> for FractalWidget {
-    fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut (), _env: &Env) {
+#[derive(Clone, Data)]
+struct FractalData {
+    real: String,
+    imag: String,
+    zoom: String
+}
+
+impl FractalData {
+    pub fn derive_from_settings(&mut self, settings: &Config) {
+        self.real = settings.get_str("real").unwrap().to_string();
+        self.imag = settings.get_str("imag").unwrap().to_string();
+        self.zoom = settings.get_str("zoom").unwrap().to_string();
+
+
+
+
+
+
+
+    }
+}
+
+impl Widget<FractalData> for FractalWidget {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut FractalData, _env: &Env) {
         // This is used so that the keyboard commands will work
         ctx.request_focus();
 
         match event {
             Event::WindowConnected => {
+                data.derive_from_settings(&self.current_settings);
                 ctx.request_paint();
             },
             Event::MouseDown(e) => {
@@ -27,27 +50,31 @@ impl Widget<()> for FractalWidget {
                 if e.button == MouseButton::Left || e.button == MouseButton::Right {
                     match &mut self.renderer {
                         Some(renderer) => {
-                            let i = e.pos.x;
-                            let j = e.pos.y;
-        
-                            let cos_rotate = renderer.rotate.cos();
-                            let sin_rotate = renderer.rotate.sin();
-        
-                            let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
-                            let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
-        
-                            let element = ComplexFixed::new(
-                                i * delta_pixel * cos_rotate - j * delta_pixel * sin_rotate + delta_top_left.re, 
-                                i * delta_pixel * sin_rotate + j * delta_pixel * cos_rotate + delta_top_left.im
-                            );
-
-                            let element = ComplexExtended::new(element, -renderer.zoom.exponent);
-                            let mut zoom = renderer.zoom;
-
                             renderer.analytic_derivative = self.current_settings.get("analytic_derivative").unwrap();
 
                             // Zoom in, use the mouse position
                             if e.button == MouseButton::Left {
+                                let size = ctx.size().to_rect();
+
+                                let i = e.pos.x * renderer.image_width as f64 / size.width();
+                                let j = e.pos.y * renderer.image_height as f64 / size.height();
+
+                                println!("{}, {}", i, j);
+            
+                                let cos_rotate = renderer.rotate.cos();
+                                let sin_rotate = renderer.rotate.sin();
+            
+                                let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
+                                let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
+            
+                                let element = ComplexFixed::new(
+                                    i * delta_pixel * cos_rotate - j * delta_pixel * sin_rotate + delta_top_left.re, 
+                                    i * delta_pixel * sin_rotate + j * delta_pixel * cos_rotate + delta_top_left.im
+                                );
+
+                                let element = ComplexExtended::new(element, -renderer.zoom.exponent);
+                                let mut zoom = renderer.zoom;
+                            
                                 zoom.mantissa *= 2.0;
                                 zoom.reduce();
 
@@ -62,9 +89,12 @@ impl Widget<()> for FractalWidget {
                                 *location.mut_imag() += &temp3 * &temp;
 
                                 // Set the overrides for the current location
+
                                 self.current_settings.set("real", location.real().to_string()).unwrap();
                                 self.current_settings.set("imag", location.imag().to_string()).unwrap();
                                 self.current_settings.set("zoom", extended_to_string_long(zoom)).unwrap();
+
+                                data.derive_from_settings(&self.current_settings);
 
                                 renderer.update_location(zoom, location);
                                 renderer.render_frame(0, String::from(""));
@@ -72,6 +102,9 @@ impl Widget<()> for FractalWidget {
                                 // Zoom out, only use the central location and save reference
                                 renderer.zoom.mantissa /= 2.0;
                                 renderer.zoom.reduce();
+
+                                self.current_settings.set("zoom", extended_to_string_long(renderer.zoom)).unwrap();
+                                data.derive_from_settings(&self.current_settings);
 
                                 // frame_index is set to 1 so that the reference is reused
                                 renderer.render_frame(1, String::from(""));
@@ -200,6 +233,7 @@ impl Widget<()> for FractalWidget {
                     self.current_settings.merge(new_settings).unwrap();
                 }
 
+                data.derive_from_settings(&self.current_settings);
                 ctx.request_paint();
             },
             _ => {}
@@ -207,21 +241,31 @@ impl Widget<()> for FractalWidget {
         
     }
 
-    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &(), _env: &Env) {}
+    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &FractalData, _env: &Env) {}
 
-    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &(), _data: &(), _env: &Env) {}
+    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &FractalData, _data: &FractalData, _env: &Env) {}
 
-    fn layout(&mut self, _layout_ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &(), _env: &Env) -> Size {
-        bc.max()
+    fn layout(&mut self, _layout_ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &FractalData, _env: &Env) -> Size {
+        let mut test = bc.max();
+
+        match &self.renderer {
+            None => {}
+            _ => {
+                let renderer = self.renderer.as_ref().unwrap();
+                test.height = test.width * renderer.image_height as f64 / renderer.image_width as f64;
+            }
+        }
+
+        test
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, _data: &(), _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, _data: &FractalData, _env: &Env) {
         let size = ctx.size().to_rect();
 
         match &self.renderer {
             None => {
-                self.current_settings.set("image_width", size.x1 as i64).unwrap();
-                self.current_settings.set("image_height", size.y1 as i64).unwrap();
+                self.current_settings.set("image_width", size.x1).unwrap();
+                self.current_settings.set("image_height", size.y1).unwrap();
 
                 let max_iterations = self.current_settings.get_int("iterations").unwrap();
 
@@ -235,8 +279,10 @@ impl Widget<()> for FractalWidget {
             _ => {}
         }
 
+        let renderer = self.renderer.as_mut().unwrap();
+
         let image = ctx
-            .make_image(size.x1 as usize, size.y1 as usize, &self.renderer.as_ref().unwrap().data_export.rgb, ImageFormat::Rgb)
+            .make_image(renderer.image_width, renderer.image_height, &renderer.data_export.rgb, ImageFormat::Rgb)
             .unwrap();
 
         ctx.draw_image(&image, size, InterpolationMode::Bilinear);
@@ -245,8 +291,6 @@ impl Widget<()> for FractalWidget {
             .new_font_by_name("Lucida Console", 20.0)
             .build()
             .unwrap();
-
-        let renderer = self.renderer.as_ref().unwrap();
 
         let colouring_type = if self.current_settings.get("analytic_derivative").unwrap() {
             "Distance"
@@ -279,11 +323,15 @@ pub fn main() {
 
     AppLauncher::with_window(window)
         .use_simple_logger()
-        .launch(())
+        .launch(FractalData {
+            real: "".to_string(),
+            imag: "".to_string(),
+            zoom: "".to_string()
+        })
         .expect("launch failed");
 }
 
-fn ui_builder() -> impl Widget<()> {
+fn ui_builder() -> impl Widget<FractalData> {
     // Setup the default settings. These are stored in start.toml file
     let mut settings = Config::default();
     settings.merge(File::with_name("start.toml")).unwrap();
@@ -293,17 +341,12 @@ fn ui_builder() -> impl Widget<()> {
         current_settings: settings,
     };
 
-    Flex::row()
-        .cross_axis_alignment(CrossAxisAlignment::Start)
-        .with_child(
-            Flex::row()
-                .must_fill_main_axis(true)
-                .with_child(
-                    render_screen
-                )
-        )
-        .with_child(
-            SizedBox::new(Label::new("test"))
-                .width(200.0)
-        )
+    let mut label = Label::new(|data: &FractalData, _env: &_| {
+        format!("real: {}\nimag: {}\nzoom: {}", data.real, data.imag, data.zoom)
+    });
+
+    label.set_text_size(20.0);
+    label.set_font("Lucida Console".to_string());
+
+    Split::columns(render_screen, label).split_point(0.8).draggable(true)
 }
