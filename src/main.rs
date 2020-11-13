@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use druid::widget::prelude::*;
 use druid::widget::{Flex, CrossAxisAlignment, Label, SizedBox, Split};
 use druid::{commands, AppLauncher, LocalizedString, Widget, WidgetExt, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command, Selector, Data};
@@ -8,6 +10,7 @@ use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delt
 
 use config::{Config, File};
 
+
 struct FractalWidget {
     renderer: Option<FractalRenderer>,
     current_settings: Config
@@ -17,21 +20,42 @@ struct FractalWidget {
 struct FractalData {
     real: String,
     imag: String,
-    zoom: String
+    zoom: String,
+    image_width: usize,
+    image_height: usize,
+    maximum_iteration: usize,
+    min_valid_iteraton: usize,
+    approximation_order: usize,
+    render_time: u128,
+    colouring_type: String
+}
+
+
+#[derive(Clone, Data)]
+struct DataTest {
+    settings: Arc<Config>
 }
 
 impl FractalData {
-    pub fn derive_from_settings(&mut self, settings: &Config) {
+    pub fn derive_from_settings(&mut self, settings: &Config, renderer: &FractalRenderer) {
         self.real = settings.get_str("real").unwrap().to_string();
         self.imag = settings.get_str("imag").unwrap().to_string();
         self.zoom = settings.get_str("zoom").unwrap().to_string();
 
+        self.image_width = settings.get_int("image_width").unwrap() as usize;
+        self.image_height = settings.get_int("image_height").unwrap() as usize;
+        self.maximum_iteration = settings.get_int("image_height").unwrap() as usize;
 
+        self.min_valid_iteraton = renderer.series_approximation.min_valid_iteration;
+        self.approximation_order = settings.get_int("approximation_order").unwrap() as usize;
 
+        self.render_time = renderer.render_time;
 
-
-
-
+        self.colouring_type = if settings.get("analytic_derivative").unwrap() {
+            "Distance".to_string()
+        } else {
+            "Iteration".to_string()
+        };
     }
 }
 
@@ -42,7 +66,7 @@ impl Widget<FractalData> for FractalWidget {
 
         match event {
             Event::WindowConnected => {
-                data.derive_from_settings(&self.current_settings);
+                data.derive_from_settings(&self.current_settings, self.renderer.as_ref().unwrap());
                 ctx.request_paint();
             },
             Event::MouseDown(e) => {
@@ -94,7 +118,7 @@ impl Widget<FractalData> for FractalWidget {
                                 self.current_settings.set("imag", location.imag().to_string()).unwrap();
                                 self.current_settings.set("zoom", extended_to_string_long(zoom)).unwrap();
 
-                                data.derive_from_settings(&self.current_settings);
+                                data.derive_from_settings(&self.current_settings, self.renderer.as_ref().unwrap());
 
                                 renderer.update_location(zoom, location);
                                 renderer.render_frame(0, String::from(""));
@@ -104,7 +128,7 @@ impl Widget<FractalData> for FractalWidget {
                                 renderer.zoom.reduce();
 
                                 self.current_settings.set("zoom", extended_to_string_long(renderer.zoom)).unwrap();
-                                data.derive_from_settings(&self.current_settings);
+                                data.derive_from_settings(&self.current_settings, self.renderer.as_ref().unwrap());
 
                                 // frame_index is set to 1 so that the reference is reused
                                 renderer.render_frame(1, String::from(""));
@@ -233,7 +257,7 @@ impl Widget<FractalData> for FractalWidget {
                     self.current_settings.merge(new_settings).unwrap();
                 }
 
-                data.derive_from_settings(&self.current_settings);
+                data.derive_from_settings(&self.current_settings, self.renderer.as_ref().unwrap());
                 ctx.request_paint();
             },
             _ => {}
@@ -326,7 +350,8 @@ pub fn main() {
         .launch(FractalData {
             real: "".to_string(),
             imag: "".to_string(),
-            zoom: "".to_string()
+            zoom: "".to_string(),
+
         })
         .expect("launch failed");
 }
