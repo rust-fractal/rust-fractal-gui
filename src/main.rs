@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use druid::widget::prelude::*;
-use druid::widget::{Label, Split};
-use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command, Data};
+use druid::widget::{Label, Split, TextBox, Flex, Button, CrossAxisAlignment};
+use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command, Data, Lens, LensWrap, Selector};
 use druid::piet::{ImageFormat, InterpolationMode};
 
 use rust_fractal::renderer::FractalRenderer;
@@ -15,10 +15,56 @@ struct FractalWidget {
     renderer: FractalRenderer,
 }
 
-#[derive(Clone, Data)]
+#[derive(Clone, Data, Lens)]
 struct FractalData {
     updated: usize,
+    temporary_width: i64,
+    temporary_height: i64,
     settings: Arc<Mutex<Config>>
+}
+
+struct WidthLens;
+
+impl Lens<FractalData, String> for WidthLens {
+    fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
+        let mut string = data.temporary_width.to_string();
+        if data.temporary_width == 0 {
+            string = "".into();
+        }
+        f(&string)
+    }
+    fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
+        let mut string = data.temporary_width.to_string();
+        if data.temporary_width == 0 {
+            string = "".into();
+        }
+        let v = f(&mut string);
+        string.retain(|c| c.is_digit(10));
+        data.temporary_width = string.parse().unwrap_or(0);
+        v
+    }
+}
+
+struct HeightLens;
+
+impl Lens<FractalData, String> for HeightLens {
+    fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
+        let mut string = data.temporary_height.to_string();
+        if data.temporary_height == 0 {
+            string = "".into();
+        }
+        f(&string)
+    }
+    fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
+        let mut string = data.temporary_height.to_string();
+        if data.temporary_height == 0 {
+            string = "".into();
+        }
+        let v = f(&mut string);
+        string.retain(|c| c.is_digit(10));
+        data.temporary_height = string.parse().unwrap_or(0);
+        v
+    }
 }
 
 impl FractalData {
@@ -69,6 +115,8 @@ impl Widget<FractalData> for FractalWidget {
                 settings.set("render_time", self.renderer.render_time as i64).unwrap();
                 settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
+                data.temporary_width = settings.get_int("image_width").unwrap();
+                data.temporary_height = settings.get_int("image_height").unwrap();
                 data.updated += 1;
             }
             Event::MouseDown(e) => {
@@ -139,6 +187,8 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("render_time", self.renderer.render_time as i64).unwrap();
                     settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
+                    data.temporary_width = settings.get_int("image_width").unwrap();
+                    data.temporary_height = settings.get_int("image_height").unwrap();
                     data.updated += 1;
 
                     ctx.request_paint();
@@ -168,6 +218,8 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("render_time", self.renderer.render_time as i64).unwrap();
                     settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
+                    data.temporary_width = settings.get_int("image_width").unwrap();
+                    data.temporary_height = settings.get_int("image_height").unwrap();
                     data.updated += 1;
 
                     ctx.request_paint();
@@ -186,6 +238,8 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("render_time", self.renderer.render_time as i64).unwrap();
                     settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
+                    data.temporary_width = settings.get_int("image_width").unwrap();
+                    data.temporary_height = settings.get_int("image_height").unwrap();
                     data.updated += 1;
 
                     ctx.request_paint();
@@ -197,6 +251,9 @@ impl Widget<FractalData> for FractalWidget {
                     let open_dialog_options = FileDialogOptions::new()
                         .allowed_types(vec![toml]);
 
+                    data.temporary_width = settings.get_int("image_width").unwrap();
+                    data.temporary_height = settings.get_int("image_height").unwrap();
+
                     ctx.submit_command(Command::new(
                         druid::commands::SHOW_OPEN_PANEL,
                         open_dialog_options.clone(),
@@ -204,62 +261,15 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if e.key_code == KeyCode::KeyN {
-                    let window_width = settings.get_float("window_width").unwrap();
-                    let window_height = settings.get_float("window_height").unwrap();
-
-                    settings.set("image_width", window_width as i64).unwrap();
-                    settings.set("image_height", window_height as i64).unwrap();
-
-                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
-                    self.renderer.image_width = window_width as usize;
-                    self.renderer.image_height = window_height as usize;
-                    self.renderer.render_frame(1, String::from(""));
-
-                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
-                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
-
-                    data.updated += 1;
-
-                    ctx.request_paint();
+                    ctx.submit_command(Command::new(Selector::new("native_image_size"), ()), None);
                 }
 
                 if e.key_code == KeyCode::KeyT {
-                    let new_width = settings.get_int("image_width").unwrap() / 2;
-                    let new_height = settings.get_int("image_height").unwrap() / 2;
-
-                    settings.set("image_width", new_width).unwrap();
-                    settings.set("image_height", new_height).unwrap();
-
-                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
-                    self.renderer.image_width = new_width as usize;
-                    self.renderer.image_height = new_height as usize;
-                    self.renderer.render_frame(1, String::from(""));
-
-                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
-                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
-
-                    data.updated += 1;
-
-                    ctx.request_paint();
+                    ctx.submit_command(Command::new(Selector::new("half_image_size"), ()), None);
                 }
 
                 if e.key_code == KeyCode::KeyY {
-                    let new_width = settings.get_int("image_width").unwrap() * 2;
-                    let new_height = settings.get_int("image_height").unwrap() * 2;
-
-                    settings.set("image_width", new_width).unwrap();
-                    settings.set("image_height", new_height).unwrap();
-
-                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
-                    self.renderer.image_width = new_width as usize;
-                    self.renderer.image_height = new_height as usize;
-                    self.renderer.render_frame(1, String::from(""));
-
-                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
-                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
-
-                    data.updated += 1;
-                    ctx.request_paint();
+                    ctx.submit_command(Command::new(Selector::new("double_image_size"), ()), None);
                 }
 
                 if e.key_code == KeyCode::KeyR {
@@ -300,10 +310,52 @@ impl Widget<FractalData> for FractalWidget {
                 // }
             },
             Event::Command(command) => {
+                println!("{:?}", command);
+                let mut settings = data.settings.lock().unwrap();
+
+                if let Some(_) = command.get::<()>(Selector::new("half_image_size")) {
+                    let new_width = settings.get_int("image_width").unwrap() / 2;
+                    let new_height = settings.get_int("image_height").unwrap() / 2;
+
+                    ctx.submit_command(Command::new(Selector::new("set_image_size"), (new_width, new_height)), None);
+                }
+
+                if let Some(_) = command.get::<()>(Selector::new("double_image_size")) {
+                    let new_width = settings.get_int("image_width").unwrap() * 2;
+                    let new_height = settings.get_int("image_height").unwrap() * 2;
+
+                    ctx.submit_command(Command::new(Selector::new("set_image_size"), (new_width, new_height)), None);
+                }
+
+                if let Some(_) = command.get::<()>(Selector::new("native_image_size")) {
+                    let window_width = settings.get_float("window_width").unwrap();
+                    let window_height = settings.get_float("window_height").unwrap();
+
+                    ctx.submit_command(Command::new(Selector::new("set_image_size"), (window_width as i64, window_height as i64)), None);
+                }
+
+                if let Some(dimensions) = command.get::<(i64, i64)>(Selector::new("set_image_size")) {
+                    settings.set("image_width", dimensions.0 as i64).unwrap();
+                    settings.set("image_height", dimensions.1 as i64).unwrap();
+
+                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                    self.renderer.image_width = dimensions.0 as usize;
+                    self.renderer.image_height = dimensions.1 as usize;
+                    self.renderer.render_frame(1, String::from(""));
+
+                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
+
+                    data.temporary_width = settings.get_int("image_width").unwrap();
+                    data.temporary_height = settings.get_int("image_height").unwrap();
+                    data.updated += 1;
+                    ctx.request_paint();
+                    return;
+                }
+
                 // if command.is::<()>(Selector::new("refresh_data")) {
                 //     data.updated += 1;
                 // } else {
-                let mut settings = data.settings.lock().unwrap();
 
                 if let Some(file_info) = command.get(commands::OPEN_FILE) {
                     let mut new_settings = Config::default();
@@ -452,6 +504,8 @@ pub fn main() {
         .use_simple_logger()
         .launch(FractalData {
             updated: 0,
+            temporary_width: settings.get_int("image_width").unwrap(),
+            temporary_height: settings.get_int("image_height").unwrap(),
             settings: Arc::new(Mutex::new(settings))
         })
         .expect("launch failed");
@@ -467,11 +521,76 @@ fn ui_builder() -> impl Widget<FractalData> {
     };
 
     let mut label = Label::new(|data: &FractalData, _env: &_| {
+        println!("update!");
         data.display()
     });
 
     label.set_text_size(20.0);
     label.set_font("Lucida Console".to_string());
 
-    Split::columns(render_screen, label).split_point(0.8).draggable(true)
+    let image_width = LensWrap::new(TextBox::new(), WidthLens);
+    let image_height = LensWrap::new(TextBox::new(), HeightLens);
+
+    let button_set = Button::new("SET").on_click(|ctx, data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("set_image_size"), (data.temporary_width, data.temporary_height)), None);
+    });
+
+    let button_half = Button::new("HALF").on_click(|ctx, data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("half_image_size"), ()), None);
+    });
+
+    let button_double = Button::new("DOUBLE").on_click(|ctx, data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("double_image_size"), ()), None);
+    });
+
+    let button_native = Button::new("NATIVE").on_click(|ctx, data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("native_image_size"), ()), None);
+    });
+
+    let mut row_1 = Label::<FractalData>::new("IMAGE RESOLUTION");
+
+    row_1.set_text_size(20.0);
+    row_1.set_font("Lucida Console".to_string());
+
+    let mut width_label = Label::<FractalData>::new("WIDTH: ");
+    let mut height_label = Label::<FractalData>::new("HEIGHT: ");
+
+    width_label.set_text_size(20.0);
+    width_label.set_font("Lucida Console".to_string());
+
+    height_label.set_text_size(20.0);
+    height_label.set_font("Lucida Console".to_string());
+
+    let mut row_2 = Flex::row()
+        .with_flex_child(width_label, 1.0)
+        .with_spacer(10.0)
+        .with_child(image_width);
+
+    // row_2.must_fill_main_axis();
+        
+    let row_3 = Flex::row()
+        .with_child(height_label)
+        .with_spacer(10.0)
+        .with_child(image_height);
+
+    let row_4 = Flex::row()
+        .with_child(button_set)
+        .with_child(button_half)
+        .with_child(button_double)
+        .with_child(button_native);
+
+    // let image_size_layout = Flex::row()
+    //     .with_child(image_width)
+    //     .with_child(image_height)
+    //     .with_child(button_set);
+
+    let flex = Flex::<FractalData>::column()
+        .with_child(row_1)
+        .with_child(row_2)
+        .with_child(row_3)
+        .with_child(row_4)
+        .with_child(label);
+
+
+    Split::columns(render_screen, flex).split_point(0.8).draggable(true).min_size(100.0)
 }
