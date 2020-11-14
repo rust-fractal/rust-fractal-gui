@@ -3,10 +3,10 @@ use std::sync::{Arc, Mutex};
 use druid::widget::prelude::*;
 use druid::widget::{Label, Split};
 use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command, Data};
-use druid::piet::{Text, ImageFormat, InterpolationMode, TextLayoutBuilder, FontBuilder, Color};
+use druid::piet::{ImageFormat, InterpolationMode};
 
 use rust_fractal::renderer::FractalRenderer;
-use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_short, extended_to_string_long};
+use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long};
 
 use config::{Config, File};
 
@@ -48,7 +48,7 @@ impl FractalData {
 
         // shorten_long_string(settings.get_str("zoom").unwrap().to_string());
 
-        format!("zoom: {}\nreal: {}\nimag: {}\n{}x{}\niterations: {}\nderivative: {}\nrotate: {}\n", 
+        format!("zoom: {}\nreal: {}\nimag: {}\n{}x{}\niterations: {}\nderivative: {}\nrotate: {}\norder: {}\nmin_valid_iteration: \nrender_time: \nprobe_sampling: {}", 
             shorten_long_string(settings.get_str("zoom").unwrap().to_string()), 
             shorten_long_string(settings.get_str("real").unwrap().to_string()), 
             shorten_long_string(settings.get_str("imag").unwrap().to_string()),
@@ -56,7 +56,9 @@ impl FractalData {
             settings.get_int("image_height").unwrap(),
             settings.get_int("iterations").unwrap(),
             settings.get_bool("analytic_derivative").unwrap(),
-            settings.get_float("rotate").unwrap())
+            settings.get_float("rotate").unwrap(),
+            settings.get_int("approximation_order").unwrap(),
+            settings.get_int("probe_sampling").unwrap())
     }
 }
 
@@ -291,7 +293,21 @@ impl Widget<FractalData> for FractalWidget {
                     ctx.request_paint();
                 }
 
+                // TODO make this so that the reference is not reset
+                if e.key_code == KeyCode::KeyP {
+                    let mut new_probes = settings.get_int("probe_sampling").unwrap() / 2;
 
+                    if new_probes < 2 {
+                        new_probes = 2;
+                    }
+
+                    settings.set("probe_sampling", new_probes).unwrap();
+
+                    self.renderer = FractalState::RESET;
+
+                    data.updated = !data.updated;
+                    ctx.request_paint();
+                }
             },
             Event::Command(command) => {
                 let mut settings = data.settings.lock().unwrap();
