@@ -1,6 +1,9 @@
 image_width = 1006
 image_height = 681
 
+render_time = 0
+min_valid_iteration = 0
+
 real = "-0.75"
 imag = "0.0"
 zoom = "1e0"
