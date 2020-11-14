@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use druid::widget::prelude::*;
 use druid::widget::{Label, Split};
-use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command, Data, Selector};
+use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command, Data};
 use druid::piet::{ImageFormat, InterpolationMode};
 
 use rust_fractal::renderer::FractalRenderer;
@@ -12,29 +12,8 @@ use config::{Config, File};
 
 
 struct FractalWidget {
-    renderer: FractalState,
-    // current_settings: Config
+    renderer: FractalRenderer,
 }
-
-enum FractalState {
-    RENDERER(FractalRenderer),
-    RESET,
-    INITIALIZE
-}
-
-// #[derive(Clone, Data)]
-// struct FractalData {
-//     real: String,
-//     imag: String,
-//     zoom: String,
-//     image_width: usize,
-//     image_height: usize,
-//     maximum_iteration: usize,
-//     min_valid_iteraton: usize,
-//     approximation_order: usize,
-//     render_time: u128,
-//     colouring_type: String
-// }
 
 #[derive(Clone, Data)]
 struct FractalData {
@@ -45,8 +24,6 @@ struct FractalData {
 impl FractalData {
     pub fn display(&self) -> String {
         let settings = self.settings.lock().unwrap();
-
-        // shorten_long_string(settings.get_str("zoom").unwrap().to_string());
 
         format!("zoom: {}\nreal: {}\nimag: {}\n{}x{}\niterations: {}\nderivative: {}\nrotate: {}\norder: {}\nskipped: {}\nrender_time: {}ms\nprobe_sampling: {}", 
             shorten_long_string(settings.get_str("zoom").unwrap().to_string()), 
@@ -80,153 +57,138 @@ fn shorten_long_string(string: String) -> String {
 
 }
 
-// impl FractalData {
-//     pub fn derive_from_settings(&mut self, settings: &Config, renderer: &FractalRenderer) {
-//         self.real = settings.get_str("real").unwrap().to_string();
-//         self.imag = settings.get_str("imag").unwrap().to_string();
-//         self.zoom = settings.get_str("zoom").unwrap().to_string();
-
-//         self.image_width = settings.get_int("image_width").unwrap() as usize;
-//         self.image_height = settings.get_int("image_height").unwrap() as usize;
-//         self.maximum_iteration = settings.get_int("image_height").unwrap() as usize;
-
-//         self.min_valid_iteraton = renderer.series_approximation.min_valid_iteration;
-//         self.approximation_order = settings.get_int("approximation_order").unwrap() as usize;
-
-//         self.render_time = renderer.render_time;
-
-//         self.colouring_type = if settings.get("analytic_derivative").unwrap() {
-//             "Distance".to_string()
-//         } else {
-//             "Iteration".to_string()
-//         };
-//     }
-// }
-
 impl Widget<FractalData> for FractalWidget {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut FractalData, _env: &Env) {
-        // This is used so that the keyboard commands will work
         ctx.request_focus();
 
         match event {
+            Event::WindowConnected => {
+                let mut settings = data.settings.lock().unwrap();
+
+                self.renderer.render_frame(0, String::from(""));
+                settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
+
+                data.updated += 1;
+            }
             Event::MouseDown(e) => {
                 let mut settings = data.settings.lock().unwrap();
 
                 // For a mousedown event we only check the left and right buttons
                 if e.button == MouseButton::Left || e.button == MouseButton::Right {
-                    match &mut self.renderer {
-                        FractalState::RENDERER(renderer) => {
-                            renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
 
-                            // Zoom in, use the mouse position
-                            if e.button == MouseButton::Left {
-                                let size = ctx.size().to_rect();
+                    // Zoom in, use the mouse position
+                    if e.button == MouseButton::Left {
+                        let size = ctx.size().to_rect();
 
-                                let i = e.pos.x * renderer.image_width as f64 / size.width();
-                                let j = e.pos.y * renderer.image_height as f64 / size.height();
+                        let i = e.pos.x * self.renderer.image_width as f64 / size.width();
+                        let j = e.pos.y * self.renderer.image_height as f64 / size.height();
 
-                                println!("{}, {}", i, j);
-            
-                                let cos_rotate = renderer.rotate.cos();
-                                let sin_rotate = renderer.rotate.sin();
-            
-                                let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
-                                let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
-            
-                                let element = ComplexFixed::new(
-                                    i * delta_pixel * cos_rotate - j * delta_pixel * sin_rotate + delta_top_left.re, 
-                                    i * delta_pixel * sin_rotate + j * delta_pixel * cos_rotate + delta_top_left.im
-                                );
+                        println!("{}, {}", i, j);
+    
+                        let cos_rotate = self.renderer.rotate.cos();
+                        let sin_rotate = self.renderer.rotate.sin();
+    
+                        let delta_pixel =  4.0 / ((self.renderer.image_height - 1) as f64 * self.renderer.zoom.mantissa);
+                        let delta_top_left = get_delta_top_left(delta_pixel, self.renderer.image_width, self.renderer.image_height, cos_rotate, sin_rotate);
+    
+                        let element = ComplexFixed::new(
+                            i * delta_pixel * cos_rotate - j * delta_pixel * sin_rotate + delta_top_left.re, 
+                            i * delta_pixel * sin_rotate + j * delta_pixel * cos_rotate + delta_top_left.im
+                        );
 
-                                let element = ComplexExtended::new(element, -renderer.zoom.exponent);
-                                let mut zoom = renderer.zoom;
-                            
-                                zoom.mantissa *= 2.0;
-                                zoom.reduce();
+                        let element = ComplexExtended::new(element, -self.renderer.zoom.exponent);
+                        let mut zoom = self.renderer.zoom;
+                    
+                        zoom.mantissa *= 2.0;
+                        zoom.reduce();
 
-                                let mut location = renderer.center_reference.c.clone();
-                                let precision = location.real().prec();
+                        let mut location = self.renderer.center_reference.c.clone();
+                        let precision = location.real().prec();
 
-                                let temp = FloatArbitrary::with_val(precision, element.exponent).exp2();
-                                let temp2 = FloatArbitrary::with_val(precision, element.mantissa.re);
-                                let temp3 = FloatArbitrary::with_val(precision, element.mantissa.im);
+                        let temp = FloatArbitrary::with_val(precision, element.exponent).exp2();
+                        let temp2 = FloatArbitrary::with_val(precision, element.mantissa.re);
+                        let temp3 = FloatArbitrary::with_val(precision, element.mantissa.im);
 
-                                *location.mut_real() += &temp2 * &temp;
-                                *location.mut_imag() += &temp3 * &temp;
+                        *location.mut_real() += &temp2 * &temp;
+                        *location.mut_imag() += &temp3 * &temp;
 
-                                // Set the overrides for the current location
+                        // Set the overrides for the current location
 
-                                settings.set("real", location.real().to_string()).unwrap();
-                                settings.set("imag", location.imag().to_string()).unwrap();
-                                settings.set("zoom", extended_to_string_long(zoom)).unwrap();
+                        settings.set("real", location.real().to_string()).unwrap();
+                        settings.set("imag", location.imag().to_string()).unwrap();
+                        settings.set("zoom", extended_to_string_long(zoom)).unwrap();
 
-                                // data.derive_from_settings(&self.current_settings, self.renderer.as_ref().unwrap());
+                        // data.derive_from_settings(&self.current_settings, self.renderer.as_ref().unwrap());
 
-                                renderer.update_location(zoom, location);
-                                renderer.render_frame(0, String::from(""));
-                            } else {
-                                // Zoom out, only use the central location and save reference
-                                renderer.zoom.mantissa /= 2.0;
-                                renderer.zoom.reduce();
+                        self.renderer.update_location(zoom, location);
+                        self.renderer.render_frame(0, String::from(""));
+                    } else {
+                        // Zoom out, only use the central location and save reference
+                        self.renderer.zoom.mantissa /= 2.0;
+                        self.renderer.zoom.reduce();
 
-                                settings.set("zoom", extended_to_string_long(renderer.zoom)).unwrap();
-                                // data.derive_from_settings(&self.current_settings, self.renderer.as_ref().unwrap());
+                        settings.set("zoom", extended_to_string_long(self.renderer.zoom)).unwrap();
+                        // data.derive_from_settings(&self.current_settings, self.renderer.as_ref().unwrap());
 
-                                // frame_index is set to 1 so that the reference is reused
-                                renderer.render_frame(1, String::from(""));
-                            }
+                        // frame_index is set to 1 so that the reference is reused
+                        self.renderer.render_frame(1, String::from(""));
+                    }
 
+                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
-                            ctx.request_paint();
-                        },
-                        _ => {}
-                    }; 
+                    data.updated += 1;
+
+                    ctx.request_paint();
                 }
             },
             Event::KeyUp(e) => {
                 let mut settings = data.settings.lock().unwrap();
 
                 if e.key_code == KeyCode::KeyD {
-                    match &mut self.renderer {
-                        FractalState::RENDERER(renderer) => {
-                            data.updated += 1;
 
-                            let current_derivative = renderer.data_export.analytic_derivative;
-                            settings.set("analytic_derivative", !current_derivative).unwrap();
+                    data.updated += 1;
 
-                            renderer.data_export.analytic_derivative = !current_derivative;
+                    let current_derivative = self.renderer.data_export.analytic_derivative;
+                    settings.set("analytic_derivative", !current_derivative).unwrap();
 
-                            // We have already computed the iterations and analytic derivatives
-                            if renderer.analytic_derivative {
-                                renderer.data_export.regenerate();
-                            } else {
-                                renderer.analytic_derivative = true;
-                                renderer.render_frame(1, String::from(""));
-                            }
+                    self.renderer.data_export.analytic_derivative = !current_derivative;
 
-                            // Toggle the use of the analytic derivative
-
-                            ctx.request_paint();
-                        }
-                        _ => {}
+                    // We have already computed the iterations and analytic derivatives
+                    if self.renderer.analytic_derivative {
+                        self.renderer.data_export.regenerate();
+                    } else {
+                        self.renderer.analytic_derivative = true;
+                        self.renderer.render_frame(1, String::from(""));
                     }
+
+                    // Toggle the use of the analytic derivative
+                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
+
+                    data.updated += 1;
+
+                    ctx.request_paint();
                 }
 
                 if e.key_code == KeyCode::KeyZ {
-                    match &mut self.renderer {
-                        FractalState::RENDERER(renderer) => {
-                            data.updated += 1;
+                    data.updated += 1;
 
-                            renderer.zoom.mantissa *= 2.0;
-                            renderer.zoom.reduce();
+                    self.renderer.zoom.mantissa *= 2.0;
+                    self.renderer.zoom.reduce();
 
-                            settings.set("zoom", extended_to_string_long(renderer.zoom)).unwrap();
-                            renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
-                            renderer.render_frame(1, String::from(""));
-                            ctx.request_paint();
-                        }
-                        _ => {}
-                    }
+                    settings.set("zoom", extended_to_string_long(self.renderer.zoom)).unwrap();
+                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                    self.renderer.render_frame(1, String::from(""));
+
+                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
+
+                    data.updated += 1;
+
+                    ctx.request_paint();
                 }
 
                 if e.key_code == KeyCode::KeyO {
@@ -241,20 +203,26 @@ impl Widget<FractalData> for FractalWidget {
                     ), None);
                 }
 
-                // TODO make this so that the reference is not reset
                 if e.key_code == KeyCode::KeyN {
-                    let size = ctx.size();
+                    let window_width = settings.get_float("window_width").unwrap();
+                    let window_height = settings.get_float("window_height").unwrap();
 
-                    settings.set("image_width", size.width as i64).unwrap();
-                    settings.set("image_height", size.height as i64).unwrap();
+                    settings.set("image_width", window_width as i64).unwrap();
+                    settings.set("image_height", window_height as i64).unwrap();
 
-                    self.renderer = FractalState::INITIALIZE;
+                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                    self.renderer.image_width = window_width as usize;
+                    self.renderer.image_height = window_height as usize;
+                    self.renderer.render_frame(1, String::from(""));
+
+                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
                     data.updated += 1;
+
                     ctx.request_paint();
                 }
 
-                // TODO make this so that the reference is not reset
                 if e.key_code == KeyCode::KeyT {
                     let new_width = settings.get_int("image_width").unwrap() / 2;
                     let new_height = settings.get_int("image_height").unwrap() / 2;
@@ -262,13 +230,19 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("image_width", new_width).unwrap();
                     settings.set("image_height", new_height).unwrap();
 
-                    self.renderer = FractalState::RESET;
+                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                    self.renderer.image_width = new_width as usize;
+                    self.renderer.image_height = new_height as usize;
+                    self.renderer.render_frame(1, String::from(""));
+
+                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
                     data.updated += 1;
+
                     ctx.request_paint();
                 }
 
-                // TODO make this so that the reference is not reset
                 if e.key_code == KeyCode::KeyY {
                     let new_width = settings.get_int("image_width").unwrap() * 2;
                     let new_height = settings.get_int("image_height").unwrap() * 2;
@@ -276,118 +250,144 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("image_width", new_width).unwrap();
                     settings.set("image_height", new_height).unwrap();
 
-                    self.renderer = FractalState::RESET;
+                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                    self.renderer.image_width = new_width as usize;
+                    self.renderer.image_height = new_height as usize;
+                    self.renderer.render_frame(1, String::from(""));
+
+                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
                     data.updated += 1;
                     ctx.request_paint();
                 }
 
-                // TODO make this so that the reference is not reset
                 if e.key_code == KeyCode::KeyR {
                     let new_rotate = (settings.get_float("rotate").unwrap() + 5.0) % 360.0;
 
                     settings.set("rotate", new_rotate).unwrap();
 
-                    self.renderer = FractalState::RESET;
+                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                    self.renderer.rotate = new_rotate.to_radians();
+
+                    self.renderer.render_frame(1, String::from(""));
+
+                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
                     data.updated += 1;
                     ctx.request_paint();
                 }
 
                 // TODO make this so that the reference is not reset
-                if e.key_code == KeyCode::KeyP {
-                    let mut new_probes = settings.get_int("probe_sampling").unwrap() / 2;
+                // if e.key_code == KeyCode::KeyP {
+                //     let mut new_probes = settings.get_int("probe_sampling").unwrap() / 2;
 
-                    if new_probes < 2 {
-                        new_probes = 2;
-                    }
+                //     if new_probes < 2 {
+                //         new_probes = 2;
+                //     }
 
-                    settings.set("probe_sampling", new_probes).unwrap();
+                //     settings.set("probe_sampling", new_probes).unwrap();
 
-                    self.renderer = FractalState::RESET;
+                //     self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                //     self.renderer.render_frame(1, String::from(""));
 
-                    data.updated += 1;
-                    ctx.request_paint();
-                }
+                //     settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                //     settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
+
+                //     data.updated += 1;
+                //     ctx.request_paint();
+                // }
             },
             Event::Command(command) => {
-                if command.is::<()>(Selector::new("refresh_data")) {
-                    data.updated += 1;
-                } else {
-                    let mut settings = data.settings.lock().unwrap();
+                // if command.is::<()>(Selector::new("refresh_data")) {
+                //     data.updated += 1;
+                // } else {
+                let mut settings = data.settings.lock().unwrap();
 
-                    if let Some(file_info) = command.get(commands::OPEN_FILE) {
-                        let mut new_settings = Config::default();
-                        new_settings.merge(File::with_name(file_info.path().to_str().unwrap())).unwrap();
+                if let Some(file_info) = command.get(commands::OPEN_FILE) {
+                    let mut new_settings = Config::default();
+                    new_settings.merge(File::with_name(file_info.path().to_str().unwrap())).unwrap();
 
-                        match new_settings.get_str("real") {
-                            Ok(real) => {
-                                settings.set("real", real).unwrap();
-                                self.renderer = FractalState::RESET;
-                            }
-                            Err(_) => {}
+                    let mut reset_renderer = false;
+
+                    match new_settings.get_str("real") {
+                        Ok(real) => {
+                            settings.set("real", real).unwrap();
+                            settings.set("rotate", 0.0).unwrap();
+                            reset_renderer = true;
                         }
-
-                        match new_settings.get_str("imag") {
-                            Ok(imag) => {
-                                settings.set("imag", imag).unwrap();
-                                self.renderer = FractalState::RESET;
-                            }
-                            Err(_) => {}
-                        }
-
-                        match new_settings.get_str("zoom") {
-                            Ok(zoom) => {
-                                settings.set("zoom", zoom).unwrap();
-                                self.renderer = FractalState::RESET;
-                            }
-                            Err(_) => {}
-                        }
-
-                        match new_settings.get_float("rotate") {
-                            Ok(rotate) => {
-                                settings.set("rotate", rotate).unwrap();
-                                self.renderer = FractalState::RESET;
-                            }
-                            Err(_) => {
-                                settings.set("rotate", 0.0).unwrap();
-                                self.renderer = FractalState::RESET;
-                            }
-                        }
-
-                        match new_settings.get_float("iteration_division") {
-                            Ok(iteration_division) => {
-                                settings.set("iteration_division", iteration_division).unwrap();
-                            }
-                            Err(_) => {}
-                        }
-
-                        match new_settings.get_array("palette") {
-                            Ok(colour_values) => {
-                                settings.set("palette", colour_values.clone()).unwrap();
-
-                                match &mut self.renderer {
-                                    FractalState::RENDERER(renderer) => {
-                                        let palette = colour_values.chunks_exact(3).map(|value| {
-                                            // We assume the palette is in BGR rather than RGB
-                                            (value[2].clone().into_int().unwrap() as u8, 
-                                                value[1].clone().into_int().unwrap() as u8, 
-                                                value[0].clone().into_int().unwrap() as u8)
-                                        }).collect::<Vec<(u8, u8, u8)>>();
-
-                                        renderer.data_export.palette = palette;
-                                        renderer.data_export.iteration_division = settings.get_float("iteration_division").unwrap() as f32;
-
-                                        renderer.data_export.regenerate();
-                                    },
-                                    _ => {}
-                                }
-                            }
-                            Err(_) => {}
-                        }
-
-                        settings.merge(new_settings).unwrap();
+                        Err(_) => {}
                     }
+
+                    match new_settings.get_str("imag") {
+                        Ok(imag) => {
+                            settings.set("imag", imag).unwrap();
+                            reset_renderer = true;
+                        }
+                        Err(_) => {}
+                    }
+
+                    match new_settings.get_str("zoom") {
+                        Ok(zoom) => {
+                            settings.set("zoom", zoom).unwrap();
+                            reset_renderer = true;
+                        }
+                        Err(_) => {}
+                    }
+
+                    match new_settings.get_int("iterations") {
+                        Ok(iterations) => {
+                            settings.set("iterations", iterations).unwrap();
+                            reset_renderer = true;
+                        }
+                        Err(_) => {}
+                    }
+
+                    match new_settings.get_float("rotate") {
+                        Ok(rotate) => {
+                            settings.set("rotate", rotate).unwrap();
+                            reset_renderer = true;
+                        }
+                        Err(_) => {}
+                    }
+
+                    if reset_renderer {
+                        self.renderer = FractalRenderer::new(settings.clone());
+                    }
+
+                    self.renderer.render_frame(0, String::from(""));
+
+                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
+                    
+                    match new_settings.get_float("iteration_division") {
+                        Ok(iteration_division) => {
+                            settings.set("iteration_division", iteration_division).unwrap();
+                        }
+                        Err(_) => {}
+                    }
+
+                    match new_settings.get_array("palette") {
+                        Ok(colour_values) => {
+                            settings.set("palette", colour_values.clone()).unwrap();
+
+                            let palette = colour_values.chunks_exact(3).map(|value| {
+                                // We assume the palette is in BGR rather than RGB
+                                (value[2].clone().into_int().unwrap() as u8, 
+                                    value[1].clone().into_int().unwrap() as u8, 
+                                    value[0].clone().into_int().unwrap() as u8)
+                            }).collect::<Vec<(u8, u8, u8)>>();
+
+                            self.renderer.data_export.palette = palette;
+                            self.renderer.data_export.iteration_division = settings.get_float("iteration_division").unwrap() as f32;
+
+                            self.renderer.data_export.regenerate();
+                        }
+                        Err(_) => {}
+                    }
+
+                    settings.merge(new_settings).unwrap();
 
                     data.updated += 1;
 
@@ -400,33 +400,7 @@ impl Widget<FractalData> for FractalWidget {
         
     }
 
-    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &FractalData, _env: &Env) {
-        if data.updated == 0 {
-            match event {
-                LifeCycle::Size(_) => {
-                    println!("first render");
-                    let mut settings = data.settings.lock().unwrap();
-
-                    match &mut self.renderer {
-                        FractalState::RENDERER(renderer) => {
-                            renderer.render_frame(0, String::from(""));
-
-                            settings.set("render_time", renderer.render_time as i64).unwrap();
-                            settings.set("min_valid_iteration", renderer.series_approximation.min_valid_iteration as i64).unwrap();
-                        },
-                        _ => {}
-
-                    }
-
-                    // submit some more commands
-                    ctx.submit_command(
-                        Command::new(Selector::new("refresh_data"), ()), 
-                        None)
-                }
-                _ => {}
-            }
-        }
-    }
+    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &FractalData, _env: &Env) {}
 
     fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &FractalData, _data: &FractalData, _env: &Env) {}
 
@@ -434,66 +408,25 @@ impl Widget<FractalData> for FractalWidget {
         let mut test = bc.max();
 
         let mut settings = data.settings.lock().unwrap();
+        settings.set("window_width", test.width).unwrap();
+        settings.set("window_height", test.height).unwrap();
 
-        match &self.renderer {
-            FractalState::INITIALIZE => {
-                settings.set("image_width", test.width as i64).unwrap();
-                settings.set("image_height", test.height as i64).unwrap();
-            }
-            FractalState::RENDERER(renderer) => {
-                test.height = test.width * renderer.image_height as f64 / renderer.image_width as f64;
-            }
-            FractalState::RESET => {
-                let image_width = settings.get_int("image_width").unwrap();
-                let image_height = settings.get_int("image_height").unwrap();
-
-                test.height = test.width * image_height as f64 / image_width as f64;
-            }
-        }
+        test.height = test.width * self.renderer.image_height as f64 / self.renderer.image_width as f64;
 
         test
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, _data: &FractalData, _env: &Env) {
         let size = ctx.size().to_rect();
-        let mut settings = data.settings.lock().unwrap();
 
-        match &self.renderer {
-            FractalState::INITIALIZE | FractalState::RESET => {
-                let max_iterations = settings.get_int("iterations").unwrap();
+        let image = ctx
+            .make_image(self.renderer.image_width, self.renderer.image_height, &self.renderer.data_export.rgb, ImageFormat::Rgb)
+            .unwrap();
 
-                if max_iterations > 10000 {
-                    settings.set("approximation_order", 64).unwrap();
-                }
-
-                self.renderer = FractalState::RENDERER(FractalRenderer::new(settings.clone()));
-
-                match &mut self.renderer {
-                    FractalState::RENDERER(renderer) => {
-                        renderer.render_frame(0, String::from(""))
-                    },
-                    _ => {}
-                }
-            },
-            _ => {}
-        }
-
-        match &self.renderer {
-            FractalState::RENDERER(renderer) => {
-                settings.set("render_time", renderer.render_time as i64).unwrap();
-                settings.set("min_valid_iteration", renderer.series_approximation.min_valid_iteration as i64).unwrap();
-
-                let image = ctx
-                    .make_image(renderer.image_width, renderer.image_height, &renderer.data_export.rgb, ImageFormat::Rgb)
-                    .unwrap();
-
-                if renderer.image_width > size.width() as usize {
-                    ctx.draw_image(&image, size, InterpolationMode::Bilinear);
-                } else {
-                    ctx.draw_image(&image, size, InterpolationMode::NearestNeighbor);
-                }
-            }
-            _ => {}
+        if self.renderer.image_width > size.width() as usize {
+            ctx.draw_image(&image, size, InterpolationMode::Bilinear);
+        } else {
+            ctx.draw_image(&image, size, InterpolationMode::NearestNeighbor);
         }
     }
 
@@ -507,13 +440,13 @@ impl Widget<FractalData> for FractalWidget {
 }
 
 pub fn main() {
-    let window = WindowDesc::new(ui_builder).title(
-        LocalizedString::new("rust-fractal"),
-    ).window_size((1280.0, 720.0)).resizable(true);
-
     // Setup the default settings. These are stored in start.toml file
     let mut settings = Config::default();
     settings.merge(File::with_name("start.toml")).unwrap();
+
+    let window = WindowDesc::new(ui_builder).title(
+        LocalizedString::new("rust-fractal"),
+    ).window_size((1280.0, 720.0)).resizable(true);
 
     AppLauncher::with_window(window)
         .use_simple_logger()
@@ -525,8 +458,11 @@ pub fn main() {
 }
 
 fn ui_builder() -> impl Widget<FractalData> {
+    let mut settings = Config::default();
+    settings.merge(File::with_name("start.toml")).unwrap();
+
     let render_screen = FractalWidget {
-        renderer: FractalState::INITIALIZE,
+        renderer: FractalRenderer::new(settings.clone()),
         // current_settings: settings,
     };
 
