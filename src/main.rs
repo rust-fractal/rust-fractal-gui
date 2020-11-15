@@ -278,6 +278,8 @@ impl Widget<FractalData> for FractalWidget {
                         return;
                     }
 
+                    // Put a cap on the maximum order
+
                     settings.set("approximation_order", data.temporary_order).unwrap();
 
                     self.renderer.series_approximation.order = data.temporary_order as usize;
