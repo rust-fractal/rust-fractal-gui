@@ -4,7 +4,7 @@ use druid::widget::prelude::*;
 use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt};
 use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command, Data, Lens, LensWrap, Selector};
 use druid::piet::{ImageFormat, InterpolationMode};
-use druid::theme::{BUTTON_BORDER_RADIUS, TEXT_SIZE_NORMAL, FONT_NAME};
+use druid::theme::{BUTTON_BORDER_RADIUS, TEXT_SIZE_NORMAL, FONT_NAME, TEXTBOX_BORDER_RADIUS};
 
 use rust_fractal::renderer::FractalRenderer;
 use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long};
@@ -25,44 +25,48 @@ pub struct FractalData {
     temporary_real: String,
     temporary_imag: String,
     temporary_zoom: String,
+    temporary_iterations: i64,
+    temporary_rotation: f64,
+    temporary_order: i64,
+    temporary_palette_source: String,
     settings: Arc<Mutex<Config>>
 }
 
-impl FractalData {
-    pub fn display(&self) -> String {
-        let settings = self.settings.lock().unwrap();
+// impl FractalData {
+//     pub fn display(&self) -> String {
+//         let settings = self.settings.lock().unwrap();
 
-        format!("zoom: {}\nreal: {}\nimag: {}\n{}x{}\niterations: {}\nderivative: {}\nrotate: {}\norder: {}\nskipped: {}\nrender_time: {}ms\nprobe_sampling: {}", 
-            shorten_long_string(settings.get_str("zoom").unwrap().to_string()), 
-            shorten_long_string(settings.get_str("real").unwrap().to_string()), 
-            shorten_long_string(settings.get_str("imag").unwrap().to_string()),
-            settings.get_int("image_width").unwrap(),
-            settings.get_int("image_height").unwrap(),
-            settings.get_int("iterations").unwrap(),
-            settings.get_bool("analytic_derivative").unwrap(),
-            settings.get_float("rotate").unwrap(),
-            settings.get_int("approximation_order").unwrap(),
-            settings.get_int("min_valid_iteration").unwrap(),
-            settings.get_int("render_time").unwrap(),
-            settings.get_int("probe_sampling").unwrap())
-    }
-}
+//         format!("zoom: {}\nreal: {}\nimag: {}\n{}x{}\niterations: {}\nderivative: {}\nrotate: {}\norder: {}\nskipped: {}\nrender_time: {}ms\nprobe_sampling: {}", 
+//             shorten_long_string(settings.get_str("zoom").unwrap().to_string()), 
+//             shorten_long_string(settings.get_str("real").unwrap().to_string()), 
+//             shorten_long_string(settings.get_str("imag").unwrap().to_string()),
+//             settings.get_int("image_width").unwrap(),
+//             settings.get_int("image_height").unwrap(),
+//             settings.get_int("iterations").unwrap(),
+//             settings.get_bool("analytic_derivative").unwrap(),
+//             settings.get_float("rotate").unwrap(),
+//             settings.get_int("approximation_order").unwrap(),
+//             settings.get_int("min_valid_iteration").unwrap(),
+//             settings.get_int("render_time").unwrap(),
+//             settings.get_int("probe_sampling").unwrap())
+//     }
+// }
 
-fn shorten_long_string(string: String) -> String {
-    let caps_string = string.to_ascii_uppercase();
+// fn shorten_long_string(string: String) -> String {
+//     let caps_string = string.to_ascii_uppercase();
 
-    let values = caps_string.split("E").collect::<Vec<&str>>();
+//     let values = caps_string.split("E").collect::<Vec<&str>>();
 
-    let mut decimal = String::from(values[0]);
-    decimal.truncate(6);
+//     let mut decimal = String::from(values[0]);
+//     decimal.truncate(6);
 
-    if values.len() > 1 {
-        format!("{}E{}", decimal, values[1])
-    } else {
-        format!("{}E0", decimal)
-    }
+//     if values.len() > 1 {
+//         format!("{}E{}", decimal, values[1])
+//     } else {
+//         format!("{}E0", decimal)
+//     }
 
-}
+// }
 
 impl Widget<FractalData> for FractalWidget {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut FractalData, _env: &Env) {
@@ -195,6 +199,7 @@ impl Widget<FractalData> for FractalWidget {
                     let new_height = settings.get_int("image_height").unwrap() as f64 * factor;
 
                     ctx.submit_command(Command::new(Selector::new("set_image_size"), (new_width as i64, new_height as i64)), None);
+                    return;
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("native_image_size")) {
@@ -202,6 +207,7 @@ impl Widget<FractalData> for FractalWidget {
                     let window_height = settings.get_float("window_height").unwrap();
 
                     ctx.submit_command(Command::new(Selector::new("set_image_size"), (window_width as i64, window_height as i64)), None);
+                    return;
                 }
 
                 if let Some(dimensions) = command.get::<(i64, i64)>(Selector::new("set_image_size")) {
@@ -227,6 +233,36 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
+                if let Some(_) = command.get::<()>(Selector::new("set_iterations")) {
+                    if (data.temporary_iterations as usize) == self.renderer.series_approximation.maximum_iteration {
+                        return;
+                    }
+
+                    if (data.temporary_iterations as usize) < self.renderer.series_approximation.maximum_iteration {
+                        // TODO quick refresh
+                        settings.set("iterations", data.temporary_iterations).unwrap();
+                        self.renderer.data_export.maximum_iteration = data.temporary_iterations as usize;
+                        self.renderer.center_reference.maximum_iteration = data.temporary_iterations as usize;
+                        self.renderer.series_approximation.maximum_iteration = data.temporary_iterations as usize;
+
+                        self.renderer.data_export.regenerate();
+
+                        return;
+                    }
+
+                    settings.set("iterations", data.temporary_iterations).unwrap();
+
+                    self.renderer = FractalRenderer::new(settings.clone());
+                    self.renderer.render_frame(0, String::from(""));
+
+                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
+
+                    data.updated += 1;
+                    ctx.request_paint();
+                    return;
+                }
+
                 if let Some(_) = command.get::<()>(Selector::new("open_location")) {
                     let toml = FileSpec::new("configuration", &["toml"]);
 
@@ -236,6 +272,19 @@ impl Widget<FractalData> for FractalWidget {
                     ctx.submit_command(Command::new(
                         druid::commands::SHOW_OPEN_PANEL,
                         open_dialog_options.clone(),
+                    ), None);
+                    return;
+                }
+
+                if let Some(_) = command.get::<()>(Selector::new("save_location")) {
+                    let toml = FileSpec::new("configuration", &["toml"]);
+
+                    let save_dialog_options = FileDialogOptions::new()
+                        .allowed_types(vec![toml]);
+
+                    ctx.submit_command(Command::new(
+                        druid::commands::SHOW_SAVE_PANEL,
+                        save_dialog_options.clone(),
                     ), None);
                     return;
                 }
@@ -265,6 +314,7 @@ impl Widget<FractalData> for FractalWidget {
                     data.updated += 1;
 
                     ctx.request_paint();
+                    return;
                 }
 
                 if let Some(factor) = command.get::<f64>(Selector::new("multiply_zoom_level")) {
@@ -285,6 +335,7 @@ impl Widget<FractalData> for FractalWidget {
                     data.updated += 1;
 
                     ctx.request_paint();
+                    return;
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("toggle_derivative")) {
@@ -310,6 +361,7 @@ impl Widget<FractalData> for FractalWidget {
                     data.updated += 1;
 
                     ctx.request_paint();
+                    return;
                 }
 
                 if let Some(rotation) = command.get::<f64>(Selector::new("set_rotation")) {
@@ -325,8 +377,10 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("render_time", self.renderer.render_time as i64).unwrap();
                     settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
+                    data.temporary_rotation = new_rotate;
                     data.updated += 1;
                     ctx.request_paint();
+                    return;
                 }
 
                 if let Some(file_info) = command.get(commands::OPEN_FILE) {
@@ -337,9 +391,10 @@ impl Widget<FractalData> for FractalWidget {
 
                     match new_settings.get_str("real") {
                         Ok(real) => {
-                            settings.set("real", real).unwrap();
+                            settings.set("real", real.clone()).unwrap();
                             settings.set("rotate", 0.0).unwrap();
-                            data.temporary_real = settings.get_str("real").unwrap();
+                            data.temporary_real = real;
+                            data.temporary_rotation = 0.0;
                             reset_renderer = true;
                         }
                         Err(_) => {}
@@ -347,8 +402,8 @@ impl Widget<FractalData> for FractalWidget {
 
                     match new_settings.get_str("imag") {
                         Ok(imag) => {
-                            settings.set("imag", imag).unwrap();
-                            data.temporary_imag = settings.get_str("imag").unwrap();
+                            settings.set("imag", imag.clone()).unwrap();
+                            data.temporary_imag = imag;
                             reset_renderer = true;
                         }
                         Err(_) => {}
@@ -356,8 +411,8 @@ impl Widget<FractalData> for FractalWidget {
 
                     match new_settings.get_str("zoom") {
                         Ok(zoom) => {
-                            settings.set("zoom", zoom).unwrap();
-                            data.temporary_zoom = settings.get_str("zoom").unwrap();
+                            settings.set("zoom", zoom.clone()).unwrap();
+                            data.temporary_zoom = zoom;
                             reset_renderer = true;
                         }
                         Err(_) => {}
@@ -365,7 +420,8 @@ impl Widget<FractalData> for FractalWidget {
 
                     match new_settings.get_int("iterations") {
                         Ok(iterations) => {
-                            settings.set("iterations", iterations).unwrap();
+                            settings.set("iterations", iterations.clone()).unwrap();
+                            data.temporary_iterations = iterations;
                             reset_renderer = true;
                         }
                         Err(_) => {}
@@ -373,7 +429,8 @@ impl Widget<FractalData> for FractalWidget {
 
                     match new_settings.get_float("rotate") {
                         Ok(rotate) => {
-                            settings.set("rotate", rotate).unwrap();
+                            settings.set("rotate", rotate.clone()).unwrap();
+                            data.temporary_rotation = rotate;
                             reset_renderer = true;
                         }
                         Err(_) => {}
@@ -400,6 +457,8 @@ impl Widget<FractalData> for FractalWidget {
                             self.renderer.data_export.palette = palette;
                             self.renderer.data_export.iteration_division = settings.get_float("iteration_division").unwrap() as f32;
 
+                            data.temporary_palette_source = file_info.path().file_name().unwrap().to_str().unwrap().to_string();
+
                             if !reset_renderer {
                                 self.renderer.data_export.regenerate();
                             }
@@ -423,6 +482,21 @@ impl Widget<FractalData> for FractalWidget {
 
                     // data.derive_from_settings(&self.current_settings, self.renderer.as_ref().unwrap());
                     ctx.request_paint();
+                    return;
+                }
+
+                if let Some(file_info) = command.get(commands::SAVE_FILE) {
+                    let real = settings.get_str("real").unwrap();
+                    let imag = settings.get_str("imag").unwrap();
+                    let zoom = settings.get_str("zoom").unwrap();
+                    let iterations = settings.get_int("iterations").unwrap();
+                    let rotate = settings.get_float("rotate").unwrap();
+
+                    let output = format!("real = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}", real, imag, zoom, iterations.to_string(), rotate.to_string());
+
+                    if let Err(e) = std::fs::write(file_info.clone().unwrap().path(), output) {
+                        println!("Error writing file: {}", e);
+                    }
                 }
             },
             _ => {}
@@ -484,14 +558,11 @@ pub fn main() {
             env.set(FONT_NAME, "Lucida Console");
             env.set(TEXT_SIZE_NORMAL, 12.0);
             env.set(BUTTON_BORDER_RADIUS, 0.0);
+            env.set(TEXTBOX_BORDER_RADIUS, 0.0);
 
             for test in env.get_all() {
                 println!("{:?}", test);
             };
-
-            
-
-
         })
         .launch(FractalData {
             updated: 0,
@@ -500,6 +571,10 @@ pub fn main() {
             temporary_real: settings.get_str("real").unwrap(),
             temporary_imag: settings.get_str("imag").unwrap(),
             temporary_zoom: settings.get_str("zoom").unwrap(),
+            temporary_iterations: settings.get_int("iterations").unwrap(),
+            temporary_rotation: settings.get_float("rotate").unwrap(),
+            temporary_order: settings.get_int("approximation_order").unwrap(),
+            temporary_palette_source: "default".to_string(),
             settings: Arc::new(Mutex::new(settings))
         })
         .expect("launch failed");
@@ -511,16 +586,7 @@ fn ui_builder() -> impl Widget<FractalData> {
 
     let render_screen = FractalWidget {
         renderer: FractalRenderer::new(settings.clone()),
-        // current_settings: settings,
     };
-
-    let mut label = Label::new(|data: &FractalData, _env: &_| {
-        println!("update!");
-        data.display()
-    });
-
-    label.set_text_size(20.0);
-    label.set_font("Lucida Console".to_string());
 
     let image_width = LensWrap::new(TextBox::new().expand_width(), lens::WidthLens);
     let image_height = LensWrap::new(TextBox::new().expand_width(), lens::HeightLens);
@@ -614,7 +680,7 @@ fn ui_builder() -> impl Widget<FractalData> {
     }).expand_width();
 
     let button_save_location = Button::new("SAVE").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("double_image_size"), ()), None);
+        ctx.submit_command(Command::new(Selector::new("save_location"), ()), None);
     }).expand_width();
 
     let row_9 = Flex::row()
@@ -623,6 +689,136 @@ fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(button_zoom_out, 1.0)
         .with_flex_child(button_load_location, 1.0)
         .with_flex_child(button_save_location, 1.0);
+
+    let mut parameters_title = Label::<FractalData>::new("PARAMETERS");
+    parameters_title.set_text_size(20.0);
+
+    let row_10 = Flex::row()
+        .with_flex_child(parameters_title.expand_width(), 1.0);
+
+    let mut iterations_label = Label::<FractalData>::new("ITERATIONS: ");
+    let mut rotation_label = Label::<FractalData>::new("ROTATION:   ");
+    let mut order_label = Label::<FractalData>::new("ORDER:      ");
+
+    iterations_label.set_text_size(20.0);
+    rotation_label.set_text_size(20.0);
+    order_label.set_text_size(20.0);
+
+    let iterations = LensWrap::new(TextBox::new().expand_width(), lens::IterationLens);
+    let rotation = LensWrap::new(TextBox::new().expand_width(), lens::RotationLens);
+    let order = LensWrap::new(TextBox::new().expand_width(), lens::OrderLens);
+
+    let row_11 = Flex::row()
+        .with_child(iterations_label)
+        .with_flex_child(iterations, 1.0);
+
+    let row_12 = Flex::row()
+        .with_child(rotation_label)
+        .with_flex_child(rotation, 1.0);
+
+    let row_13 = Flex::row()
+        .with_child(order_label)
+        .with_flex_child(order, 1.0);
+
+    let button_set_rotation = Button::new("SET ROTATION").on_click(|ctx, data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation), None);
+    }).expand_width();
+
+    let button_set_iteration = Button::new("SET ITERATIONS").on_click(|ctx, _data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("set_iterations"), ()), None);
+    }).expand_width();
+
+    let row_14 = Flex::row()
+        .with_flex_child(button_set_rotation, 1.0)
+        .with_flex_child(button_set_iteration, 1.0);
+
+    let mut colouring_title = Label::<FractalData>::new("COLOURING");
+    colouring_title.set_text_size(20.0);
+
+    let row_15 = Flex::row()
+        .with_flex_child(colouring_title.expand_width(), 1.0);
+
+    let mut colouring_method_label = Label::<FractalData>::new("METHOD:   ");
+    let mut palette_label = Label::<FractalData>::new("PALETTE:  ");
+    let mut palette_offset_label = Label::<FractalData>::new("OFFSET:   ");
+    let mut iteration_division_label = Label::<FractalData>::new("DIVISION: ");
+
+    colouring_method_label.set_text_size(20.0);
+    palette_label.set_text_size(20.0);
+    palette_offset_label.set_text_size(20.0);
+    iteration_division_label.set_text_size(20.0);
+
+    let colouring = Label::new(|data: &FractalData, _env: &_| {
+        let settings = data.settings.lock().unwrap();
+
+        if settings.get_bool("analytic_derivative").unwrap() {
+            "Distance".to_string()
+        } else {
+            "Iteration".to_string()
+        }
+    });
+
+    let palette = Label::new(|data: &FractalData, _env: &_| {
+        data.temporary_palette_source.clone()
+    });
+
+    let row_16 = Flex::row()
+        .with_child(colouring_method_label)
+        .with_flex_child(colouring, 1.0);
+
+    let row_17 = Flex::row()
+        .with_child(palette_label)
+        .with_flex_child(palette, 1.0);
+
+    let row_18 = Flex::row()
+        .with_child(palette_offset_label);
+        // .with_flex_child(palette, 1.0);
+
+    let row_19 = Flex::row()
+        .with_child(iteration_division_label);
+        // .with_flex_child(palette, 1.0);
+
+    let button_set_method = Button::new("TOGGLE METHOD").on_click(|ctx, _data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("toggle_derivative"), ()), None);
+    }).expand_width();
+
+    let button_set_palette = Button::new("LOAD PALETTE").on_click(|ctx, _data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("open_location"), ()), None);
+    }).expand_width();
+
+    let row_20 = Flex::row()
+        .with_flex_child(button_set_method, 1.0)
+        .with_flex_child(button_set_palette, 1.0);
+
+    let mut information_title = Label::<FractalData>::new("INFORMATION");
+    information_title.set_text_size(20.0);
+
+    let row_21 = Flex::row()
+        .with_flex_child(information_title.expand_width(), 1.0);
+
+    let mut min_skipped_label = Label::<FractalData>::new("SKIPPED: ");
+    let mut render_time_label = Label::<FractalData>::new("RENDER:  ");
+
+    min_skipped_label.set_text_size(20.0);
+    render_time_label.set_text_size(20.0);
+
+    let min_skipped = Label::new(|data: &FractalData, _env: &_| {
+        let settings = data.settings.lock().unwrap();
+        settings.get_int("min_valid_iteration").unwrap().to_string()
+    });
+
+    let render_time = Label::new(|data: &FractalData, _env: &_| {
+        let settings = data.settings.lock().unwrap();
+        format!("{} ms", settings.get_int("render_time").unwrap().to_string())
+    });
+
+    let row_22 = Flex::row()
+        .with_child(min_skipped_label)
+        .with_flex_child(min_skipped, 1.0);
+
+    let row_23 = Flex::row()
+        .with_child(render_time_label)
+        .with_flex_child(render_time, 1.0);
 
     let mut columns = Flex::<FractalData>::column()
         .with_spacer(8.0)
@@ -637,7 +833,22 @@ fn ui_builder() -> impl Widget<FractalData> {
         .with_child(row_8)
         .with_child(row_9)
         .with_spacer(8.0)
-        .with_child(label);
+        .with_child(row_10)
+        .with_child(row_11)
+        .with_child(row_12)
+        .with_child(row_13)
+        .with_child(row_14)
+        .with_spacer(8.0)
+        .with_child(row_15)
+        .with_child(row_16)
+        .with_child(row_17)
+        .with_child(row_18)
+        .with_child(row_19)
+        .with_child(row_20)
+        .with_spacer(8.0)
+        .with_child(row_21)
+        .with_child(row_22)
+        .with_child(row_23);
 
     columns.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
 

@@ -111,3 +111,51 @@ impl Lens<FractalData, String> for ZoomLens {
         v
     }
 }
+
+pub struct IterationLens;
+
+impl Lens<FractalData, String> for IterationLens {
+    fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
+        let string = data.temporary_iterations.to_string();
+        f(&string)
+    }
+    fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
+        let mut string = data.temporary_iterations.to_string();
+        let v = f(&mut string);
+        string.retain(|c| c.is_digit(10));
+        data.temporary_iterations = string.parse().unwrap_or(0);
+        v
+    }
+}
+
+pub struct RotationLens;
+
+impl Lens<FractalData, String> for RotationLens {
+    fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
+        let string = data.temporary_rotation.to_string();
+        f(&string)
+    }
+    fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
+        let mut string = data.temporary_rotation.to_string();
+        let v = f(&mut string);
+        string.retain(|c| c.is_digit(10) || c == '.');
+        data.temporary_rotation = string.parse().unwrap_or(0.0);
+        v
+    }
+}
+
+pub struct OrderLens;
+
+impl Lens<FractalData, String> for OrderLens {
+    fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
+        let string = data.temporary_order.to_string();
+        f(&string)
+    }
+    fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
+        let mut string = data.temporary_order.to_string();
+        let v = f(&mut string);
+        string.retain(|c| c.is_digit(10));
+        data.temporary_order = string.parse().unwrap_or(0);
+        v
+    }
+}
