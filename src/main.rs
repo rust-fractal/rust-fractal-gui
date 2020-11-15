@@ -137,9 +137,16 @@ impl Widget<FractalData> for FractalWidget {
                         data.temporary_zoom = settings.get_str("zoom").unwrap();
 
                         // data.derive_from_settings(&self.current_settings, self.renderer.as_ref().unwrap());
-
+                        self.renderer.maximum_iteration = settings.get_int("iterations").unwrap() as usize;
                         self.renderer.update_location(zoom, location);
+
+                        // BUG, somewhere in this update thing, need to deal with if the maximum iteration is less than reference or something
+                        settings.set("iterations", self.renderer.maximum_iteration as i64).unwrap();
+                        data.temporary_iterations = self.renderer.maximum_iteration as i64;
+
                         self.renderer.render_frame(0, String::from(""));
+
+                        println!("{}", self.renderer.maximum_iteration);
 
                         settings.set("render_time", self.renderer.render_time as i64).unwrap();
                         settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
@@ -234,26 +241,49 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("set_iterations")) {
-                    if (data.temporary_iterations as usize) == self.renderer.series_approximation.maximum_iteration {
-                        return;
-                    }
-
-                    if (data.temporary_iterations as usize) < self.renderer.series_approximation.maximum_iteration {
-                        // TODO quick refresh
-                        settings.set("iterations", data.temporary_iterations).unwrap();
-                        self.renderer.data_export.maximum_iteration = data.temporary_iterations as usize;
-                        self.renderer.center_reference.maximum_iteration = data.temporary_iterations as usize;
-                        self.renderer.series_approximation.maximum_iteration = data.temporary_iterations as usize;
-
-                        self.renderer.data_export.regenerate();
-
+                    if (data.temporary_iterations as usize) == self.renderer.maximum_iteration {
                         return;
                     }
 
                     settings.set("iterations", data.temporary_iterations).unwrap();
+                    println!("rerendering! {} {}", self.renderer.maximum_iteration, data.temporary_iterations);
 
+                    if (data.temporary_iterations as usize) < self.renderer.maximum_iteration {
+                        self.renderer.data_export.maximum_iteration = data.temporary_iterations as usize;
+                        self.renderer.data_export.regenerate();
+
+                        data.updated += 1;
+                        ctx.request_paint();
+
+                        return;
+                    }
+
+                    println!("rerendering2! {} {}", self.renderer.maximum_iteration, data.temporary_iterations);
+
+                    // If the iterations is increases the renderer needs to be reset
+                    // TODO reuse the reference that is calculated so it is easy
                     self.renderer = FractalRenderer::new(settings.clone());
                     self.renderer.render_frame(0, String::from(""));
+
+                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
+
+                    data.updated += 1;
+                    ctx.request_paint();
+                    return;
+                }
+
+                if let Some(_) = command.get::<()>(Selector::new("set_approximation_order")) {
+                    if (data.temporary_order as usize) == self.renderer.series_approximation.order {
+                        return;
+                    }
+
+                    settings.set("approximation_order", data.temporary_order).unwrap();
+
+                    self.renderer.series_approximation.order = data.temporary_order as usize;
+
+                    // Keep reference and recalculate the SA
+                    self.renderer.render_frame(1, String::from(""));
 
                     settings.set("render_time", self.renderer.render_time as i64).unwrap();
                     settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
@@ -323,6 +353,8 @@ impl Widget<FractalData> for FractalWidget {
 
                     settings.set("zoom", extended_to_string_long(self.renderer.zoom)).unwrap();
                     data.temporary_zoom = settings.get_str("zoom").unwrap();
+
+                    // TODO properly set the maximum iterations
                     
                     self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     self.renderer.render_frame(1, String::from(""));
@@ -349,6 +381,7 @@ impl Widget<FractalData> for FractalWidget {
                         self.renderer.data_export.regenerate();
                     } else {
                         self.renderer.analytic_derivative = true;
+                        // RESET maximum iterations
                         self.renderer.render_frame(1, String::from(""));
                     }
 
@@ -728,9 +761,14 @@ fn ui_builder() -> impl Widget<FractalData> {
         ctx.submit_command(Command::new(Selector::new("set_iterations"), ()), None);
     }).expand_width();
 
+    let button_set_order = Button::new("SET ORDER").on_click(|ctx, _data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("set_approximation_order"), ()), None);
+    }).expand_width();
+
     let row_14 = Flex::row()
         .with_flex_child(button_set_rotation, 1.0)
-        .with_flex_child(button_set_iteration, 1.0);
+        .with_flex_child(button_set_iteration, 1.0)
+        .with_flex_child(button_set_order, 1.0);
 
     let mut colouring_title = Label::<FractalData>::new("COLOURING");
     colouring_title.set_text_size(20.0);
