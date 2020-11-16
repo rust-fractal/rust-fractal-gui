@@ -91,13 +91,10 @@ impl Widget<FractalData> for FractalWidget {
                 if e.button == MouseButton::Left || e.button == MouseButton::Right {
                     // Zoom in, use the mouse position
                     if e.button == MouseButton::Left {
-                        self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                         let size = ctx.size().to_rect();
 
                         let i = e.pos.x * self.renderer.image_width as f64 / size.width();
                         let j = e.pos.y * self.renderer.image_height as f64 / size.height();
-
-                        println!("{}, {}", i, j);
     
                         let cos_rotate = self.renderer.rotate.cos();
                         let sin_rotate = self.renderer.rotate.sin();
@@ -215,7 +212,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     self.renderer.image_width = dimensions.0 as usize;
                     self.renderer.image_height = dimensions.1 as usize;
-                    
+
                     ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
                     return;
                 }
@@ -350,7 +347,6 @@ impl Widget<FractalData> for FractalWidget {
                 if let Some(_) = command.get::<()>(Selector::new("toggle_derivative")) {
                     let current_derivative = self.renderer.data_export.analytic_derivative;
                     settings.set("analytic_derivative", !current_derivative).unwrap();
-
                     self.renderer.data_export.analytic_derivative = !current_derivative;
 
                     // We have already computed the iterations and analytic derivatives
@@ -894,13 +890,13 @@ fn ui_builder() -> impl Widget<FractalData> {
         .with_child(row_13)
         .with_child(row_14)
         .with_child(row_15)
-        .with_spacer(8.0)
         .with_child(row_16)
         .with_child(row_17)
-        .with_child(row_18)
         .with_spacer(8.0)
+        .with_child(row_18)
         .with_child(row_19)
         .with_child(row_20)
+        .with_spacer(8.0)
         .with_child(row_21)
         .with_child(row_22)
         .with_child(row_23);
