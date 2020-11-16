@@ -7,7 +7,7 @@ use druid::piet::{ImageFormat, InterpolationMode};
 use druid::theme::{BUTTON_BORDER_RADIUS, TEXT_SIZE_NORMAL, FONT_NAME, TEXTBOX_BORDER_RADIUS};
 
 use rust_fractal::renderer::FractalRenderer;
-use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long};
+use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended};
 
 use config::{Config, File};
 
@@ -127,7 +127,6 @@ impl Widget<FractalData> for FractalWidget {
                         *location.mut_imag() += &temp3 * &temp;
 
                         // Set the overrides for the current location
-
                         settings.set("real", location.real().to_string()).unwrap();
                         settings.set("imag", location.imag().to_string()).unwrap();
                         settings.set("zoom", extended_to_string_long(zoom)).unwrap();
@@ -144,18 +143,7 @@ impl Widget<FractalData> for FractalWidget {
                         settings.set("iterations", self.renderer.maximum_iteration as i64).unwrap();
                         data.temporary_iterations = self.renderer.maximum_iteration as i64;
 
-                        self.renderer.render_frame(0, String::from(""));
-
-                        println!("{}", self.renderer.maximum_iteration);
-
-                        settings.set("render_time", self.renderer.render_time as i64).unwrap();
-                        settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
-
-                        data.temporary_width = settings.get_int("image_width").unwrap();
-                        data.temporary_height = settings.get_int("image_height").unwrap();
-                        data.updated += 1;
-
-                        ctx.request_paint();
+                        ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), ()), None);
                     } else {
                         ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 0.5), None);
                     }
@@ -225,51 +213,30 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("image_width", dimensions.0 as i64).unwrap();
                     settings.set("image_height", dimensions.1 as i64).unwrap();
 
-                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     self.renderer.image_width = dimensions.0 as usize;
                     self.renderer.image_height = dimensions.1 as usize;
-                    self.renderer.render_frame(1, String::from(""));
-
-                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
-                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
-
-                    data.temporary_width = settings.get_int("image_width").unwrap();
-                    data.temporary_height = settings.get_int("image_height").unwrap();
-                    data.updated += 1;
-                    ctx.request_paint();
+                    
+                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
                     return;
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("set_iterations")) {
-                    if (data.temporary_iterations as usize) == self.renderer.maximum_iteration {
+                    if (data.temporary_iterations as usize) == self.renderer.data_export.maximum_iteration {
                         return;
                     }
 
                     settings.set("iterations", data.temporary_iterations).unwrap();
-                    println!("rerendering! {} {}", self.renderer.maximum_iteration, data.temporary_iterations);
 
-                    if (data.temporary_iterations as usize) < self.renderer.maximum_iteration {
+                    if (data.temporary_iterations as usize) <= self.renderer.maximum_iteration {
                         self.renderer.data_export.maximum_iteration = data.temporary_iterations as usize;
                         self.renderer.data_export.regenerate();
 
                         data.updated += 1;
                         ctx.request_paint();
-
                         return;
                     }
 
-                    println!("rerendering2! {} {}", self.renderer.maximum_iteration, data.temporary_iterations);
-
-                    // If the iterations is increases the renderer needs to be reset
-                    // TODO reuse the reference that is calculated so it is easy
-                    self.renderer = FractalRenderer::new(settings.clone());
-                    self.renderer.render_frame(0, String::from(""));
-
-                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
-                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
-
-                    data.updated += 1;
-                    ctx.request_paint();
+                    ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), ()), None);
                     return;
                 }
 
@@ -278,19 +245,164 @@ impl Widget<FractalData> for FractalWidget {
                         return;
                     }
 
-                    // Put a cap on the maximum order
+                    if (data.temporary_order as usize) > 128 {
+                        data.temporary_order = 128;
+                    }
+
+                    if (data.temporary_order as usize) < 4 {
+                        data.temporary_order = 4;
+                    }
 
                     settings.set("approximation_order", data.temporary_order).unwrap();
-
                     self.renderer.series_approximation.order = data.temporary_order as usize;
 
-                    // Keep reference and recalculate the SA
+                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
+                    return;
+                }
+
+                if let Some(_) = command.get::<()>(Selector::new("set_location")) {
+                    let current_real = settings.get_str("real").unwrap();
+                    let current_imag = settings.get_str("imag").unwrap();
+                    let current_zoom = settings.get_str("zoom").unwrap();
+                    let current_iterations = settings.get_int("iterations").unwrap();
+                    let current_rotation = settings.get_float("rotate").unwrap();
+
+                    if current_real == data.temporary_real && current_imag == data.temporary_imag {
+                        // Check if the zoom has decreased or is near to the current level
+                        if current_zoom.to_uppercase() == data.temporary_zoom.to_uppercase() {
+                            // nothing has changed
+                            if current_rotation == data.temporary_rotation && current_iterations == data.temporary_iterations {
+                                println!("nothing");
+                                return;
+                            }
+
+                            // iterations changed
+                            if current_iterations == data.temporary_iterations {
+                                println!("rotation");
+                                ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation), None);
+                                return;
+                            }
+
+                            if current_rotation == data.temporary_rotation {
+                                println!("iterations");
+                                ctx.submit_command(Command::new(Selector::new("set_iterations"), ()), None);
+                                return;
+                            }
+
+                            println!("rotation & iterations");
+
+                            settings.set("iterations", data.temporary_iterations).unwrap();
+
+                            if (data.temporary_iterations as usize) < self.renderer.maximum_iteration {
+                                // TODO needs to make it so that pixels are only iterated to the right level
+                                self.renderer.maximum_iteration = data.temporary_iterations as usize;
+                                ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation), None);
+                                return;
+                            }
+                        } else {
+                            // Zoom has changed, and need to rerender depending on if the zoom has changed too much
+
+                            let current_exponent = self.renderer.center_reference.zoom.exponent;
+                            let new_zoom = string_to_extended(&data.temporary_zoom.to_uppercase());
+
+                            if new_zoom.exponent <= current_exponent {
+                                println!("zoom decreased");
+                                self.renderer.zoom = new_zoom;
+                                settings.set("zoom", data.temporary_zoom.clone()).unwrap();
+
+                                self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                                self.renderer.render_frame(1, String::from(""));
+
+                                settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                                settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
+
+                                data.updated += 1;
+                                ctx.request_paint();
+                                return;
+                            }
+                        }
+                    }
+
+                    println!("location changed / zoom increased / iterations increased and rotation");
+
+                    settings.set("real", data.temporary_real.clone()).unwrap();
+                    settings.set("imag", data.temporary_imag.clone()).unwrap();
+                    settings.set("zoom", data.temporary_zoom.clone()).unwrap();
+                    settings.set("rotate", data.temporary_rotation.clone()).unwrap();
+                    settings.set("iterations", data.temporary_iterations.clone()).unwrap();
+
+                    ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), ()), None);
+                    return;
+                }
+
+                if let Some(factor) = command.get::<f64>(Selector::new("multiply_zoom_level")) {
+                    self.renderer.zoom.mantissa *= factor;
+                    self.renderer.zoom.reduce();
+
+                    settings.set("zoom", extended_to_string_long(self.renderer.zoom)).unwrap();
+                    data.temporary_zoom = settings.get_str("zoom").unwrap();
+
+                    // TODO properly set the maximum iterations
+                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
+                    return;
+                }
+
+                if let Some(_) = command.get::<()>(Selector::new("toggle_derivative")) {
+                    let current_derivative = self.renderer.data_export.analytic_derivative;
+                    settings.set("analytic_derivative", !current_derivative).unwrap();
+
+                    self.renderer.data_export.analytic_derivative = !current_derivative;
+
+                    // We have already computed the iterations and analytic derivatives
+                    if self.renderer.analytic_derivative {
+                        self.renderer.data_export.regenerate();
+                        data.updated += 1;
+                    } else {
+                        ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
+                    }
+
+                    return;
+                }
+
+                if let Some(rotation) = command.get::<f64>(Selector::new("set_rotation")) {
+                    let new_rotate = rotation % 360.0;
+
+                    settings.set("rotate", new_rotate).unwrap();
+
+                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                    self.renderer.rotate = new_rotate.to_radians();
+
+                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
+                    return;
+                }
+
+                if let Some(_) = command.get::<()>(Selector::new("reset_renderer_fast")) {
+                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     self.renderer.render_frame(1, String::from(""));
 
                     settings.set("render_time", self.renderer.render_time as i64).unwrap();
                     settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
+                    data.temporary_width = settings.get_int("image_width").unwrap();
+                    data.temporary_height = settings.get_int("image_height").unwrap();
                     data.updated += 1;
+
+                    ctx.request_paint();
+                    return;
+                }
+
+                if let Some(_) = command.get::<()>(Selector::new("reset_renderer_full")) {
+                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                    self.renderer = FractalRenderer::new(settings.clone());
+                    self.renderer.render_frame(0, String::from(""));
+
+                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
+                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
+
+                    data.temporary_width = settings.get_int("image_width").unwrap();
+                    data.temporary_height = settings.get_int("image_height").unwrap();
+                    data.updated += 1;
+
                     ctx.request_paint();
                     return;
                 }
@@ -318,103 +430,6 @@ impl Widget<FractalData> for FractalWidget {
                         druid::commands::SHOW_SAVE_PANEL,
                         save_dialog_options.clone(),
                     ), None);
-                    return;
-                }
-
-                if let Some(_) = command.get::<()>(Selector::new("set_location")) {
-                    let current_real = settings.get_str("real").unwrap();
-                    let current_imag = settings.get_str("imag").unwrap();
-                    let current_zoom = settings.get_str("zoom").unwrap();
-
-                    if (current_real == data.temporary_real && current_imag == data.temporary_imag) && current_zoom == data.temporary_zoom {
-                        return;
-                    }
-
-                    settings.set("real", data.temporary_real.clone()).unwrap();
-                    settings.set("imag", data.temporary_imag.clone()).unwrap();
-                    settings.set("zoom", data.temporary_zoom.clone()).unwrap();
-                    settings.set("rotate", 0.0).unwrap();
-
-                    self.renderer = FractalRenderer::new(settings.clone());
-                    self.renderer.render_frame(0, String::from(""));
-
-                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
-                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
-
-                    data.temporary_width = settings.get_int("image_width").unwrap();
-                    data.temporary_height = settings.get_int("image_height").unwrap();
-                    data.updated += 1;
-
-                    ctx.request_paint();
-                    return;
-                }
-
-                if let Some(factor) = command.get::<f64>(Selector::new("multiply_zoom_level")) {
-                    self.renderer.zoom.mantissa *= factor;
-                    self.renderer.zoom.reduce();
-
-                    settings.set("zoom", extended_to_string_long(self.renderer.zoom)).unwrap();
-                    data.temporary_zoom = settings.get_str("zoom").unwrap();
-
-                    // TODO properly set the maximum iterations
-                    
-                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
-                    self.renderer.render_frame(1, String::from(""));
-
-                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
-                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
-
-                    data.temporary_width = settings.get_int("image_width").unwrap();
-                    data.temporary_height = settings.get_int("image_height").unwrap();
-                    data.updated += 1;
-
-                    ctx.request_paint();
-                    return;
-                }
-
-                if let Some(_) = command.get::<()>(Selector::new("toggle_derivative")) {
-                    let current_derivative = self.renderer.data_export.analytic_derivative;
-                    settings.set("analytic_derivative", !current_derivative).unwrap();
-
-                    self.renderer.data_export.analytic_derivative = !current_derivative;
-
-                    // We have already computed the iterations and analytic derivatives
-                    if self.renderer.analytic_derivative {
-                        self.renderer.data_export.regenerate();
-                    } else {
-                        self.renderer.analytic_derivative = true;
-                        // RESET maximum iterations
-                        self.renderer.render_frame(1, String::from(""));
-                    }
-
-                    // Toggle the use of the analytic derivative
-                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
-                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
-
-                    data.temporary_width = settings.get_int("image_width").unwrap();
-                    data.temporary_height = settings.get_int("image_height").unwrap();
-                    data.updated += 1;
-
-                    ctx.request_paint();
-                    return;
-                }
-
-                if let Some(rotation) = command.get::<f64>(Selector::new("set_rotation")) {
-                    let new_rotate = rotation % 360.0;
-
-                    settings.set("rotate", new_rotate).unwrap();
-
-                    self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
-                    self.renderer.rotate = new_rotate.to_radians();
-
-                    self.renderer.render_frame(1, String::from(""));
-
-                    settings.set("render_time", self.renderer.render_time as i64).unwrap();
-                    settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
-
-                    data.temporary_rotation = new_rotate;
-                    data.updated += 1;
-                    ctx.request_paint();
                     return;
                 }
 
@@ -515,7 +530,6 @@ impl Widget<FractalData> for FractalWidget {
                     data.temporary_height = settings.get_int("image_height").unwrap();
                     data.updated += 1;
 
-                    // data.derive_from_settings(&self.current_settings, self.renderer.as_ref().unwrap());
                     ctx.request_paint();
                     return;
                 }
@@ -677,14 +691,20 @@ fn ui_builder() -> impl Widget<FractalData> {
     let mut real_label = Label::<FractalData>::new("REAL: ");
     let mut imag_label = Label::<FractalData>::new("IMAG: ");
     let mut zoom_label = Label::<FractalData>::new("ZOOM: ");
+    let mut iterations_label = Label::<FractalData>::new("ITER: ");
+    let mut rotation_label = Label::<FractalData>::new("ROTN: ");
 
     real_label.set_text_size(20.0);
     imag_label.set_text_size(20.0);
     zoom_label.set_text_size(20.0);
+    iterations_label.set_text_size(20.0);
+    rotation_label.set_text_size(20.0);
 
     let real = LensWrap::new(TextBox::new().expand_width(), lens::RealLens);
     let imag = LensWrap::new(TextBox::new().expand_width(), lens::ImagLens);
     let zoom = LensWrap::new(TextBox::new().expand_width(), lens::ZoomLens);
+    let iterations = LensWrap::new(TextBox::new().expand_width(), lens::IterationLens);
+    let rotation = LensWrap::new(TextBox::new().expand_width(), lens::RotationLens);
 
     let row_6 = Flex::row()
         .with_child(real_label)
@@ -697,6 +717,14 @@ fn ui_builder() -> impl Widget<FractalData> {
     let row_8 = Flex::row()
         .with_child(zoom_label)
         .with_flex_child(zoom, 1.0);
+
+    let row_9 = Flex::row()
+        .with_child(iterations_label)
+        .with_flex_child(iterations, 1.0);
+
+    let row_10 = Flex::row()
+        .with_child(rotation_label)
+        .with_flex_child(rotation, 1.0);
 
     let button_set_location = Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(Command::new(Selector::new("set_location"), ()), None);
@@ -718,64 +746,17 @@ fn ui_builder() -> impl Widget<FractalData> {
         ctx.submit_command(Command::new(Selector::new("save_location"), ()), None);
     }).expand_width();
 
-    let row_9 = Flex::row()
+    let row_11 = Flex::row()
         .with_flex_child(button_set_location, 1.0)
         .with_flex_child(button_zoom_in, 1.0)
         .with_flex_child(button_zoom_out, 1.0)
         .with_flex_child(button_load_location, 1.0)
         .with_flex_child(button_save_location, 1.0);
 
-    let mut parameters_title = Label::<FractalData>::new("PARAMETERS");
-    parameters_title.set_text_size(20.0);
-
-    let row_10 = Flex::row()
-        .with_flex_child(parameters_title.expand_width(), 1.0);
-
-    let mut iterations_label = Label::<FractalData>::new("ITERATIONS: ");
-    let mut rotation_label = Label::<FractalData>::new("ROTATION:   ");
-    let mut order_label = Label::<FractalData>::new("ORDER:      ");
-
-    iterations_label.set_text_size(20.0);
-    rotation_label.set_text_size(20.0);
-    order_label.set_text_size(20.0);
-
-    let iterations = LensWrap::new(TextBox::new().expand_width(), lens::IterationLens);
-    let rotation = LensWrap::new(TextBox::new().expand_width(), lens::RotationLens);
-    let order = LensWrap::new(TextBox::new().expand_width(), lens::OrderLens);
-
-    let row_11 = Flex::row()
-        .with_child(iterations_label)
-        .with_flex_child(iterations, 1.0);
-
-    let row_12 = Flex::row()
-        .with_child(rotation_label)
-        .with_flex_child(rotation, 1.0);
-
-    let row_13 = Flex::row()
-        .with_child(order_label)
-        .with_flex_child(order, 1.0);
-
-    let button_set_rotation = Button::new("SET ROTATION").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation), None);
-    }).expand_width();
-
-    let button_set_iteration = Button::new("SET ITERATIONS").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_iterations"), ()), None);
-    }).expand_width();
-
-    let button_set_order = Button::new("SET ORDER").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_approximation_order"), ()), None);
-    }).expand_width();
-
-    let row_14 = Flex::row()
-        .with_flex_child(button_set_rotation, 1.0)
-        .with_flex_child(button_set_iteration, 1.0)
-        .with_flex_child(button_set_order, 1.0);
-
     let mut colouring_title = Label::<FractalData>::new("COLOURING");
     colouring_title.set_text_size(20.0);
 
-    let row_15 = Flex::row()
+    let row_12 = Flex::row()
         .with_flex_child(colouring_title.expand_width(), 1.0);
 
     let mut colouring_method_label = Label::<FractalData>::new("METHOD:   ");
@@ -802,19 +783,19 @@ fn ui_builder() -> impl Widget<FractalData> {
         data.temporary_palette_source.clone()
     });
 
-    let row_16 = Flex::row()
+    let row_13 = Flex::row()
         .with_child(colouring_method_label)
         .with_flex_child(colouring, 1.0);
 
-    let row_17 = Flex::row()
+    let row_14 = Flex::row()
         .with_child(palette_label)
         .with_flex_child(palette, 1.0);
 
-    let row_18 = Flex::row()
+    let row_15 = Flex::row()
         .with_child(palette_offset_label);
         // .with_flex_child(palette, 1.0);
 
-    let row_19 = Flex::row()
+    let row_16 = Flex::row()
         .with_child(iteration_division_label);
         // .with_flex_child(palette, 1.0);
 
@@ -826,9 +807,43 @@ fn ui_builder() -> impl Widget<FractalData> {
         ctx.submit_command(Command::new(Selector::new("open_location"), ()), None);
     }).expand_width();
 
-    let row_20 = Flex::row()
+    let row_17 = Flex::row()
         .with_flex_child(button_set_method, 1.0)
         .with_flex_child(button_set_palette, 1.0);
+
+
+    let mut options_title = Label::<FractalData>::new("OPTIONS");
+    options_title.set_text_size(20.0);
+
+    let row_18 = Flex::row()
+        .with_flex_child(options_title.expand_width(), 1.0);
+
+    let mut order_label = Label::<FractalData>::new("ORDER:      ");
+
+    order_label.set_text_size(20.0);
+
+    let order = LensWrap::new(TextBox::new().expand_width(), lens::OrderLens);
+
+    let row_19 = Flex::row()
+        .with_child(order_label)
+        .with_flex_child(order, 1.0);
+
+    // let button_set_rotation = Button::new("SET ROTATION").on_click(|ctx, data: &mut FractalData, _env| {
+    //     ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation), None);
+    // }).expand_width();
+
+    // let button_set_iteration = Button::new("SET ITERATIONS").on_click(|ctx, _data: &mut FractalData, _env| {
+    //     ctx.submit_command(Command::new(Selector::new("set_iterations"), ()), None);
+    // }).expand_width();
+
+    let button_set_order = Button::new("SET ORDER").on_click(|ctx, _data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("set_approximation_order"), ()), None);
+    }).expand_width();
+
+    let row_20 = Flex::row()
+        .with_flex_child(button_set_order, 1.0);
+
+    
 
     let mut information_title = Label::<FractalData>::new("INFORMATION");
     information_title.set_text_size(20.0);
@@ -872,20 +887,20 @@ fn ui_builder() -> impl Widget<FractalData> {
         .with_child(row_7)
         .with_child(row_8)
         .with_child(row_9)
-        .with_spacer(8.0)
         .with_child(row_10)
         .with_child(row_11)
+        .with_spacer(8.0)
         .with_child(row_12)
         .with_child(row_13)
         .with_child(row_14)
-        .with_spacer(8.0)
         .with_child(row_15)
+        .with_spacer(8.0)
         .with_child(row_16)
         .with_child(row_17)
         .with_child(row_18)
+        .with_spacer(8.0)
         .with_child(row_19)
         .with_child(row_20)
-        .with_spacer(8.0)
         .with_child(row_21)
         .with_child(row_22)
         .with_child(row_23);

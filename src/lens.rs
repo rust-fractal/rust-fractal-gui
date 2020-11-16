@@ -108,6 +108,9 @@ impl Lens<FractalData, String> for ZoomLens {
                 }
             }
         });
+
+        data.temporary_zoom = data.temporary_zoom.to_uppercase();
+
         v
     }
 }
