@@ -30,6 +30,8 @@ pub struct FractalData {
     temporary_rotation: f64,
     temporary_order: i64,
     temporary_palette_source: String,
+    temporary_iteration_division: String,
+    temporary_iteration_offset: String,
     settings: Arc<Mutex<Config>>
 }
 
@@ -337,6 +339,38 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
+                if let Some(_) = command.get::<()>(Selector::new("set_offset_division")) {
+                    let current_division = settings.get_float("iteration_division").unwrap() as f32;
+                    let current_offset = settings.get_float("palette_offset").unwrap() as f32;
+
+                    let new_division = data.temporary_iteration_division.parse::<f32>().unwrap();
+                    let new_offset = data.temporary_iteration_offset.parse::<f32>().unwrap() % self.renderer.data_export.palette.len() as f32;
+
+                    println!("{} {} {}", data.temporary_iteration_offset, new_offset, new_division);
+
+                    if current_division == new_division && current_offset == new_offset {
+                        return;
+                    }
+
+                    data.temporary_iteration_division = new_division.to_string();
+                    data.temporary_iteration_offset = new_offset.to_string();
+
+                    settings.set("iteration_division", new_division as f64).unwrap();
+                    settings.set("palette_offset", new_offset as f64).unwrap();
+
+                    self.renderer.data_export.iteration_division = new_division;
+                    self.renderer.data_export.iteration_offset = new_offset;
+
+                    self.renderer.data_export.regenerate();
+
+                    data.temporary_width = settings.get_int("image_width").unwrap();
+                    data.temporary_height = settings.get_int("image_height").unwrap();
+                    data.updated += 1;
+
+                    ctx.request_paint();
+                    return;
+                }
+
                 if let Some(_) = command.get::<()>(Selector::new("reset_renderer_fast")) {
                     self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     self.renderer.render_frame(1, String::from(""));
@@ -359,6 +393,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     settings.set("render_time", self.renderer.render_time as i64).unwrap();
                     settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
+
 
                     data.temporary_width = settings.get_int("image_width").unwrap();
                     data.temporary_height = settings.get_int("image_height").unwrap();
@@ -403,9 +438,7 @@ impl Widget<FractalData> for FractalWidget {
                     match new_settings.get_str("real") {
                         Ok(real) => {
                             settings.set("real", real.clone()).unwrap();
-                            settings.set("rotate", 0.0).unwrap();
                             data.temporary_real = real;
-                            data.temporary_rotation = 0.0;
                             reset_renderer = true;
                         }
                         Err(_) => {}
@@ -444,14 +477,32 @@ impl Widget<FractalData> for FractalWidget {
                             data.temporary_rotation = rotate;
                             reset_renderer = true;
                         }
-                        Err(_) => {}
+                        Err(_) => {
+                            settings.set("rotate", 0.0).unwrap();
+                            data.temporary_rotation = 0.0;
+                        }
                     }
                     
                     match new_settings.get_float("iteration_division") {
                         Ok(iteration_division) => {
                             settings.set("iteration_division", iteration_division).unwrap();
+                            data.temporary_iteration_division = iteration_division.to_string();
                         }
-                        Err(_) => {}
+                        Err(_) => {
+                            settings.set("iteration_division", "1").unwrap();
+                            data.temporary_iteration_division = String::from("1");
+                        }
+                    }
+
+                    match new_settings.get_float("palette_offset") {
+                        Ok(palette_offset) => {
+                            settings.set("palette_offset", palette_offset).unwrap();
+                            data.temporary_iteration_offset = palette_offset.to_string();
+                        }
+                        Err(_) => {
+                            settings.set("palette_offset", "0").unwrap();
+                            data.temporary_iteration_offset = String::from("0");
+                        }
                     }
 
                     match new_settings.get_array("palette") {
@@ -467,6 +518,7 @@ impl Widget<FractalData> for FractalWidget {
 
                             self.renderer.data_export.palette = palette;
                             self.renderer.data_export.iteration_division = settings.get_float("iteration_division").unwrap() as f32;
+                            self.renderer.data_export.iteration_offset = settings.get_float("palette_offset").unwrap() as f32;
 
                             data.temporary_palette_source = file_info.path().file_name().unwrap().to_str().unwrap().to_string();
 
@@ -585,6 +637,8 @@ pub fn main() {
             temporary_rotation: settings.get_float("rotate").unwrap(),
             temporary_order: settings.get_int("approximation_order").unwrap(),
             temporary_palette_source: "default".to_string(),
+            temporary_iteration_division: settings.get_float("iteration_division").unwrap().to_string(),
+            temporary_iteration_offset: settings.get_float("palette_offset").unwrap().to_string(),
             settings: Arc::new(Mutex::new(settings))
         })
         .expect("launch failed");

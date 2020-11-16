@@ -146,8 +146,8 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
     colouring_method_label.set_text_size(20.0);
     palette_label.set_text_size(20.0);
-    palette_offset_label.set_text_size(20.0);
     iteration_division_label.set_text_size(20.0);
+    palette_offset_label.set_text_size(20.0);
 
     let colouring = Label::new(|data: &FractalData, _env: &_| {
         let settings = data.settings.lock().unwrap();
@@ -163,6 +163,21 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         data.temporary_palette_source.clone()
     });
 
+    let iteration_division = LensWrap::new(TextBox::new().expand_width(), lens::DivisionLens);
+    let palette_offset = LensWrap::new(TextBox::new().expand_width(), lens::OffsetLens);
+
+    let iteration_palette = Flex::column()
+        .with_child(iteration_division_label)
+        .with_child(palette_offset_label);
+    
+    let iteration_palette_2 = Flex::column()
+        .with_child(iteration_division)
+        .with_child(palette_offset);
+
+    let set_iteration_offset = Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("set_offset_division"), ()), None);
+    });
+
     let row_13 = Flex::row()
         .with_child(colouring_method_label)
         .with_flex_child(colouring, 1.0);
@@ -172,12 +187,13 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(palette, 1.0);
 
     let row_15 = Flex::row()
-        .with_child(palette_offset_label);
-        // .with_flex_child(palette, 1.0);
+        .with_child(iteration_palette)
+        .with_flex_child(iteration_palette_2, 1.0)
+        .with_child(set_iteration_offset);
 
-    let row_16 = Flex::row()
-        .with_child(iteration_division_label);
-        // .with_flex_child(palette, 1.0);
+    let row_16 = Flex::row();
+        // .with_child(palette_offset_label)
+        // .with_flex_child(palette_offset, 1.0);
 
     let button_set_method = Button::new("TOGGLE METHOD").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(Command::new(Selector::new("toggle_derivative"), ()), None);
@@ -190,7 +206,6 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     let row_17 = Flex::row()
         .with_flex_child(button_set_method, 1.0)
         .with_flex_child(button_set_palette, 1.0);
-
 
     let mut options_title = Label::<FractalData>::new("OPTIONS");
     options_title.set_text_size(20.0);

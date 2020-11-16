@@ -34,3 +34,6 @@ analytic_derivative = false
 jitter = false
 show_output = false
 iterations = 1000
+
+iteration_division = 0.1
+palette_offset = 0
