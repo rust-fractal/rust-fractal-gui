@@ -150,7 +150,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
             },
             Event::Command(command) => {
-                println!("{:?}", command);
+                // println!("{:?}", command);
                 let mut settings = data.settings.lock().unwrap();
 
                 if let Some(factor) = command.get::<f64>(Selector::new("multiply_image_size")) {
@@ -644,7 +644,7 @@ pub fn main() {
     ).window_size((1280.0, 720.0)).resizable(true);
 
     AppLauncher::with_window(window)
-        .use_simple_logger()
+        // .use_simple_logger()
         .configure_env(|env, _| {
             env.set(FONT_NAME, "Lucida Console");
             env.set(TEXT_SIZE_NORMAL, 12.0);
