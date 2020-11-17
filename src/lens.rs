@@ -64,6 +64,9 @@ impl Lens<FractalData, String> for RealLens {
                 }
             }
         });
+
+        data.temporary_real = data.temporary_real.to_uppercase();
+
         v
     }
 }
@@ -86,6 +89,9 @@ impl Lens<FractalData, String> for ImagLens {
                 }
             }
         });
+
+        data.temporary_imag = data.temporary_imag.to_uppercase();
+
         v
     }
 }
@@ -103,7 +109,7 @@ impl Lens<FractalData, String> for ZoomLens {
                 true
             } else {
                 match c {
-                    'E' | 'e' | '.' => true,
+                    'E' | 'e' | '.' | '-' => true,
                     _ => false
                 }
             }

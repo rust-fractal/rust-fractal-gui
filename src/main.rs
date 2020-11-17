@@ -184,14 +184,15 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                if let Some(_) = command.get::<()>(Selector::new("set_iterations")) {
-                    if (data.temporary_iterations as usize) == self.renderer.data_export.maximum_iteration {
+                if let Some(iterations) = command.get::<i64>(Selector::new("set_iterations")) {
+                    if *iterations as usize == self.renderer.data_export.maximum_iteration {
                         return;
                     }
 
-                    settings.set("iterations", data.temporary_iterations).unwrap();
+                    settings.set("iterations", *iterations).unwrap();
+                    data.temporary_iterations = *iterations;
 
-                    if (data.temporary_iterations as usize) <= self.renderer.maximum_iteration {
+                    if *iterations as usize <= self.renderer.maximum_iteration {
                         self.renderer.data_export.maximum_iteration = data.temporary_iterations as usize;
                         self.renderer.data_export.regenerate();
 
@@ -249,7 +250,7 @@ impl Widget<FractalData> for FractalWidget {
 
                             if current_rotation == data.temporary_rotation {
                                 println!("iterations");
-                                ctx.submit_command(Command::new(Selector::new("set_iterations"), ()), None);
+                                ctx.submit_command(Command::new(Selector::new("set_iterations"), data.temporary_iterations), None);
                                 return;
                             }
 
@@ -328,9 +329,12 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some(rotation) = command.get::<f64>(Selector::new("set_rotation")) {
-                    let new_rotate = rotation % 360.0;
+                    let new_rotate = (rotation % 360.0 + 360.0) % 360.0;
+
+                    println!("{} {}", rotation, new_rotate);
 
                     settings.set("rotate", new_rotate).unwrap();
+                    data.temporary_rotation = new_rotate;
 
                     self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     self.renderer.rotate = new_rotate.to_radians();
@@ -394,9 +398,9 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("render_time", self.renderer.render_time as i64).unwrap();
                     settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
-
                     data.temporary_width = settings.get_int("image_width").unwrap();
                     data.temporary_height = settings.get_int("image_height").unwrap();
+                    data.temporary_order = settings.get_int("approximation_order").unwrap();
                     data.updated += 1;
 
                     ctx.request_paint();
@@ -482,31 +486,32 @@ impl Widget<FractalData> for FractalWidget {
                             data.temporary_rotation = 0.0;
                         }
                     }
-                    
-                    match new_settings.get_float("iteration_division") {
-                        Ok(iteration_division) => {
-                            settings.set("iteration_division", iteration_division).unwrap();
-                            data.temporary_iteration_division = iteration_division.to_string();
-                        }
-                        Err(_) => {
-                            settings.set("iteration_division", "1").unwrap();
-                            data.temporary_iteration_division = String::from("1");
-                        }
-                    }
-
-                    match new_settings.get_float("palette_offset") {
-                        Ok(palette_offset) => {
-                            settings.set("palette_offset", palette_offset).unwrap();
-                            data.temporary_iteration_offset = palette_offset.to_string();
-                        }
-                        Err(_) => {
-                            settings.set("palette_offset", "0").unwrap();
-                            data.temporary_iteration_offset = String::from("0");
-                        }
-                    }
 
                     match new_settings.get_array("palette") {
                         Ok(colour_values) => {
+                            // Only reset these if the palette is defined
+                            match new_settings.get_float("iteration_division") {
+                                Ok(iteration_division) => {
+                                    settings.set("iteration_division", iteration_division).unwrap();
+                                    data.temporary_iteration_division = iteration_division.to_string();
+                                }
+                                Err(_) => {
+                                    settings.set("iteration_division", "1").unwrap();
+                                    data.temporary_iteration_division = String::from("1");
+                                }
+                            }
+        
+                            match new_settings.get_float("palette_offset") {
+                                Ok(palette_offset) => {
+                                    settings.set("palette_offset", palette_offset).unwrap();
+                                    data.temporary_iteration_offset = palette_offset.to_string();
+                                }
+                                Err(_) => {
+                                    settings.set("palette_offset", "0").unwrap();
+                                    data.temporary_iteration_offset = String::from("0");
+                                }
+                            }
+
                             settings.set("palette", colour_values.clone()).unwrap();
 
                             let palette = colour_values.chunks_exact(3).map(|value| {
@@ -619,8 +624,8 @@ pub fn main() {
         .configure_env(|env, _| {
             env.set(FONT_NAME, "Lucida Console");
             env.set(TEXT_SIZE_NORMAL, 12.0);
-            env.set(BUTTON_BORDER_RADIUS, 0.0);
-            env.set(TEXTBOX_BORDER_RADIUS, 0.0);
+            env.set(BUTTON_BORDER_RADIUS, 2.0);
+            env.set(TEXTBOX_BORDER_RADIUS, 2.0);
 
             for test in env.get_all() {
                 println!("{:?}", test);
