@@ -290,14 +290,23 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(4.0)
         .with_flex_child(button_set_order, 0.3);
 
+    let button_save_image = Button::new("SAVE IMAGE").on_click(|ctx, _data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("save_image"), ()), None);
+    }).expand_width();
+
     let button_refresh_full = Button::new("RESET").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), ()), None);
     }).expand_width();
 
+    let row_11 = Flex::row()
+        .with_flex_child(button_save_image, 1.0)
+        .with_spacer(2.0)
+        .with_flex_child(button_refresh_full, 1.0);
+
     let mut information_title = Label::<FractalData>::new("INFORMATION");
     information_title.set_text_size(20.0);
 
-    let row_11 = Flex::row()
+    let row_12 = Flex::row()
         .with_flex_child(information_title.expand_width(), 1.0);
 
     let mut min_skipped_label = Label::<FractalData>::new("SKIPPED: ");
@@ -316,11 +325,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         format!("{} ms", settings.get_int("render_time").unwrap().to_string())
     });
 
-    let row_12 = Flex::row()
+    let row_13 = Flex::row()
         .with_child(min_skipped_label)
         .with_flex_child(min_skipped, 1.0);
 
-    let row_13 = Flex::row()
+    let row_14 = Flex::row()
         .with_child(render_time_label)
         .with_flex_child(render_time, 1.0);
 
@@ -346,11 +355,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(4.0)
         .with_child(row_10)
         .with_spacer(4.0)
-        .with_child(button_refresh_full)
-        .with_spacer(8.0)
         .with_child(row_11)
+        .with_spacer(8.0)
         .with_child(row_12)
-        .with_child(row_13);
+        .with_child(row_13)
+        .with_child(row_14);
 
     columns.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
 

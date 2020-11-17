@@ -433,6 +433,21 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
+                if let Some(_) = command.get::<()>(Selector::new("save_image")) {
+                    let png = FileSpec::new("Portable Network Graphics", &["png"]);
+                    let jpg = FileSpec::new("JPEG", &["jpg"]);
+
+                    let save_dialog_options = FileDialogOptions::new()
+                        .allowed_types(vec![png, jpg]);
+
+                    ctx.submit_command(Command::new(
+                        druid::commands::SHOW_SAVE_PANEL,
+                        save_dialog_options.clone(),
+                    ), None);
+                    return;
+                }
+
+
                 if let Some(file_info) = command.get(commands::OPEN_FILE) {
                     let mut new_settings = Config::default();
                     new_settings.merge(File::with_name(file_info.path().to_str().unwrap())).unwrap();
@@ -553,17 +568,26 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some(file_info) = command.get(commands::SAVE_FILE) {
-                    let real = settings.get_str("real").unwrap();
-                    let imag = settings.get_str("imag").unwrap();
-                    let zoom = settings.get_str("zoom").unwrap();
-                    let iterations = settings.get_int("iterations").unwrap();
-                    let rotate = settings.get_float("rotate").unwrap();
+                    match file_info.clone().unwrap().path().extension().unwrap().to_str().unwrap() {
+                        "png" | "jpg" => {
+                            self.renderer.data_export.save_colour(file_info.clone().unwrap().path().to_str().unwrap());
+                        },
+                        _ => {
+                            let real = settings.get_str("real").unwrap();
+                            let imag = settings.get_str("imag").unwrap();
+                            let zoom = settings.get_str("zoom").unwrap();
+                            let iterations = settings.get_int("iterations").unwrap();
+                            let rotate = settings.get_float("rotate").unwrap();
 
-                    let output = format!("real = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}", real, imag, zoom, iterations.to_string(), rotate.to_string());
+                            let output = format!("real = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}", real, imag, zoom, iterations.to_string(), rotate.to_string());
 
-                    if let Err(e) = std::fs::write(file_info.clone().unwrap().path(), output) {
-                        println!("Error writing file: {}", e);
+                            if let Err(e) = std::fs::write(file_info.clone().unwrap().path(), output) {
+                                println!("Error writing file: {}", e);
+                            }
+                        }
                     }
+
+                    return;
                 }
             },
             _ => {}
@@ -626,10 +650,9 @@ pub fn main() {
             env.set(TEXT_SIZE_NORMAL, 12.0);
             env.set(BUTTON_BORDER_RADIUS, 2.0);
             env.set(TEXTBOX_BORDER_RADIUS, 2.0);
-
-            for test in env.get_all() {
-                println!("{:?}", test);
-            };
+            // for test in env.get_all() {
+            //     println!("{:?}", test);
+            // };
         })
         .launch(FractalData {
             updated: 0,
