@@ -640,7 +640,7 @@ pub fn main() {
     settings.merge(File::with_name("start.toml")).unwrap();
 
     let window = WindowDesc::new(ui::ui_builder).title(
-        LocalizedString::new("rust-fractal"),
+        LocalizedString::new("rust-fractal-gui"),
     ).window_size((1280.0, 720.0)).resizable(true);
 
     AppLauncher::with_window(window)

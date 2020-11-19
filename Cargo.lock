@@ -849,15 +849,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gui_test"
-version = "0.1.0"
-dependencies = [
- "config",
- "druid",
- "rust_fractal",
-]
-
-[[package]]
 name = "half"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1617,6 +1608,15 @@ dependencies = [
  "rayon",
  "rug",
  "smallvec",
+]
+
+[[package]]
+name = "rust_fractal_gui"
+version = "0.1.0"
+dependencies = [
+ "config",
+ "druid",
+ "rust_fractal",
 ]
 
 [[package]]
