@@ -331,8 +331,6 @@ impl Widget<FractalData> for FractalWidget {
                 if let Some(rotation) = command.get::<f64>(Selector::new("set_rotation")) {
                     let new_rotate = (rotation % 360.0 + 360.0) % 360.0;
 
-                    println!("{} {}", rotation, new_rotate);
-
                     settings.set("rotate", new_rotate).unwrap();
                     data.temporary_rotation = new_rotate;
 
