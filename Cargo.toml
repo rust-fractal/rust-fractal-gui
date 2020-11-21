@@ -8,5 +8,5 @@ edition = "2018"
 
 [dependencies]
 druid = "0.6.0"
-rust_fractal = {path = "../rust-fractal"}
+rust_fractal = {path = "../rust-fractal-core"}
 config = "^0.9"
