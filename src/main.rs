@@ -32,6 +32,7 @@ pub struct FractalData {
     temporary_palette_source: String,
     temporary_iteration_division: String,
     temporary_iteration_offset: String,
+    temporary_progress: f64,
     settings: Arc<Mutex<Config>>
 }
 
@@ -267,6 +268,9 @@ impl Widget<FractalData> for FractalWidget {
                         } else {
                             // Zoom has changed, and need to rerender depending on if the zoom has changed too much
 
+                            // Look at something like this for the renderer
+                            // https://github.com/linebender/druid/blob/master/druid/examples/async_event.rs
+
                             let current_exponent = self.renderer.center_reference.zoom.exponent;
                             let new_zoom = string_to_extended(&data.temporary_zoom.to_uppercase());
 
@@ -389,9 +393,16 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("reset_renderer_full")) {
+                    data.temporary_progress = 0.5;
+
+                    ctx.request_paint();
+
                     self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     self.renderer = FractalRenderer::new(settings.clone());
                     self.renderer.render_frame(0, String::from(""));
+
+                    // data.temporary_progress = 0.5;
+
 
                     settings.set("render_time", self.renderer.render_time as i64).unwrap();
                     settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
@@ -665,6 +676,7 @@ pub fn main() {
             temporary_palette_source: "default".to_string(),
             temporary_iteration_division: settings.get_float("iteration_division").unwrap().to_string(),
             temporary_iteration_offset: settings.get_float("palette_offset").unwrap().to_string(),
+            temporary_progress: 0.0,
             settings: Arc::new(Mutex::new(settings))
         })
         .expect("launch failed");

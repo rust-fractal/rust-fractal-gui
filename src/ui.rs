@@ -1,4 +1,4 @@
-use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt};
+use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt, ProgressBar};
 use druid::{Widget, Command, LensWrap, Selector};
 
 use rust_fractal::renderer::FractalRenderer;
@@ -333,6 +333,8 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_child(render_time_label)
         .with_flex_child(render_time, 1.0);
 
+    let row_15 = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress);
+
     let mut columns = Flex::<FractalData>::column()
         .with_spacer(8.0)
         .with_child(row_1)
@@ -359,7 +361,8 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(8.0)
         .with_child(row_12)
         .with_child(row_13)
-        .with_child(row_14);
+        .with_child(row_14)
+        .with_child(row_15);
 
     columns.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
 
