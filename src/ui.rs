@@ -340,11 +340,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
     let render_stage = Label::dynamic(|data: &FractalData, _| {
         let text = match data.temporary_stage {
-            0 => "REFERENCE".to_string(),
-            1 => "ITERATION".to_string(),
+            0 => "REFERENCE ".to_string(),
+            1 => "ITERATION ".to_string(),
             2 => "CORRECTION".to_string(),
-            3 => "COMPLETE".to_string(),
-            _ => "DEFAULT".to_string()
+            3 => "COMPLETE  ".to_string(),
+            _ => "DEFAULT   ".to_string()
         };
 
         format!("{:<15}", text)

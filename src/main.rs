@@ -180,14 +180,10 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                if let Some((stage, progress, time)) = command.get::<(usize, f64, usize)>(Selector::new("update_progress")) {
+                if let Some((stage, progress, time, min_valid_iterations)) = command.get::<(usize, f64, usize, usize)>(Selector::new("update_progress")) {
                     data.temporary_progress = *progress;
                     data.temporary_stage = *stage;
                     data.temporary_time = *time;
-                    return;
-                }
-
-                if let Some(min_valid_iterations) = command.get::<usize>(Selector::new("update_min_valid_iterations")) {
                     data.temporary_min_valid_iterations = *min_valid_iterations;
                     return;
                 }
@@ -760,6 +756,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                         let thread_counter_4 = renderer.progress.series_validation.clone();
                         let thread_counter_5 = renderer.progress.iteration.clone();
                         let thread_counter_6 = renderer.progress.glitched_maximum.clone();
+                        let thread_counter_7 = renderer.progress.min_series_approximation.clone();
 
                         thread::spawn(move || {
                             let start = Instant::now();
@@ -800,9 +797,10 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                                         };
 
                                         let time = start.elapsed().as_millis() as usize;
+                                        let min_valid_iteration = thread_counter_7.get();
             
                                         test.submit_command(
-                                            Selector::new("update_progress"), (stage, progress, time), None).unwrap();
+                                            Selector::new("update_progress"), (stage, progress, time, min_valid_iteration), None).unwrap();
                                     }
                                 };
             
@@ -815,10 +813,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                         tx.send(()).unwrap();
 
                         event_sink.submit_command(
-                            Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize), None).unwrap();
-
-                        event_sink.submit_command(
-                            Selector::new("update_min_valid_iterations"), renderer.series_approximation.min_valid_iteration, None).unwrap();
+                            Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration), None).unwrap();
 
                         event_sink.submit_command(
                             Selector::new("repaint"), (), None).unwrap();
@@ -838,6 +833,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                         let thread_counter_4 = renderer.progress.series_validation.clone();
                         let thread_counter_5 = renderer.progress.iteration.clone();
                         let thread_counter_6 = renderer.progress.glitched_maximum.clone();
+                        let thread_counter_7 = renderer.progress.min_series_approximation.clone();
 
                         thread::spawn(move || {
                             let start = Instant::now();
@@ -878,9 +874,10 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                                         };
 
                                         let time = start.elapsed().as_millis() as usize;
-            
+                                        let min_valid_iteration = thread_counter_7.get();
+
                                         test.submit_command(
-                                            Selector::new("update_progress"), (stage, progress, time), None).unwrap();
+                                            Selector::new("update_progress"), (stage, progress, time, min_valid_iteration), None).unwrap();
                                     }
                                 };
             
@@ -893,10 +890,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                         tx.send(()).unwrap();
 
                         event_sink.submit_command(
-                            Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize), None).unwrap();
-
-                        event_sink.submit_command(
-                            Selector::new("update_min_valid_iterations"), renderer.series_approximation.min_valid_iteration, None).unwrap();
+                            Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration), None).unwrap();
 
                         event_sink.submit_command(
                             Selector::new("repaint"), (), None).unwrap();
