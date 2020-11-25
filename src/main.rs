@@ -11,6 +11,11 @@ use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delt
 
 use config::{Config, File};
 
+// use std::thread;
+use std::thread;
+use std::time::Duration;
+use std::sync::mpsc;
+
 mod ui;
 pub mod lens;
 
@@ -33,7 +38,9 @@ pub struct FractalData {
     temporary_iteration_division: String,
     temporary_iteration_offset: String,
     temporary_progress: f64,
-    settings: Arc<Mutex<Config>>
+    renderer: Arc<Mutex<FractalRenderer>>,
+    settings: Arc<Mutex<Config>>,
+    sender: Arc<Mutex<mpsc::Sender<String>>>
 }
 
 impl Widget<FractalData> for FractalWidget {
@@ -151,7 +158,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
             },
             Event::Command(command) => {
-                // println!("{:?}", command);
+                println!("{:?}", command);
                 let mut settings = data.settings.lock().unwrap();
 
                 if let Some(factor) = command.get::<f64>(Selector::new("multiply_image_size")) {
@@ -271,6 +278,8 @@ impl Widget<FractalData> for FractalWidget {
                             // Look at something like this for the renderer
                             // https://github.com/linebender/druid/blob/master/druid/examples/async_event.rs
 
+                            
+
                             let current_exponent = self.renderer.center_reference.zoom.exponent;
                             let new_zoom = string_to_extended(&data.temporary_zoom.to_uppercase());
 
@@ -281,6 +290,8 @@ impl Widget<FractalData> for FractalWidget {
 
                                 self.renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                                 self.renderer.render_frame(1, String::from(""));
+
+                                
 
                                 settings.set("render_time", self.renderer.render_time as i64).unwrap();
                                 settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
@@ -403,6 +414,8 @@ impl Widget<FractalData> for FractalWidget {
 
                     // data.temporary_progress = 0.5;
 
+                    let sender = data.sender.lock().unwrap();
+                    sender.send(String::from("reset_renderer_full")).unwrap();
 
                     settings.set("render_time", self.renderer.render_time as i64).unwrap();
                     settings.set("min_valid_iteration", self.renderer.series_approximation.min_valid_iteration as i64).unwrap();
@@ -453,6 +466,15 @@ impl Widget<FractalData> for FractalWidget {
                         druid::commands::SHOW_SAVE_PANEL,
                         save_dialog_options.clone(),
                     ), None);
+                    return;
+                }
+
+                if let Some(_) = command.get::<()>(Selector::new("test_repaint_from_thread")) {
+                    let test = data.renderer.lock().unwrap();
+
+                    println!("{}", test.data_export.rgb[0]);
+
+                    ctx.request_paint();
                     return;
                 }
 
@@ -620,14 +642,15 @@ impl Widget<FractalData> for FractalWidget {
         test
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, _data: &FractalData, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, _env: &Env) {
         let size = ctx.size().to_rect();
+        let renderer = data.renderer.lock().unwrap();
 
         let image = ctx
-            .make_image(self.renderer.image_width, self.renderer.image_height, &self.renderer.data_export.rgb, ImageFormat::Rgb)
+            .make_image(renderer.image_width, renderer.image_height, &renderer.data_export.rgb, ImageFormat::Rgb)
             .unwrap();
 
-        if self.renderer.image_width > size.width() as usize {
+        if renderer.image_width > size.width() as usize {
             ctx.draw_image(&image, size, InterpolationMode::Bilinear);
         } else {
             ctx.draw_image(&image, size, InterpolationMode::NearestNeighbor);
@@ -652,7 +675,20 @@ pub fn main() {
         LocalizedString::new("rust-fractal-gui"),
     ).window_size((1280.0, 720.0)).resizable(true);
 
-    AppLauncher::with_window(window)
+    let launcher = AppLauncher::with_window(window);
+
+    let event_sink = launcher.get_external_handle();
+
+    let (sender, reciever) = mpsc::channel();
+    let (sender2, reciever2) = mpsc::channel();
+
+    let settings_clone = settings.clone();
+
+    thread::spawn(move || testing_renderer(event_sink, reciever, settings_clone, sender2));
+
+    let arc_stuff = reciever2.recv().unwrap();
+
+    launcher
         // .use_simple_logger()
         .configure_env(|env, _| {
             env.set(FONT_NAME, "Lucida Console");
@@ -677,7 +713,43 @@ pub fn main() {
             temporary_iteration_division: settings.get_float("iteration_division").unwrap().to_string(),
             temporary_iteration_offset: settings.get_float("palette_offset").unwrap().to_string(),
             temporary_progress: 0.0,
-            settings: Arc::new(Mutex::new(settings))
+            renderer: arc_stuff,
+            settings: Arc::new(Mutex::new(settings)),
+            sender: Arc::new(Mutex::new(sender)),
         })
         .expect("launch failed");
+}
+
+fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<String>, settings: Config, sender2: mpsc::Sender<Arc<Mutex<FractalRenderer>>>) {
+    let renderer_reference = Arc::new(Mutex::new(FractalRenderer::new(settings)));
+
+    sender2.send(renderer_reference.clone()).unwrap();
+
+    loop {
+        match reciever.try_recv() {
+            Ok(command) => {
+                // execute commands
+                match command.as_ref() {
+                    "reset_renderer_full" => {
+                        let mut renderer = renderer_reference.lock().unwrap();
+                        // testing
+                        renderer.zoom.mantissa /= 2.0;
+                        renderer.render_frame(0, String::from(""));
+
+                        println!("WOW!");
+
+                        event_sink.submit_command(
+                            Selector::new("test_repaint_from_thread"), (), None).unwrap();
+                    }
+                    _ => {
+                        println!("thread_command: {}", command);
+                    }
+                }
+            }
+            _ => {
+                // wait 10ms before checking again
+                thread::sleep(Duration::from_millis(10));
+            }
+        }
+    }
 }
