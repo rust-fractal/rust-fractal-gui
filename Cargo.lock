@@ -1621,6 +1621,7 @@ dependencies = [
 name = "rust_fractal_gui"
 version = "0.1.0"
 dependencies = [
+ "atomic-counter",
  "config",
  "druid",
  "rust_fractal",

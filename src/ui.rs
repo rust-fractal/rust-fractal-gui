@@ -1,8 +1,6 @@
 use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt, ProgressBar};
 use druid::{Widget, Command, LensWrap, Selector};
 
-use rust_fractal::renderer::FractalRenderer;
-
 use config::{Config, File};
 
 use crate::{FractalData, FractalWidget};
@@ -13,9 +11,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     let mut settings = Config::default();
     settings.merge(File::with_name("start.toml")).unwrap();
 
-    let render_screen = FractalWidget {
-        renderer: FractalRenderer::new(settings.clone()),
-    };
+    let render_screen = FractalWidget {};
 
     let mut resolution_title = Label::<FractalData>::new("RESOLUTION");
     resolution_title.set_text_size(20.0);
@@ -333,7 +329,10 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_child(render_time_label)
         .with_flex_child(render_time, 1.0);
 
-    let row_15 = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress);
+    // TODO integrate into a single progressbar which resets at each next stage
+    let row_15 = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress1);
+    let row_16 = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress2);
+    let row_17 = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress3);
 
     let mut columns = Flex::<FractalData>::column()
         .with_spacer(8.0)
@@ -362,7 +361,9 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_child(row_12)
         .with_child(row_13)
         .with_child(row_14)
-        .with_child(row_15);
+        .with_child(row_15)
+        .with_child(row_16)
+        .with_child(row_17);
 
     columns.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
 
