@@ -23,6 +23,7 @@ pub mod lens;
 
 struct FractalWidget {
     buffer: Vec<u8>,
+    reset_buffer: bool,
     image_width: usize,
     image_height: usize
 }
@@ -172,6 +173,9 @@ impl Widget<FractalData> for FractalWidget {
                 // TODO maybe set a flag here to cause a full update to the new buffer
                 if let Some(_) = command.get::<()>(Selector::new("repaint")) {
                     data.updated += 1;
+
+                    self.reset_buffer = true;
+
                     ctx.request_paint();
                     return;
                 }
@@ -632,12 +636,14 @@ impl Widget<FractalData> for FractalWidget {
     fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, _env: &Env) {
         let size = ctx.size().to_rect();
 
-        if data.temporary_stage == 3 {
+        if self.reset_buffer {
             let renderer = data.renderer.lock().unwrap();
 
             self.buffer = renderer.data_export.rgb.clone();
             self.image_width = renderer.image_width;
             self.image_height = renderer.image_height;
+
+            self.reset_buffer = false;
         };
 
         if self.image_width * self.image_height > 0 {
