@@ -309,6 +309,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     let row_12 = Flex::row()
         .with_flex_child(information_title.expand_width(), 1.0);
 
+    // TODO maybe make these update live with the rendering progress
     let mut min_skipped_label = Label::<FractalData>::new("SKIPPED: ");
     let mut render_time_label = Label::<FractalData>::new("RENDER:  ");
 

@@ -429,6 +429,7 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
+                // TODO make it show the location name near the location label
                 if let Some(_) = command.get::<()>(Selector::new("open_location")) {
                     let toml = FileSpec::new("configuration", &["toml"]);
 
@@ -561,7 +562,9 @@ impl Widget<FractalData> for FractalWidget {
                             renderer.data_export.iteration_division = settings.get_float("iteration_division").unwrap() as f32;
                             renderer.data_export.iteration_offset = settings.get_float("palette_offset").unwrap() as f32;
 
-                            data.temporary_palette_source = file_info.path().file_name().unwrap().to_str().unwrap().to_string();
+                            let palette_name = file_info.path().file_name().unwrap().to_str().unwrap().split(".").next().unwrap();
+
+                            data.temporary_palette_source = palette_name.to_string();
 
                             if !reset_renderer {
                                 renderer.data_export.regenerate();
