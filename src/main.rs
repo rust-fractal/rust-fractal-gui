@@ -628,7 +628,12 @@ impl Widget<FractalData> for FractalWidget {
         settings.set("window_width", test.width).unwrap();
         settings.set("window_height", test.height).unwrap();
 
-        test.height = test.width * settings.get_int("image_height").unwrap() as f64 / settings.get_int("image_width").unwrap() as f64;
+        if self.reset_buffer {  
+            self.image_width = settings.get_int("image_width").unwrap() as usize;
+            self.image_height = settings.get_int("image_height").unwrap() as usize;
+        }
+
+        test.height = test.width * self.image_height as f64 / self.image_width as f64;
 
         test
     }
@@ -640,8 +645,6 @@ impl Widget<FractalData> for FractalWidget {
             let renderer = data.renderer.lock().unwrap();
 
             self.buffer = renderer.data_export.rgb.clone();
-            self.image_width = renderer.image_width;
-            self.image_height = renderer.image_height;
 
             self.reset_buffer = false;
         };
