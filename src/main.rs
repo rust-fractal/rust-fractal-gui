@@ -234,8 +234,7 @@ impl Widget<FractalData> for FractalWidget {
                         renderer.data_export.maximum_iteration = data.temporary_iterations as usize;
                         renderer.data_export.regenerate();
 
-                        data.updated += 1;
-                        ctx.request_paint();
+                        ctx.submit_command(Command::new(Selector::new("repaint"), ()), None);
                         return;
                     }
 
@@ -357,9 +356,9 @@ impl Widget<FractalData> for FractalWidget {
                     // We have already computed the iterations and analytic derivatives
                     if renderer.analytic_derivative {
                         renderer.data_export.regenerate();
-                        data.updated += 1;
+                        ctx.submit_command(Command::new(Selector::new("repaint"), ()), None);
                     } else {
-                        renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                        renderer.analytic_derivative = true;
                         ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
                     };
 
@@ -405,9 +404,9 @@ impl Widget<FractalData> for FractalWidget {
 
                     data.temporary_width = settings.get_int("image_width").unwrap();
                     data.temporary_height = settings.get_int("image_height").unwrap();
-                    data.updated += 1;
 
-                    ctx.request_paint();
+                    ctx.submit_command(Command::new(Selector::new("repaint"), ()), None);
+
                     return;
                 }
 
@@ -573,8 +572,7 @@ impl Widget<FractalData> for FractalWidget {
 
                             if !reset_renderer {
                                 renderer.data_export.regenerate();
-                                data.updated += 1;
-                                ctx.request_paint();
+                                ctx.submit_command(Command::new(Selector::new("repaint"), ()), None);
                             }
                         }
                         Err(_) => {}
