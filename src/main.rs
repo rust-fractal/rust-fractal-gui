@@ -21,7 +21,11 @@ use atomic_counter::AtomicCounter;
 mod ui;
 pub mod lens;
 
-struct FractalWidget {}
+struct FractalWidget {
+    buffer: Vec<u8>,
+    image_width: usize,
+    image_height: usize
+}
 
 #[derive(Clone, Data, Lens)]
 pub struct FractalData {
@@ -40,6 +44,7 @@ pub struct FractalData {
     temporary_progress1: f64,
     temporary_progress2: f64,
     temporary_progress3: f64,
+    temporary_stage: usize,
     renderer: Arc<Mutex<FractalRenderer>>,
     settings: Arc<Mutex<Config>>,
     sender: Arc<Mutex<mpsc::Sender<String>>>
@@ -48,6 +53,7 @@ pub struct FractalData {
 impl Widget<FractalData> for FractalWidget {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut FractalData, _env: &Env) {
         ctx.request_focus();
+        // println!("{:?}", event);
 
         match event {
             Event::WindowConnected => {
@@ -163,19 +169,16 @@ impl Widget<FractalData> for FractalWidget {
             Event::Command(command) => {
                 // println!("{:?}", command);
 
+                // TODO maybe set a flag here to cause a full update to the new buffer
                 if let Some(_) = command.get::<()>(Selector::new("repaint")) {
                     data.updated += 1;
                     ctx.request_paint();
                     return;
                 }
 
-                if let Some((progress1, progress2, progress3)) = command.get::<(f64, f64, f64)>(Selector::new("update_progress")) {
-                    data.temporary_progress1 = *progress1;
-                    data.temporary_progress2 = *progress2;
-                    data.temporary_progress3 = *progress3;
-
-                    // println!("updating progress");
-
+                if let Some((stage, progress)) = command.get::<(usize, f64)>(Selector::new("update_progress")) {
+                    data.temporary_progress1 = *progress;
+                    data.temporary_stage = *stage;
                     return;
                 }
 
@@ -625,16 +628,25 @@ impl Widget<FractalData> for FractalWidget {
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, _env: &Env) {
         let size = ctx.size().to_rect();
-        let renderer = data.renderer.lock().unwrap();
 
-        let image = ctx
-            .make_image(renderer.image_width, renderer.image_height, &renderer.data_export.rgb, ImageFormat::Rgb)
+        if data.temporary_stage == 3 {
+            let renderer = data.renderer.lock().unwrap();
+
+            self.buffer = renderer.data_export.rgb.clone();
+            self.image_width = renderer.image_width;
+            self.image_height = renderer.image_height;
+        };
+
+        if self.image_width * self.image_height > 0 {
+            let image = ctx
+            .make_image(self.image_width, self.image_height, &self.buffer, ImageFormat::Rgb)
             .unwrap();
 
-        if renderer.image_width > size.width() as usize {
-            ctx.draw_image(&image, size, InterpolationMode::Bilinear);
-        } else {
-            ctx.draw_image(&image, size, InterpolationMode::NearestNeighbor);
+            if self.image_width > size.width() as usize {
+                ctx.draw_image(&image, size, InterpolationMode::Bilinear);
+            } else {
+                ctx.draw_image(&image, size, InterpolationMode::NearestNeighbor);
+            };
         }
     }
 
@@ -661,15 +673,14 @@ pub fn main() {
     let event_sink = launcher.get_external_handle();
 
     let (sender, reciever) = mpsc::channel();
-    let (sender2, reciever2) = mpsc::channel();
 
     let shared_settings = Arc::new(Mutex::new(settings.clone()));
+    let shared_renderer = Arc::new(Mutex::new(FractalRenderer::new(settings.clone())));
 
-    let testing = shared_settings.clone();
+    let thread_settings = shared_settings.clone();
+    let thread_renderer = shared_renderer.clone();
 
-    thread::spawn(move || testing_renderer(event_sink, reciever, testing, sender2));
-
-    let arc_stuff = reciever2.recv().unwrap();
+    thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer));
 
     launcher
         // .use_simple_logger()
@@ -699,20 +710,17 @@ pub fn main() {
             temporary_progress1: 0.0,
             temporary_progress2: 0.0,
             temporary_progress3: 0.0,
-            renderer: arc_stuff,
+            temporary_stage: 0,
+            renderer: shared_renderer,
             settings: shared_settings,
             sender: Arc::new(Mutex::new(sender)),
         })
         .expect("launch failed");
 }
 
-fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<String>, settings: Arc<Mutex<Config>>, sender2: mpsc::Sender<Arc<Mutex<FractalRenderer>>>) {
-    let renderer_reference = Arc::new(Mutex::new(FractalRenderer::new(settings.lock().unwrap().clone())));
-
-    sender2.send(renderer_reference.clone()).unwrap();
-
+fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<String>, settings: Arc<Mutex<Config>>, renderer_reference: Arc<Mutex<FractalRenderer>>) {
     loop {
-        match reciever.try_recv() {
+        match reciever.recv() {
             Ok(command) => {
                 // execute commands
                 match command.as_ref() {
@@ -741,26 +749,37 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                                         break;
                                     },
                                     Err(_) => {
-                                        // 40% weighting to first reference, 40% to SA calculation, 20% to SA checking
-                                        let mut progress1 = 0.0;
+                                        let series_validation_progress = thread_counter_4.get();
 
-                                        progress1 += 0.45 * thread_counter_1.get() as f64 / thread_counter_3.get() as f64;
-                                        progress1 += 0.45 * thread_counter_2.get() as f64 / thread_counter_3.get() as f64;
-                                        progress1 += 0.1 * thread_counter_4.get() as f64 / 2.0;
+                                        let mut progress = 0.0;
+                                        let mut stage = 0usize;
 
-                                        // println!("reference: {}, series_approximation: {}, reference_maximum: {}", thread_counter_1.get(), thread_counter_2.get(), thread_counter_3.get());
+                                        // Less than two means that the series validation has not completed
+                                        if series_validation_progress < 2 {
+                                            let reference_progress = thread_counter_1.get() as f64;
+                                            let series_approximation_progress = thread_counter_2.get() as f64;
+                                            let reference_maximum = thread_counter_3.get() as f64;
 
-                                        let glitched_amount = thread_counter_6.get();
-                                        let complete_amount = total_pixels as f64 - glitched_amount as f64;
-
-                                        let (progress2, progress3) = if glitched_amount != 0 {
-                                            (1.0, (thread_counter_5.get() as f64 - complete_amount) / glitched_amount as f64)
+                                            // 45% weighting to first reference, 45% to SA calculation, 10% to SA checking
+                                            progress += 0.45 * reference_progress / reference_maximum;
+                                            progress += 0.45 * series_approximation_progress / reference_maximum;
+                                            progress += 0.1 * series_validation_progress as f64 / 2.0;
                                         } else {
-                                            (thread_counter_5.get() as f64 / total_pixels, 0.0)
+                                            let glitched_amount = thread_counter_6.get();
+
+                                            if glitched_amount != 0 {
+                                                let complete_amount = total_pixels as f64 - glitched_amount as f64;
+
+                                                stage = 2;
+                                                progress = (thread_counter_5.get() as f64 - complete_amount) / glitched_amount as f64
+                                            } else {
+                                                stage = 1;
+                                                progress = thread_counter_5.get() as f64 / total_pixels
+                                            }
                                         };
             
                                         test.submit_command(
-                                            Selector::new("update_progress"), (progress1, progress2, progress3), None).unwrap();
+                                            Selector::new("update_progress"), (stage, progress), None).unwrap();
                                     }
                                 };
             
@@ -773,7 +792,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                         tx.send(()).unwrap();
 
                         event_sink.submit_command(
-                            Selector::new("update_progress"), (1.0, 1.0, 1.0), None).unwrap();
+                            Selector::new("update_progress"), (3usize, 1.0), None).unwrap();
 
                         let mut test_settings = settings.lock().unwrap();
 
@@ -806,26 +825,37 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                                         break;
                                     },
                                     Err(_) => {
-                                        // 40% weighting to first reference, 40% to SA calculation, 20% to SA checking
-                                        let mut progress1 = 0.0;
+                                        let series_validation_progress = thread_counter_4.get();
 
-                                        progress1 += 0.45 * thread_counter_1.get() as f64 / thread_counter_3.get() as f64;
-                                        progress1 += 0.45 * thread_counter_2.get() as f64 / thread_counter_3.get() as f64;
-                                        progress1 += 0.1 * thread_counter_4.get() as f64 / 2.0;
+                                        let mut progress = 0.0;
+                                        let mut stage = 0usize;
 
-                                        // println!("reference: {}, series_approximation: {}, reference_maximum: {}, iteration: {}", thread_counter_1.get(), thread_counter_2.get(), thread_counter_3.get(), thread_counter_5.get());
+                                        // Less than two means that the series validation has not completed
+                                        if series_validation_progress < 2 {
+                                            let reference_progress = thread_counter_1.get() as f64;
+                                            let series_approximation_progress = thread_counter_2.get() as f64;
+                                            let reference_maximum = thread_counter_3.get() as f64;
 
-                                        let glitched_amount = thread_counter_6.get();
-                                        let complete_amount = total_pixels as f64 - glitched_amount as f64;
-
-                                        let (progress2, progress3) = if glitched_amount != 0 {
-                                            (1.0, (thread_counter_5.get() as f64 - complete_amount) / glitched_amount as f64)
+                                            // 45% weighting to first reference, 45% to SA calculation, 10% to SA checking
+                                            progress += 0.45 * reference_progress / reference_maximum;
+                                            progress += 0.45 * series_approximation_progress / reference_maximum;
+                                            progress += 0.1 * series_validation_progress as f64 / 2.0;
                                         } else {
-                                            (thread_counter_5.get() as f64 / total_pixels, 0.0)
+                                            let glitched_amount = thread_counter_6.get();
+
+                                            if glitched_amount != 0 {
+                                                let complete_amount = total_pixels as f64 - glitched_amount as f64;
+
+                                                stage = 2;
+                                                progress = (thread_counter_5.get() as f64 - complete_amount) / glitched_amount as f64
+                                            } else {
+                                                stage = 1;
+                                                progress = thread_counter_5.get() as f64 / total_pixels
+                                            }
                                         };
             
                                         test.submit_command(
-                                            Selector::new("update_progress"), (progress1, progress2, progress3), None).unwrap();
+                                            Selector::new("update_progress"), (stage, progress), None).unwrap();
                                     }
                                 };
             
@@ -838,7 +868,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                         tx.send(()).unwrap();
 
                         event_sink.submit_command(
-                            Selector::new("update_progress"), (1.0, 1.0, 1.0), None).unwrap();
+                            Selector::new("update_progress"), (3usize, 1.0), None).unwrap();
 
                         let mut test_settings = settings.lock().unwrap();
 
@@ -853,10 +883,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                     }
                 }
             }
-            _ => {
-                // wait 10ms before checking again
-                thread::sleep(Duration::from_millis(1));
-            }
+            _ => {}
         }
     }
 }

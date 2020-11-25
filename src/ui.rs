@@ -11,7 +11,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     let mut settings = Config::default();
     settings.merge(File::with_name("start.toml")).unwrap();
 
-    let render_screen = FractalWidget {};
+    let render_screen = FractalWidget {
+        buffer: Vec::new(),
+        image_width: 0,
+        image_height: 0
+    };
 
     let mut resolution_title = Label::<FractalData>::new("RESOLUTION");
     resolution_title.set_text_size(20.0);
@@ -329,10 +333,23 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_child(render_time_label)
         .with_flex_child(render_time, 1.0);
 
-    // TODO integrate into a single progressbar which resets at each next stage
-    let row_15 = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress1);
-    let row_16 = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress2);
-    let row_17 = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress3);
+    let render_stage = Label::dynamic(|data: &FractalData, _| {
+        let text = match data.temporary_stage {
+            0 => "REFERENCE".to_string(),
+            1 => "ITERATION".to_string(),
+            2 => "CORRECTION".to_string(),
+            3 => "COMPLETE".to_string(),
+            _ => "DEFAULT".to_string()
+        };
+
+        format!("{:<15}", text)
+    });
+
+    let render_progress = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress1);
+
+    let row_15 = Flex::row()
+        .with_child(render_stage)
+        .with_flex_child(render_progress, 1.0);
 
     let mut columns = Flex::<FractalData>::column()
         .with_spacer(8.0)
@@ -361,9 +378,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_child(row_12)
         .with_child(row_13)
         .with_child(row_14)
-        .with_child(row_15)
-        .with_child(row_16)
-        .with_child(row_17);
+        .with_child(row_15);
 
     columns.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
 

@@ -139,15 +139,25 @@ impl Lens<FractalData, String> for IterationLens {
 
 pub struct RotationLens;
 
+// TODO change the rotation to a string
 impl Lens<FractalData, String> for RotationLens {
     fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
-        let string = data.temporary_rotation.to_string();
+        let string = format!("{:.2}", data.temporary_rotation);
         f(&string)
     }
     fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
-        let mut string = data.temporary_rotation.to_string();
+        let mut string = format!("{:.2}", data.temporary_rotation);
         let v = f(&mut string);
-        string.retain(|c| c.is_digit(10) || c == '.');
+        string.retain(|c| {
+            if c.is_digit(10) {
+                true
+            } else {
+                match c {
+                    '.' | '-' => true,
+                    _ => false
+                }
+            }
+        });
         data.temporary_rotation = string.parse().unwrap_or(0.0);
         v
     }
