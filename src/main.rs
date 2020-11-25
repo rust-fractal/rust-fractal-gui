@@ -174,6 +174,8 @@ impl Widget<FractalData> for FractalWidget {
                     data.temporary_progress2 = *progress2;
                     data.temporary_progress3 = *progress3;
 
+                    // println!("updating progress");
+
                     return;
                 }
 
@@ -250,6 +252,8 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.series_approximation.order = data.temporary_order as usize;
                     renderer.progress.reset_series_approximation();
 
+                    renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+
                     ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
                     return;
                 }
@@ -266,24 +270,24 @@ impl Widget<FractalData> for FractalWidget {
                         if current_zoom.to_uppercase() == data.temporary_zoom.to_uppercase() {
                             // nothing has changed
                             if current_rotation == data.temporary_rotation && current_iterations == data.temporary_iterations {
-                                println!("nothing");
+                                // println!("nothing");
                                 return;
                             }
 
                             // iterations changed
                             if current_iterations == data.temporary_iterations {
-                                println!("rotation");
+                                // println!("rotation");
                                 ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation), None);
                                 return;
                             }
 
                             if current_rotation == data.temporary_rotation {
-                                println!("iterations");
+                                // println!("iterations");
                                 ctx.submit_command(Command::new(Selector::new("set_iterations"), data.temporary_iterations), None);
                                 return;
                             }
 
-                            println!("rotation & iterations");
+                            // println!("rotation & iterations");
 
                             settings.set("iterations", data.temporary_iterations).unwrap();
 
@@ -300,9 +304,10 @@ impl Widget<FractalData> for FractalWidget {
                             let new_zoom = string_to_extended(&data.temporary_zoom.to_uppercase());
 
                             if new_zoom.exponent <= current_exponent {
-                                println!("zoom decreased");
+                                // println!("zoom decreased");
                                 renderer.zoom = new_zoom;
                                 settings.set("zoom", data.temporary_zoom.clone()).unwrap();
+                                renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
 
                                 ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
                                 return;
@@ -310,7 +315,7 @@ impl Widget<FractalData> for FractalWidget {
                         }
                     }
 
-                    println!("location changed / zoom increased / iterations increased and rotation");
+                    // println!("location changed / zoom increased / iterations increased and rotation");
 
                     settings.set("real", data.temporary_real.clone()).unwrap();
                     settings.set("imag", data.temporary_imag.clone()).unwrap();
@@ -329,14 +334,16 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("zoom", extended_to_string_long(renderer.zoom)).unwrap();
                     data.temporary_zoom = settings.get_str("zoom").unwrap();
 
+                    renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     // TODO properly set the maximum iterations
                     ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
                     return;
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("toggle_derivative")) {
-                    let current_derivative = renderer.data_export.analytic_derivative;
+                    let current_derivative = settings.get_bool("analytic_derivative").unwrap();
                     settings.set("analytic_derivative", !current_derivative).unwrap();
+
                     renderer.data_export.analytic_derivative = !current_derivative;
 
                     // We have already computed the iterations and analytic derivatives
@@ -344,8 +351,9 @@ impl Widget<FractalData> for FractalWidget {
                         renderer.data_export.regenerate();
                         data.updated += 1;
                     } else {
+                        renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                         ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
-                    }
+                    };
 
                     return;
                 }
@@ -396,8 +404,6 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("reset_renderer_fast")) {
-                    renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
-
                     let sender = data.sender.lock().unwrap();
                     sender.send(String::from("reset_renderer_fast")).unwrap();
 
@@ -758,7 +764,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                                     }
                                 };
             
-                                thread::sleep(Duration::from_millis(50));
+                                thread::sleep(Duration::from_millis(20));
                             };
                         });
                         
@@ -807,7 +813,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                                         progress1 += 0.45 * thread_counter_2.get() as f64 / thread_counter_3.get() as f64;
                                         progress1 += 0.1 * thread_counter_4.get() as f64 / 2.0;
 
-                                        // println!("reference: {}, series_approximation: {}, reference_maximum: {}", thread_counter_1.get(), thread_counter_2.get(), thread_counter_3.get());
+                                        // println!("reference: {}, series_approximation: {}, reference_maximum: {}, iteration: {}", thread_counter_1.get(), thread_counter_2.get(), thread_counter_3.get(), thread_counter_5.get());
 
                                         let glitched_amount = thread_counter_6.get();
                                         let complete_amount = total_pixels as f64 - glitched_amount as f64;
@@ -823,7 +829,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                                     }
                                 };
             
-                                thread::sleep(Duration::from_millis(50));
+                                thread::sleep(Duration::from_millis(20));
                             };
                         });
 
@@ -849,7 +855,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
             }
             _ => {
                 // wait 10ms before checking again
-                thread::sleep(Duration::from_millis(10));
+                thread::sleep(Duration::from_millis(1));
             }
         }
     }
