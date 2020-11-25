@@ -265,6 +265,7 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
+                // TODO if the iterations are reduced, and then the zoom changed it defaults to the old value
                 if let Some(_) = command.get::<()>(Selector::new("set_location")) {
                     let current_real = settings.get_str("real").unwrap();
                     let current_imag = settings.get_str("imag").unwrap();
