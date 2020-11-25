@@ -77,8 +77,13 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     let mut location_title = Label::<FractalData>::new("LOCATION");
     location_title.set_text_size(20.0);
 
+    let location = Label::new(|data: &FractalData, _env: &_| {
+        data.temporary_location_source.clone()
+    });
+
     let row_4 = Flex::row()
-        .with_flex_child(location_title.expand_width(), 1.0);
+        .with_flex_child(location_title.expand_width(), 0.5)
+        .with_flex_child(location.expand_width(), 0.5);
 
     let mut real_label = Label::<FractalData>::new("REAL: ");
     let mut imag_label = Label::<FractalData>::new("IMAG: ");

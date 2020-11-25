@@ -40,6 +40,7 @@ pub struct FractalData {
     temporary_rotation: f64,
     temporary_order: i64,
     temporary_palette_source: String,
+    temporary_location_source: String,
     temporary_iteration_division: String,
     temporary_iteration_offset: String,
     temporary_progress1: f64,
@@ -170,7 +171,6 @@ impl Widget<FractalData> for FractalWidget {
             Event::Command(command) => {
                 // println!("{:?}", command);
 
-                // TODO maybe set a flag here to cause a full update to the new buffer
                 if let Some(_) = command.get::<()>(Selector::new("repaint")) {
                     data.updated += 1;
 
@@ -478,6 +478,8 @@ impl Widget<FractalData> for FractalWidget {
                     let mut new_settings = Config::default();
                     new_settings.merge(File::with_name(file_info.path().to_str().unwrap())).unwrap();
 
+                    let file_name = file_info.path().file_name().unwrap().to_str().unwrap().split(".").next().unwrap();
+
                     let mut reset_renderer = false;
 
                     match new_settings.get_str("real") {
@@ -566,9 +568,8 @@ impl Widget<FractalData> for FractalWidget {
                             renderer.data_export.iteration_division = settings.get_float("iteration_division").unwrap() as f32;
                             renderer.data_export.iteration_offset = settings.get_float("palette_offset").unwrap() as f32;
 
-                            let palette_name = file_info.path().file_name().unwrap().to_str().unwrap().split(".").next().unwrap();
 
-                            data.temporary_palette_source = palette_name.to_string();
+                            data.temporary_palette_source = file_name.to_string();
 
                             if !reset_renderer {
                                 renderer.data_export.regenerate();
@@ -582,6 +583,7 @@ impl Widget<FractalData> for FractalWidget {
                     settings.merge(new_settings).unwrap();
 
                     if reset_renderer {
+                        data.temporary_location_source = file_name.to_string();
                         ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), ()), None);
                     }
 
@@ -717,6 +719,7 @@ pub fn main() {
             temporary_rotation: settings.get_float("rotate").unwrap(),
             temporary_order: settings.get_int("approximation_order").unwrap(),
             temporary_palette_source: "default".to_string(),
+            temporary_location_source: "default".to_string(),
             temporary_iteration_division: settings.get_float("iteration_division").unwrap().to_string(),
             temporary_iteration_offset: settings.get_float("palette_offset").unwrap().to_string(),
             temporary_progress1: 0.0,
