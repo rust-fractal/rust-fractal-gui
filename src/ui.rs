@@ -144,11 +144,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(button_decrease_iterations, 0.15);
 
     let button_increase_rotation = Button::new("+").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation - 15.0), None);
+        ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation.parse::<f64>().unwrap() - 15.0), None);
     }).expand_width();
 
     let button_decrease_rotation = Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation + 15.0), None);
+        ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation.parse::<f64>().unwrap() + 15.0), None);
     }).expand_width();
 
     let rotation_row = Flex::row()
@@ -328,8 +328,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     });
 
     let render_time = Label::new(|data: &FractalData, _env: &_| {
-        let settings = data.settings.lock().unwrap();
-        format!("{} ms", settings.get_int("render_time").unwrap().to_string())
+        format!("{:>8} ms", data.temporary_time)
     });
 
     let row_13 = Flex::row()
@@ -352,7 +351,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         format!("{:<15}", text)
     });
 
-    let render_progress = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress1);
+    let render_progress = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress);
 
     let row_15 = Flex::row()
         .with_child(render_stage)

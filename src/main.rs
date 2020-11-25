@@ -13,7 +13,7 @@ use config::{Config, File};
 
 // use std::thread;
 use std::thread;
-use std::time::Duration;
+use std::time::{Instant, Duration};
 use std::sync::mpsc;
 
 use atomic_counter::AtomicCounter;
@@ -37,16 +37,15 @@ pub struct FractalData {
     temporary_imag: String,
     temporary_zoom: String,
     temporary_iterations: i64,
-    temporary_rotation: f64,
+    temporary_rotation: String,
     temporary_order: i64,
     temporary_palette_source: String,
     temporary_location_source: String,
     temporary_iteration_division: String,
     temporary_iteration_offset: String,
-    temporary_progress1: f64,
-    temporary_progress2: f64,
-    temporary_progress3: f64,
+    temporary_progress: f64,
     temporary_stage: usize,
+    temporary_time: usize,
     renderer: Arc<Mutex<FractalRenderer>>,
     settings: Arc<Mutex<Config>>,
     sender: Arc<Mutex<mpsc::Sender<String>>>
@@ -180,9 +179,10 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                if let Some((stage, progress)) = command.get::<(usize, f64)>(Selector::new("update_progress")) {
-                    data.temporary_progress1 = *progress;
+                if let Some((stage, progress, time)) = command.get::<(usize, f64, usize)>(Selector::new("update_progress")) {
+                    data.temporary_progress = *progress;
                     data.temporary_stage = *stage;
+                    data.temporary_time = *time;
                     return;
                 }
 
@@ -270,7 +270,7 @@ impl Widget<FractalData> for FractalWidget {
                     let current_imag = settings.get_str("imag").unwrap();
                     let current_zoom = settings.get_str("zoom").unwrap();
                     let current_iterations = settings.get_int("iterations").unwrap();
-                    let current_rotation = settings.get_float("rotate").unwrap();
+                    let current_rotation = settings.get_float("rotate").unwrap().to_string();
 
                     if current_real == data.temporary_real && current_imag == data.temporary_imag {
                         // Check if the zoom has decreased or is near to the current level
@@ -284,7 +284,7 @@ impl Widget<FractalData> for FractalWidget {
                             // iterations changed
                             if current_iterations == data.temporary_iterations {
                                 // println!("rotation");
-                                ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation), None);
+                                ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation.parse::<f64>().unwrap()), None);
                                 return;
                             }
 
@@ -301,7 +301,7 @@ impl Widget<FractalData> for FractalWidget {
                             if (data.temporary_iterations as usize) < renderer.maximum_iteration {
                                 // TODO needs to make it so that pixels are only iterated to the right level
                                 renderer.maximum_iteration = data.temporary_iterations as usize;
-                                ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation), None);
+                                ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation.parse::<f64>()), None);
                                 return;
                             }
                         } else {
@@ -369,7 +369,7 @@ impl Widget<FractalData> for FractalWidget {
                     let new_rotate = (rotation % 360.0 + 360.0) % 360.0;
 
                     settings.set("rotate", new_rotate).unwrap();
-                    data.temporary_rotation = new_rotate;
+                    data.temporary_rotation = new_rotate.to_string();
 
                     renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     renderer.rotate = new_rotate.to_radians();
@@ -433,7 +433,6 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                // TODO make it show the location name near the location label
                 if let Some(_) = command.get::<()>(Selector::new("open_location")) {
                     let toml = FileSpec::new("configuration", &["toml"]);
 
@@ -521,12 +520,12 @@ impl Widget<FractalData> for FractalWidget {
                     match new_settings.get_float("rotate") {
                         Ok(rotate) => {
                             settings.set("rotate", rotate.clone()).unwrap();
-                            data.temporary_rotation = rotate;
+                            data.temporary_rotation = rotate.to_string();
                             reset_renderer = true;
                         }
                         Err(_) => {
                             settings.set("rotate", 0.0).unwrap();
-                            data.temporary_rotation = 0.0;
+                            data.temporary_rotation = 0.0.to_string();
                         }
                     }
 
@@ -716,16 +715,15 @@ pub fn main() {
             temporary_imag: settings.get_str("imag").unwrap(),
             temporary_zoom: settings.get_str("zoom").unwrap(),
             temporary_iterations: settings.get_int("iterations").unwrap(),
-            temporary_rotation: settings.get_float("rotate").unwrap(),
+            temporary_rotation: settings.get_float("rotate").unwrap().to_string(),
             temporary_order: settings.get_int("approximation_order").unwrap(),
             temporary_palette_source: "default".to_string(),
             temporary_location_source: "default".to_string(),
             temporary_iteration_division: settings.get_float("iteration_division").unwrap().to_string(),
             temporary_iteration_offset: settings.get_float("palette_offset").unwrap().to_string(),
-            temporary_progress1: 0.0,
-            temporary_progress2: 0.0,
-            temporary_progress3: 0.0,
+            temporary_progress: 0.0,
             temporary_stage: 0,
+            temporary_time: 0,
             renderer: shared_renderer,
             settings: shared_settings,
             sender: Arc::new(Mutex::new(sender)),
@@ -758,6 +756,8 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                         let thread_counter_6 = renderer.progress.glitched_maximum.clone();
 
                         thread::spawn(move || {
+                            let start = Instant::now();
+
                             loop {
                                 match rx.try_recv() {
                                     Ok(_) => {
@@ -792,9 +792,11 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                                                 progress = thread_counter_5.get() as f64 / total_pixels
                                             }
                                         };
+
+                                        let time = start.elapsed().as_millis() as usize;
             
                                         test.submit_command(
-                                            Selector::new("update_progress"), (stage, progress), None).unwrap();
+                                            Selector::new("update_progress"), (stage, progress, time), None).unwrap();
                                     }
                                 };
             
@@ -807,11 +809,10 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                         tx.send(()).unwrap();
 
                         event_sink.submit_command(
-                            Selector::new("update_progress"), (3usize, 1.0), None).unwrap();
+                            Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize), None).unwrap();
 
                         let mut test_settings = settings.lock().unwrap();
 
-                        test_settings.set("render_time", renderer.render_time as i64).unwrap();
                         test_settings.set("min_valid_iteration", renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
                         event_sink.submit_command(
@@ -834,6 +835,8 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                         let thread_counter_6 = renderer.progress.glitched_maximum.clone();
 
                         thread::spawn(move || {
+                            let start = Instant::now();
+
                             loop {
                                 match rx.try_recv() {
                                     Ok(_) => {
@@ -868,9 +871,11 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                                                 progress = thread_counter_5.get() as f64 / total_pixels
                                             }
                                         };
+
+                                        let time = start.elapsed().as_millis() as usize;
             
                                         test.submit_command(
-                                            Selector::new("update_progress"), (stage, progress), None).unwrap();
+                                            Selector::new("update_progress"), (stage, progress, time), None).unwrap();
                                     }
                                 };
             
@@ -883,11 +888,10 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                         tx.send(()).unwrap();
 
                         event_sink.submit_command(
-                            Selector::new("update_progress"), (3usize, 1.0), None).unwrap();
+                            Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize), None).unwrap();
 
                         let mut test_settings = settings.lock().unwrap();
 
-                        test_settings.set("render_time", renderer.render_time as i64).unwrap();
                         test_settings.set("min_valid_iteration", renderer.series_approximation.min_valid_iteration as i64).unwrap();
 
                         event_sink.submit_command(
