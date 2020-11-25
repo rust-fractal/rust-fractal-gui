@@ -46,6 +46,7 @@ pub struct FractalData {
     temporary_progress: f64,
     temporary_stage: usize,
     temporary_time: usize,
+    temporary_min_valid_iterations: usize,
     renderer: Arc<Mutex<FractalRenderer>>,
     settings: Arc<Mutex<Config>>,
     sender: Arc<Mutex<mpsc::Sender<String>>>
@@ -186,6 +187,10 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
+                if let Some(min_valid_iterations) = command.get::<usize>(Selector::new("update_min_valid_iterations")) {
+                    data.temporary_min_valid_iterations = *min_valid_iterations;
+                    return;
+                }
 
                 let mut settings = data.settings.lock().unwrap();
                 let mut renderer = data.renderer.lock().unwrap();
@@ -724,6 +729,7 @@ pub fn main() {
             temporary_progress: 0.0,
             temporary_stage: 0,
             temporary_time: 0,
+            temporary_min_valid_iterations: 0,
             renderer: shared_renderer,
             settings: shared_settings,
             sender: Arc::new(Mutex::new(sender)),
@@ -811,9 +817,8 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                         event_sink.submit_command(
                             Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize), None).unwrap();
 
-                        let mut test_settings = settings.lock().unwrap();
-
-                        test_settings.set("min_valid_iteration", renderer.series_approximation.min_valid_iteration as i64).unwrap();
+                        event_sink.submit_command(
+                            Selector::new("update_min_valid_iterations"), renderer.series_approximation.min_valid_iteration, None).unwrap();
 
                         event_sink.submit_command(
                             Selector::new("repaint"), (), None).unwrap();
@@ -890,9 +895,8 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                         event_sink.submit_command(
                             Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize), None).unwrap();
 
-                        let mut test_settings = settings.lock().unwrap();
-
-                        test_settings.set("min_valid_iteration", renderer.series_approximation.min_valid_iteration as i64).unwrap();
+                        event_sink.submit_command(
+                            Selector::new("update_min_valid_iterations"), renderer.series_approximation.min_valid_iteration, None).unwrap();
 
                         event_sink.submit_command(
                             Selector::new("repaint"), (), None).unwrap();

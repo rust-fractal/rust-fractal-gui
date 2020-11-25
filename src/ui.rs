@@ -323,8 +323,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     render_time_label.set_text_size(14.0);
 
     let min_skipped = Label::new(|data: &FractalData, _env: &_| {
-        let settings = data.settings.lock().unwrap();
-        settings.get_int("min_valid_iteration").unwrap().to_string()
+        format!("{:>8}", data.temporary_min_valid_iterations.to_string())
     });
 
     let render_time = Label::new(|data: &FractalData, _env: &_| {
