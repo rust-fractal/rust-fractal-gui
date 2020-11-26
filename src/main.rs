@@ -169,7 +169,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
             },
             Event::Command(command) => {
-                // println!("{:?}", command);
+                println!("{:?}", command);
 
                 if let Some(_) = command.get::<()>(Selector::new("repaint")) {
                     data.updated += 1;
@@ -185,6 +185,12 @@ impl Widget<FractalData> for FractalWidget {
                     data.temporary_stage = *stage;
                     data.temporary_time = *time;
                     data.temporary_min_valid_iterations = *min_valid_iterations;
+                    return;
+                }
+
+                // If the rendering is not complete, don't process the command
+                if data.temporary_stage != 3 {
+                    println!("not processing command");
                     return;
                 }
 
@@ -222,6 +228,8 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
+                // At the moment, if the reference has already been done at a higher iteration number we just set the data export
+                // iteration number to less, rather than actually reducing the iteration level
                 if let Some(iterations) = command.get::<i64>(Selector::new("set_iterations")) {
                     if *iterations as usize == renderer.data_export.maximum_iteration {
                         return;
@@ -265,7 +273,6 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                // TODO if the iterations are reduced, and then the zoom changed it defaults to the old value
                 if let Some(_) = command.get::<()>(Selector::new("set_location")) {
                     let current_real = settings.get_str("real").unwrap();
                     let current_imag = settings.get_str("imag").unwrap();
@@ -412,6 +419,8 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("reset_renderer_fast")) {
+                    // renderer.maximum_iteration = renderer.data_export.maximum_iteration;
+
                     let sender = data.sender.lock().unwrap();
                     sender.send(String::from("reset_renderer_fast")).unwrap();
 
@@ -539,8 +548,8 @@ impl Widget<FractalData> for FractalWidget {
                                     data.temporary_iteration_division = iteration_division.to_string();
                                 }
                                 Err(_) => {
-                                    settings.set("iteration_division", "1").unwrap();
-                                    data.temporary_iteration_division = String::from("1");
+                                    settings.set("iteration_division", 1.0).unwrap();
+                                    data.temporary_iteration_division = String::from("1.0");
                                 }
                             }
         
@@ -550,8 +559,8 @@ impl Widget<FractalData> for FractalWidget {
                                     data.temporary_iteration_offset = palette_offset.to_string();
                                 }
                                 Err(_) => {
-                                    settings.set("palette_offset", "0").unwrap();
-                                    data.temporary_iteration_offset = String::from("0");
+                                    settings.set("palette_offset", 0.0).unwrap();
+                                    data.temporary_iteration_offset = String::from("0.0");
                                 }
                             }
 

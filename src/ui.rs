@@ -355,6 +355,10 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_child(render_stage)
         .with_flex_child(render_progress, 1.0);
 
+    let button_stop = Button::new("STOP").on_click(|ctx, _data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("stop_rendering"), ()), None);
+    }).expand_width();
+
     let mut columns = Flex::<FractalData>::column()
         .with_spacer(8.0)
         .with_child(row_1)
@@ -382,7 +386,8 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_child(row_12)
         .with_child(row_13)
         .with_child(row_14)
-        .with_child(row_15);
+        .with_child(row_15)
+        .with_child(button_stop);
 
     columns.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
 
