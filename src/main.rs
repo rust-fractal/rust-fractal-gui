@@ -51,7 +51,7 @@ pub struct FractalData {
     settings: Arc<Mutex<Config>>,
     sender: Arc<Mutex<mpsc::Sender<String>>>,
     stop_flag: Arc<RelaxedCounter>,
-    need_full_rerender: bool
+    need_full_rerender: bool,
 }
 
 impl Widget<FractalData> for FractalWidget {
@@ -186,6 +186,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("repaint")) {
+                    println!("repainting called");
                     // check if the renderer was stopped at any time - if it is on the next render we need full reset
                     if data.stop_flag.get() >= 1 {
                         // use wrapping to reset to zero
@@ -203,7 +204,10 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
+                
+
                 if let Some((stage, progress, time, min_valid_iterations)) = command.get::<(usize, f64, usize, usize)>(Selector::new("update_progress")) {
+                    println!("update_progress");
                     data.temporary_progress = *progress;
                     data.temporary_stage = *stage;
                     data.temporary_time = *time;
@@ -654,9 +658,13 @@ impl Widget<FractalData> for FractalWidget {
 
     fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &FractalData, _env: &Env) {}
 
-    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &FractalData, _data: &FractalData, _env: &Env) {}
+    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &FractalData, _data: &FractalData, _env: &Env) {
+        println!("update called");
+        return;
+    }
 
     fn layout(&mut self, _layout_ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &FractalData, _env: &Env) -> Size {
+        println!("layout called");
         let mut test = bc.max();
 
         let mut settings = data.settings.lock().unwrap();
@@ -675,6 +683,7 @@ impl Widget<FractalData> for FractalWidget {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, _env: &Env) {
+        println!("paint called");
         let size = ctx.size().to_rect();
 
         if self.reset_buffer {
@@ -849,7 +858,7 @@ fn testing_renderer(
                                     }
                                 };
             
-                                thread::sleep(Duration::from_millis(20));
+                                thread::sleep(Duration::from_millis(80));
                             };
                         });
                         
@@ -926,7 +935,7 @@ fn testing_renderer(
                                     }
                                 };
             
-                                thread::sleep(Duration::from_millis(20));
+                                thread::sleep(Duration::from_millis(80));
                             };
                         });
 

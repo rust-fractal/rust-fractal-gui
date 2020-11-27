@@ -359,6 +359,8 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         ctx.submit_command(Command::new(Selector::new("stop_rendering"), ()), None);
     }).expand_width();
 
+    // TODO have a help and about menu
+
     let mut columns = Flex::<FractalData>::column()
         .with_spacer(8.0)
         .with_child(row_1)
