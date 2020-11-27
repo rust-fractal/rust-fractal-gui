@@ -190,7 +190,6 @@ impl Widget<FractalData> for FractalWidget {
                     if data.stop_flag.get() >= 1 {
                         // use wrapping to reset to zero
                         data.stop_flag.add(usize::max_value() - data.stop_flag.get() + 1);
-                        println!("stop flag: {}", data.stop_flag.get());
                         data.need_full_rerender = true;
                     } else {
                         data.need_full_rerender = false;
