@@ -16,7 +16,7 @@ use std::thread;
 use std::time::{Instant, Duration};
 use std::sync::mpsc;
 
-use atomic_counter::AtomicCounter;
+use atomic_counter::{AtomicCounter, RelaxedCounter};
 
 mod ui;
 pub mod lens;
@@ -49,7 +49,9 @@ pub struct FractalData {
     temporary_min_valid_iterations: usize,
     renderer: Arc<Mutex<FractalRenderer>>,
     settings: Arc<Mutex<Config>>,
-    sender: Arc<Mutex<mpsc::Sender<String>>>
+    sender: Arc<Mutex<mpsc::Sender<String>>>,
+    stop_flag: Arc<RelaxedCounter>,
+    need_full_rerender: bool
 }
 
 impl Widget<FractalData> for FractalWidget {
@@ -70,6 +72,11 @@ impl Widget<FractalData> for FractalWidget {
                 data.updated += 1;
             }
             Event::MouseDown(e) => {
+                // If the rendering has not completed, stop
+                if data.temporary_stage != 3 {
+                    return;
+                }
+
                 let mut settings = data.settings.lock().unwrap();
                 let mut renderer = data.renderer.lock().unwrap();
 
@@ -169,9 +176,26 @@ impl Widget<FractalData> for FractalWidget {
                 }
             },
             Event::Command(command) => {
-                println!("{:?}", command);
+                // println!("{:?}", command);
+
+                if let Some(_) = command.get::<()>(Selector::new("stop_rendering")) {
+                    if data.temporary_stage != 3 {
+                        data.stop_flag.inc();
+                    }
+                    return;
+                }
 
                 if let Some(_) = command.get::<()>(Selector::new("repaint")) {
+                    // check if the renderer was stopped at any time - if it is on the next render we need full reset
+                    if data.stop_flag.get() >= 1 {
+                        // use wrapping to reset to zero
+                        data.stop_flag.add(usize::max_value() - data.stop_flag.get() + 1);
+                        println!("stop flag: {}", data.stop_flag.get());
+                        data.need_full_rerender = true;
+                    } else {
+                        data.need_full_rerender = false;
+                    }
+
                     data.updated += 1;
 
                     self.reset_buffer = true;
@@ -188,9 +212,8 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                // If the rendering is not complete, don't process the command
+                // If the rendering has not completed, stop
                 if data.temporary_stage != 3 {
-                    println!("not processing command");
                     return;
                 }
 
@@ -420,6 +443,10 @@ impl Widget<FractalData> for FractalWidget {
 
                 if let Some(_) = command.get::<()>(Selector::new("reset_renderer_fast")) {
                     // renderer.maximum_iteration = renderer.data_export.maximum_iteration;
+                    if data.need_full_rerender {
+                        ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), ()), None);
+                        return;
+                    }
 
                     let sender = data.sender.lock().unwrap();
                     sender.send(String::from("reset_renderer_fast")).unwrap();
@@ -698,11 +725,13 @@ pub fn main() {
 
     let shared_settings = Arc::new(Mutex::new(settings.clone()));
     let shared_renderer = Arc::new(Mutex::new(FractalRenderer::new(settings.clone())));
+    let shared_stop_flag = Arc::new(RelaxedCounter::new(0));
 
     let thread_settings = shared_settings.clone();
     let thread_renderer = shared_renderer.clone();
+    let thread_stop_flag = shared_stop_flag.clone();
 
-    thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer));
+    thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer, thread_stop_flag));
 
     launcher
         // .use_simple_logger()
@@ -737,20 +766,29 @@ pub fn main() {
             renderer: shared_renderer,
             settings: shared_settings,
             sender: Arc::new(Mutex::new(sender)),
+            stop_flag: shared_stop_flag,
+            need_full_rerender: false
         })
         .expect("launch failed");
 }
 
-fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<String>, settings: Arc<Mutex<Config>>, renderer_reference: Arc<Mutex<FractalRenderer>>) {
+fn testing_renderer(
+    event_sink: druid::ExtEventSink, 
+    reciever: mpsc::Receiver<String>, 
+    thread_settings: Arc<Mutex<Config>>, 
+    thread_renderer: Arc<Mutex<FractalRenderer>>, 
+    thread_stop_flag: Arc<RelaxedCounter>) {
     loop {
+        let stop_flag = thread_stop_flag.clone();
+
         match reciever.recv() {
             Ok(command) => {
                 // execute commands
                 match command.as_ref() {
                     "reset_renderer_full" => {
-                        let mut renderer = renderer_reference.lock().unwrap();
+                        let mut renderer = thread_renderer.lock().unwrap();
 
-                        *renderer = FractalRenderer::new(settings.lock().unwrap().clone());
+                        *renderer = FractalRenderer::new(thread_settings.lock().unwrap().clone());
 
                         let total_pixels = (renderer.image_width * renderer.image_height) as f64;
 
@@ -816,7 +854,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                             };
                         });
                         
-                        renderer.render_frame(0, String::from(""));
+                        renderer.render_frame(0, String::from(""), Some(stop_flag));
 
                         tx.send(()).unwrap();
 
@@ -827,7 +865,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                             Selector::new("repaint"), (), None).unwrap();
                     }
                     "reset_renderer_fast" => {
-                        let mut renderer = renderer_reference.lock().unwrap();
+                        let mut renderer = thread_renderer.lock().unwrap();
 
                         let total_pixels = (renderer.image_width * renderer.image_height) as f64;
 
@@ -893,7 +931,7 @@ fn testing_renderer(event_sink: druid::ExtEventSink, reciever: mpsc::Receiver<St
                             };
                         });
 
-                        renderer.render_frame(1, String::from(""));
+                        renderer.render_frame(1, String::from(""), Some(stop_flag));
 
                         tx.send(()).unwrap();
 
