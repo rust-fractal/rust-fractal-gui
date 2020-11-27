@@ -78,7 +78,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 let mut settings = data.settings.lock().unwrap();
-                let mut renderer = data.renderer.lock().unwrap();
+                let renderer = data.renderer.lock().unwrap();
 
                 // For a mousedown event we only check the left and right buttons
                 if e.button == MouseButton::Left || e.button == MouseButton::Right {
@@ -124,10 +124,6 @@ impl Widget<FractalData> for FractalWidget {
                         data.temporary_real = settings.get_str("real").unwrap();
                         data.temporary_imag = settings.get_str("imag").unwrap();
                         data.temporary_zoom = settings.get_str("zoom").unwrap();
-
-                        // data.derive_from_settings(&self.current_settings, self.renderer.as_ref().unwrap());
-                        renderer.maximum_iteration = settings.get_int("iterations").unwrap() as usize;
-                        renderer.update_location(zoom, location);
 
                         // BUG, somewhere in this update thing, need to deal with if the maximum iteration is less than reference or something
                         settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
