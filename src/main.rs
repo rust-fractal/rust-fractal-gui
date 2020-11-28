@@ -74,7 +74,7 @@ impl Widget<FractalData> for FractalWidget {
             }
             Event::MouseDown(e) => {
                 // If the rendering has not completed, stop
-                if data.temporary_stage != 3 {
+                if data.temporary_stage != 0 {
                     return;
                 }
 
@@ -182,22 +182,27 @@ impl Widget<FractalData> for FractalWidget {
                 // println!("{:?}", command);
 
                 if let Some(_) = command.get::<()>(Selector::new("stop_rendering")) {
-                    if data.temporary_stage != 3 {
+                    if data.temporary_stage != 0 {
                         data.stop_flag.inc();
                     }
+
+                    // if the renderer was stopped during SA / reference
+                    if data.temporary_stage == 1 || data.temporary_stage == 2 {
+                        data.stop_flag.inc();
+                    }
+
                     return;
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("repaint")) {
-                    println!("repainting called");
-                    // check if the renderer was stopped at any time - if it is on the next render we need full reset
-                    if data.stop_flag.get() >= 1 {
+                    if data.stop_flag.get() >= 2 {
                         // use wrapping to reset to zero
-                        data.stop_flag.add(usize::max_value() - data.stop_flag.get() + 1);
                         data.need_full_rerender = true;
                     } else {
                         data.need_full_rerender = false;
                     }
+
+                    data.stop_flag.add(usize::max_value() - data.stop_flag.get() + 1);
 
                     data.updated += 1;
 
@@ -206,8 +211,6 @@ impl Widget<FractalData> for FractalWidget {
                     ctx.request_paint();
                     return;
                 }
-
-                
 
                 if let Some((stage, progress, time, min_valid_iterations, max_valid_iterations)) = command.get::<(usize, f64, usize, usize, usize)>(Selector::new("update_progress")) {
                     data.temporary_progress = *progress;
@@ -219,7 +222,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 // If the rendering has not completed, stop
-                if data.temporary_stage != 3 {
+                if data.temporary_stage != 0 {
                     return;
                 }
 
@@ -450,6 +453,7 @@ impl Widget<FractalData> for FractalWidget {
                 if let Some(_) = command.get::<()>(Selector::new("reset_renderer_fast")) {
                     // renderer.maximum_iteration = renderer.data_export.maximum_iteration;
                     if data.need_full_rerender {
+                        // println!("needs full rerender");
                         ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), (), Target::Auto));
                         return;
                     }
@@ -622,6 +626,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     if reset_renderer {
                         data.temporary_location_source = file_name.to_string();
+                        // println!("calling full reset");
                         ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), (), Target::Auto));
                     }
 
@@ -659,12 +664,12 @@ impl Widget<FractalData> for FractalWidget {
     fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &FractalData, _env: &Env) {}
 
     fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &FractalData, _data: &FractalData, _env: &Env) {
-        println!("update called");
+        // println!("update called");
         return;
     }
 
     fn layout(&mut self, _layout_ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &FractalData, _env: &Env) -> Size {
-        println!("layout called");
+        // println!("layout called");
         let mut test = bc.max();
 
         let mut settings = data.settings.lock().unwrap();
@@ -683,7 +688,7 @@ impl Widget<FractalData> for FractalWidget {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, _env: &Env) {
-        println!("paint called");
+        // println!("paint called");
         let size = ctx.size().to_rect();
 
         if self.reset_buffer {
@@ -772,10 +777,10 @@ pub fn main() {
             temporary_iteration_division: settings.get_float("iteration_division").unwrap().to_string(),
             temporary_iteration_offset: settings.get_float("palette_offset").unwrap().to_string(),
             temporary_progress: 0.0,
-            temporary_stage: 0,
+            temporary_stage: 1,
             temporary_time: 0,
-            temporary_min_valid_iterations: 0,
-            temporary_max_valid_iterations: 0,
+            temporary_min_valid_iterations: 1,
+            temporary_max_valid_iterations: 1,
             renderer: shared_renderer,
             settings: shared_settings,
             sender: Arc::new(Mutex::new(sender)),
@@ -830,28 +835,34 @@ fn testing_renderer(
                                         let series_validation_progress = thread_counter_4.get();
 
                                         let mut progress = 0.0;
-                                        let mut stage = 0usize;
+                                        let mut stage = 1usize;
 
                                         // Less than two means that the series validation has not completed
                                         if series_validation_progress < 2 {
+                                            let series_approximation_amount = thread_counter_2.get();
+
                                             let reference_progress = thread_counter_1.get() as f64;
-                                            let series_approximation_progress = thread_counter_2.get() as f64;
+                                            let series_approximation_progress = series_approximation_amount as f64;
                                             let reference_maximum = thread_counter_3.get() as f64;
 
-                                            // 45% weighting to first reference, 45% to SA calculation, 10% to SA checking
-                                            progress += 0.45 * reference_progress / reference_maximum;
-                                            progress += 0.45 * series_approximation_progress / reference_maximum;
-                                            progress += 0.1 * series_validation_progress as f64 / 2.0;
+                                            if series_approximation_amount == 0 {
+                                                progress = reference_progress / reference_maximum
+                                            } else {
+                                                stage = 2;
+
+                                                progress += 0.9 * series_approximation_progress / reference_maximum;
+                                                progress += 0.1 * series_validation_progress as f64 / 2.0;
+                                            }
                                         } else {
                                             let glitched_amount = thread_counter_6.get();
 
                                             if glitched_amount != 0 {
                                                 let complete_amount = total_pixels as f64 - glitched_amount as f64;
 
-                                                stage = 2;
+                                                stage = 4;
                                                 progress = (thread_counter_5.get() as f64 - complete_amount) / glitched_amount as f64
                                             } else {
-                                                stage = 1;
+                                                stage = 3;
                                                 progress = thread_counter_5.get() as f64 / total_pixels
                                             }
                                         };
@@ -875,7 +886,7 @@ fn testing_renderer(
 
                         event_sink.submit_command(
                             Selector::new("update_progress"), 
-                            (3usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), 
+                            (0usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), 
                             Target::Auto).unwrap();
 
                         event_sink.submit_command(
@@ -911,28 +922,34 @@ fn testing_renderer(
                                         let series_validation_progress = thread_counter_4.get();
 
                                         let mut progress = 0.0;
-                                        let mut stage = 0usize;
+                                        let mut stage = 1usize;
 
                                         // Less than two means that the series validation has not completed
                                         if series_validation_progress < 2 {
+                                            let series_approximation_amount = thread_counter_2.get();
+
                                             let reference_progress = thread_counter_1.get() as f64;
-                                            let series_approximation_progress = thread_counter_2.get() as f64;
+                                            let series_approximation_progress = series_approximation_amount as f64;
                                             let reference_maximum = thread_counter_3.get() as f64;
 
-                                            // 45% weighting to first reference, 45% to SA calculation, 10% to SA checking
-                                            progress += 0.45 * reference_progress / reference_maximum;
-                                            progress += 0.45 * series_approximation_progress / reference_maximum;
-                                            progress += 0.1 * series_validation_progress as f64 / 2.0;
+                                            if series_approximation_amount == 0 {
+                                                progress = reference_progress / reference_maximum
+                                            } else {
+                                                stage = 2;
+
+                                                progress += 0.9 * series_approximation_progress / reference_maximum;
+                                                progress += 0.1 * series_validation_progress as f64 / 2.0;
+                                            }
                                         } else {
                                             let glitched_amount = thread_counter_6.get();
 
                                             if glitched_amount != 0 {
                                                 let complete_amount = total_pixels as f64 - glitched_amount as f64;
 
-                                                stage = 2;
+                                                stage = 4;
                                                 progress = (thread_counter_5.get() as f64 - complete_amount) / glitched_amount as f64
                                             } else {
-                                                stage = 1;
+                                                stage = 3;
                                                 progress = thread_counter_5.get() as f64 / total_pixels
                                             }
                                         };
@@ -956,7 +973,7 @@ fn testing_renderer(
 
                         event_sink.submit_command(
                             Selector::new("update_progress"), 
-                            (3usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), 
+                            (0usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), 
                             Target::Auto).unwrap();
 
                         event_sink.submit_command(

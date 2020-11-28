@@ -324,11 +324,20 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
     let skipped = Label::new(|data: &FractalData, _env: &_| {
         format!("{:>8} - {:<8}", data.temporary_min_valid_iterations.to_string(), data.temporary_max_valid_iterations.to_string())
-    }).expand_width();
+    }).align_right();
 
-    let render_time = Label::new(|data: &FractalData, _env: &_| {
-        format!("{:>8} ms", data.temporary_time)
-    });
+    let render = Label::new(|data: &FractalData, _env: &_| {
+        let text = match data.temporary_stage {
+            1 => "REFERENCE",
+            2 => "APPROXIMATION",
+            3 => "ITERATION",
+            4 => "CORRECTION",
+            0 => "COMPLETE",
+            _ => "DEFAULT"
+        };
+
+        format!("{:>8} ms{:>14}", data.temporary_time, text)
+    }).align_right();
 
     let row_13 = Flex::row()
         .with_child(skipped_label.fix_width(90.0))
@@ -336,29 +345,29 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
     let row_14 = Flex::row()
         .with_child(render_time_label.fix_width(90.0))
-        .with_flex_child(render_time, 1.0);
-
-    let render_stage = Label::dynamic(|data: &FractalData, _| {
-        let text = match data.temporary_stage {
-            0 => "REFERENCE ".to_string(),
-            1 => "ITERATION ".to_string(),
-            2 => "CORRECTION".to_string(),
-            3 => "COMPLETE  ".to_string(),
-            _ => "DEFAULT   ".to_string()
-        };
-
-        format!("{:<15}", text)
-    });
+        .with_flex_child(render, 1.0);
 
     let render_progress = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress);
 
-    let row_15 = Flex::row()
-        .with_child(render_stage.fix_width(80.0))
-        .with_flex_child(render_progress, 1.0);
+    let button_toggle_state = Button::new(|data: &FractalData, _env: &_| {
+        let text = match data.temporary_stage {
+            0 => "RESET",
+            _ => "CANCEL"
+        };
 
-    let button_cancel = Button::new("CANCEL").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("stop_rendering"), (), Target::Auto));
+        text.to_string()
+    }).on_click(|ctx, data: &mut FractalData, _env| {
+        if data.temporary_stage == 0 {
+            ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
+        } else {
+            ctx.submit_command(Command::new(Selector::new("stop_rendering"), (), Target::Auto));
+        }
     }).expand_width();
+
+    let row_15 = Flex::row()
+        .with_flex_child(render_progress, 0.75)
+        .with_spacer(4.0)
+        .with_flex_child(button_toggle_state, 0.25);
 
     // TODO have a help and about menu
 
@@ -392,9 +401,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(4.0)
         .with_child(row_14)
         .with_spacer(4.0)
-        .with_child(row_15)
-        .with_spacer(4.0)
-        .with_child(button_cancel);
+        .with_child(row_15);
 
     columns.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
 
