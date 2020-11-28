@@ -15,7 +15,8 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         buffer: Vec::new(),
         reset_buffer: false,
         image_width: 0,
-        image_height: 0
+        image_height: 0,
+        save_type: 0
     };
     // }.debug_invalidation();
 
@@ -301,8 +302,8 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         ctx.submit_command(Command::new(Selector::new("save_image"), (), Target::Auto));
     }).expand_width();
 
-    let button_refresh_full = Button::new("RESET").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), (), Target::Auto));
+    let button_refresh_full = Button::new("SAVE FULL").on_click(|ctx, _data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("save_all"), (), Target::Auto));
     }).expand_width();
 
     let row_11 = Flex::row()

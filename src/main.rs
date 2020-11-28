@@ -20,12 +20,14 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 
 mod ui;
 pub mod lens;
+mod saving;
 
 struct FractalWidget {
     buffer: Vec<u8>,
     reset_buffer: bool,
     image_width: usize,
-    image_height: usize
+    image_height: usize,
+    save_type: usize,
 }
 
 #[derive(Clone, Data, Lens)]
@@ -498,6 +500,22 @@ impl Widget<FractalData> for FractalWidget {
                     let save_dialog_options = FileDialogOptions::new()
                         .allowed_types(vec![toml]);
 
+                    self.save_type = 0;
+
+                    ctx.submit_command(Command::new(
+                        druid::commands::SHOW_SAVE_PANEL,
+                        save_dialog_options.clone(), Target::Auto));
+                    return;
+                }
+
+                if let Some(_) = command.get::<()>(Selector::new("save_all")) {
+                    let toml = FileSpec::new("configuration", &["toml"]);
+
+                    let save_dialog_options = FileDialogOptions::new()
+                        .allowed_types(vec![toml]);
+
+                    self.save_type = 1;
+
                     ctx.submit_command(Command::new(
                         druid::commands::SHOW_SAVE_PANEL,
                         save_dialog_options.clone(), Target::Auto));
@@ -510,6 +528,8 @@ impl Widget<FractalData> for FractalWidget {
 
                     let save_dialog_options = FileDialogOptions::new()
                         .allowed_types(vec![png, jpg]);
+
+                    self.save_type = 2;
 
                     ctx.submit_command(Command::new(
                         druid::commands::SHOW_SAVE_PANEL,
@@ -634,11 +654,8 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some(file_info) = command.get(commands::SAVE_FILE) {
-                    match file_info.clone().unwrap().path().extension().unwrap().to_str().unwrap() {
-                        "png" | "jpg" => {
-                            renderer.data_export.save_colour(file_info.clone().unwrap().path().to_str().unwrap());
-                        },
-                        _ => {
+                    match self.save_type {
+                        0 => {
                             let real = settings.get_str("real").unwrap();
                             let imag = settings.get_str("imag").unwrap();
                             let zoom = settings.get_str("zoom").unwrap();
@@ -650,7 +667,51 @@ impl Widget<FractalData> for FractalWidget {
                             if let Err(e) = std::fs::write(file_info.clone().unwrap().path(), output) {
                                 println!("Error writing file: {}", e);
                             }
-                        }
+                        },
+                        1 => {
+                            let real = settings.get_str("real").unwrap();
+                            let imag = settings.get_str("imag").unwrap();
+                            let zoom = settings.get_str("zoom").unwrap();
+                            let iterations = settings.get_int("iterations").unwrap();
+                            let rotate = settings.get_float("rotate").unwrap();
+
+                            let image_width = settings.get_int("image_width").unwrap();
+                            let image_height = settings.get_int("image_height").unwrap();
+                            let glitch_percentage = settings.get_float("glitch_percentage").unwrap();
+                            let approximation_order = settings.get_int("approximation_order").unwrap();
+                            let analytic_derivative = settings.get_bool("analytic_derivative").unwrap();
+
+                            let palette = renderer.data_export.palette.clone().into_iter().flat_map(|seq| {
+                                // BGR format
+                                vec![seq.2, seq.1, seq.0]
+                            }).collect::<Vec<u8>>();
+                            let iteration_division = settings.get_float("iteration_division").unwrap();
+                            let palette_offset = settings.get_float("palette_offset").unwrap();
+
+                            let output = format!(
+                                "real = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}\n\nimage_width = {}\nimage_height = {}\nglitch_percentage = {}\napproximation_order = {}\nanalytic_derivative = {}\nframes = 1\nframe_offset = 0\nzoom_scale = 2.0\ndisplay_glitches = false\nauto_adjust_iterations = true\nremove_centre = false\nglitch_tolerance = 1.4e-6\nprobe_sampling = 15\ndata_storage_interval = 100\nvalid_iteration_frame_multiplier = 0.10\nvalid_iteration_probe_multiplier = 0.01\nexperimental = true\njitter = false\nexport = \"png\"\n\npalette = {:?}\niteration_division = {}\npalette_offset = {}", 
+                                real, 
+                                imag, 
+                                zoom, 
+                                iterations.to_string(), 
+                                rotate.to_string(),
+                                image_width,
+                                image_height,
+                                glitch_percentage,
+                                approximation_order,
+                                analytic_derivative,
+                                palette,
+                                iteration_division,
+                                palette_offset);
+
+                            if let Err(e) = std::fs::write(file_info.clone().unwrap().path(), output) {
+                                println!("Error writing file: {}", e);
+                            }
+                        },
+                        2 => {
+                            renderer.data_export.save_colour(file_info.clone().unwrap().path().to_str().unwrap());
+                        },
+                        _ => {}
                     }
 
                     return;
