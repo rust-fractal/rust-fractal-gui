@@ -47,6 +47,7 @@ pub struct FractalData {
     temporary_stage: usize,
     temporary_time: usize,
     temporary_min_valid_iterations: usize,
+    temporary_max_valid_iterations: usize,
     renderer: Arc<Mutex<FractalRenderer>>,
     settings: Arc<Mutex<Config>>,
     sender: Arc<Mutex<mpsc::Sender<String>>>,
@@ -125,7 +126,7 @@ impl Widget<FractalData> for FractalWidget {
                         data.temporary_imag = settings.get_str("imag").unwrap();
                         data.temporary_zoom = settings.get_str("zoom").unwrap();
 
-                        let new_iterations = if 4 * renderer.series_approximation.valid_interpolation.iter().max().unwrap() > renderer.maximum_iteration {
+                        let new_iterations = if 4 * renderer.series_approximation.max_valid_iteration > renderer.maximum_iteration {
                             renderer.maximum_iteration / 2 * 3
                         } else {
                             renderer.maximum_iteration
@@ -208,12 +209,12 @@ impl Widget<FractalData> for FractalWidget {
 
                 
 
-                if let Some((stage, progress, time, min_valid_iterations)) = command.get::<(usize, f64, usize, usize)>(Selector::new("update_progress")) {
-                    println!("update_progress");
+                if let Some((stage, progress, time, min_valid_iterations, max_valid_iterations)) = command.get::<(usize, f64, usize, usize, usize)>(Selector::new("update_progress")) {
                     data.temporary_progress = *progress;
                     data.temporary_stage = *stage;
                     data.temporary_time = *time;
                     data.temporary_min_valid_iterations = *min_valid_iterations;
+                    data.temporary_max_valid_iterations = *max_valid_iterations;
                     return;
                 }
 
@@ -762,7 +763,7 @@ pub fn main() {
             temporary_height: settings.get_int("image_height").unwrap(),
             temporary_real: settings.get_str("real").unwrap(),
             temporary_imag: settings.get_str("imag").unwrap(),
-            temporary_zoom: settings.get_str("zoom").unwrap(),
+            temporary_zoom: settings.get_str("zoom").unwrap().to_uppercase(),
             temporary_iterations: settings.get_int("iterations").unwrap(),
             temporary_rotation: settings.get_float("rotate").unwrap().to_string(),
             temporary_order: settings.get_int("approximation_order").unwrap(),
@@ -774,6 +775,7 @@ pub fn main() {
             temporary_stage: 0,
             temporary_time: 0,
             temporary_min_valid_iterations: 0,
+            temporary_max_valid_iterations: 0,
             renderer: shared_renderer,
             settings: shared_settings,
             sender: Arc::new(Mutex::new(sender)),
@@ -814,6 +816,7 @@ fn testing_renderer(
                         let thread_counter_5 = renderer.progress.iteration.clone();
                         let thread_counter_6 = renderer.progress.glitched_maximum.clone();
                         let thread_counter_7 = renderer.progress.min_series_approximation.clone();
+                        let thread_counter_8 = renderer.progress.max_series_approximation.clone();
 
                         thread::spawn(move || {
                             let start = Instant::now();
@@ -855,9 +858,10 @@ fn testing_renderer(
 
                                         let time = start.elapsed().as_millis() as usize;
                                         let min_valid_iteration = thread_counter_7.get();
+                                        let max_valid_iteration = thread_counter_8.get();
             
                                         test.submit_command(
-                                            Selector::new("update_progress"), (stage, progress, time, min_valid_iteration), Target::Auto).unwrap();
+                                            Selector::new("update_progress"), (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
                                     }
                                 };
             
@@ -870,7 +874,9 @@ fn testing_renderer(
                         tx.send(()).unwrap();
 
                         event_sink.submit_command(
-                            Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration), Target::Auto).unwrap();
+                            Selector::new("update_progress"), 
+                            (3usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), 
+                            Target::Auto).unwrap();
 
                         event_sink.submit_command(
                             Selector::new("repaint"), (), Target::Auto).unwrap();
@@ -891,6 +897,7 @@ fn testing_renderer(
                         let thread_counter_5 = renderer.progress.iteration.clone();
                         let thread_counter_6 = renderer.progress.glitched_maximum.clone();
                         let thread_counter_7 = renderer.progress.min_series_approximation.clone();
+                        let thread_counter_8 = renderer.progress.max_series_approximation.clone();
 
                         thread::spawn(move || {
                             let start = Instant::now();
@@ -932,9 +939,10 @@ fn testing_renderer(
 
                                         let time = start.elapsed().as_millis() as usize;
                                         let min_valid_iteration = thread_counter_7.get();
+                                        let max_valid_iteration = thread_counter_8.get();
 
                                         test.submit_command(
-                                            Selector::new("update_progress"), (stage, progress, time, min_valid_iteration), Target::Auto).unwrap();
+                                            Selector::new("update_progress"), (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
                                     }
                                 };
             
@@ -947,7 +955,9 @@ fn testing_renderer(
                         tx.send(()).unwrap();
 
                         event_sink.submit_command(
-                            Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration), Target::Auto).unwrap();
+                            Selector::new("update_progress"), 
+                            (3usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), 
+                            Target::Auto).unwrap();
 
                         event_sink.submit_command(
                             Selector::new("repaint"), (), Target::Auto).unwrap();
