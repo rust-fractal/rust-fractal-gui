@@ -2,9 +2,9 @@ use std::sync::{Arc, Mutex};
 
 use druid::widget::prelude::*;
 
-use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KeyCode, FileDialogOptions, FileSpec, Command, Data, Lens, Selector};
+use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Command, Data, Lens, Selector, Target, FontDescriptor, FontFamily};
 use druid::piet::{ImageFormat, InterpolationMode};
-use druid::theme::{BUTTON_BORDER_RADIUS, TEXT_SIZE_NORMAL, FONT_NAME, TEXTBOX_BORDER_RADIUS, PROGRESS_BAR_RADIUS};
+use druid::theme::{BUTTON_BORDER_RADIUS, TEXT_SIZE_NORMAL, UI_FONT, TEXTBOX_BORDER_RADIUS, PROGRESS_BAR_RADIUS, BORDERED_WIDGET_HEIGHT};
 
 use rust_fractal::renderer::FractalRenderer;
 use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended};
@@ -125,50 +125,56 @@ impl Widget<FractalData> for FractalWidget {
                         data.temporary_imag = settings.get_str("imag").unwrap();
                         data.temporary_zoom = settings.get_str("zoom").unwrap();
 
-                        // BUG, somewhere in this update thing, need to deal with if the maximum iteration is less than reference or something
-                        settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
-                        data.temporary_iterations = renderer.maximum_iteration as i64;
+                        let new_iterations = if 4 * renderer.series_approximation.valid_interpolation.iter().max().unwrap() > renderer.maximum_iteration {
+                            renderer.maximum_iteration / 2 * 3
+                        } else {
+                            renderer.maximum_iteration
+                        };
 
-                        ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), ()), None);
+                        // BUG, somewhere in this update thing, need to deal with if the maximum iteration is less than reference or something
+                        settings.set("iterations", new_iterations as i64).unwrap();
+                        data.temporary_iterations = new_iterations as i64;
+
+                        ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), (), Target::Auto));
                     } else {
-                        ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 0.5), None);
+                        ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 0.5, Target::Auto));
                     }
                 }
             },
             Event::KeyUp(e) => {
                 // Shortcut keys
-                if e.key_code == KeyCode::KeyD {
-                    ctx.submit_command(Command::new(Selector::new("toggle_derivative"), ()), None);
+                if e.key == KbKey::Character("D".to_string()) || e.key == KbKey::Character("d".to_string()) {
+                    ctx.submit_command(Command::new(Selector::new("toggle_derivative"), (), Target::Auto));
                 }
 
-                if e.key_code == KeyCode::KeyZ {
-                    ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 2.0), None);
+                if e.key == KbKey::Character("Z".to_string()) || e.key == KbKey::Character("z".to_string()) {
+                    ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 2.0, Target::Auto));
                 }
 
-                if e.key_code == KeyCode::KeyO {
+                if e.key == KbKey::Character("O".to_string()) || e.key == KbKey::Character("o".to_string()) {
                     ctx.submit_command(Command::new(
                         Selector::new("open_location"), 
                         ()
-                    ), None);
+                    , Target::Auto));
                 }
 
-                if e.key_code == KeyCode::KeyN {
-                    ctx.submit_command(Command::new(Selector::new("native_image_size"), ()), None);
+                if e.key == KbKey::Character("N".to_string()) || e.key == KbKey::Character("n".to_string()) {
+                    ctx.submit_command(Command::new(Selector::new("native_image_size"), (), Target::Auto));
                 }
 
-                if e.key_code == KeyCode::KeyT {
-                    ctx.submit_command(Command::new(Selector::new("multiply_image_size"), 0.5), None);
+                if e.key == KbKey::Character("T".to_string()) || e.key == KbKey::Character("t".to_string()) {
+                    ctx.submit_command(Command::new(Selector::new("multiply_image_size"), 0.5, Target::Auto));
                 }
 
-                if e.key_code == KeyCode::KeyY {
-                    ctx.submit_command(Command::new(Selector::new("multiply_image_size"), 2.0), None);
+                if e.key == KbKey::Character("Y".to_string()) || e.key == KbKey::Character("y".to_string()) {
+                    ctx.submit_command(Command::new(Selector::new("multiply_image_size"), 2.0, Target::Auto));
                 }
 
-                if e.key_code == KeyCode::KeyR {
+                if e.key == KbKey::Character("R".to_string()) || e.key == KbKey::Character("r".to_string()) {
                     let settings = data.settings.lock().unwrap();
                     let new_rotate = (settings.get_float("rotate").unwrap() + 15.0) % 360.0;
 
-                    ctx.submit_command(Command::new(Selector::new("set_rotation"), new_rotate), None);
+                    ctx.submit_command(Command::new(Selector::new("set_rotation"), new_rotate, Target::Auto));
                 }
             },
             Event::Command(command) => {
@@ -223,7 +229,7 @@ impl Widget<FractalData> for FractalWidget {
                     let new_width = settings.get_int("image_width").unwrap() as f64 * factor;
                     let new_height = settings.get_int("image_height").unwrap() as f64 * factor;
 
-                    ctx.submit_command(Command::new(Selector::new("set_image_size"), (new_width as i64, new_height as i64)), None);
+                    ctx.submit_command(Command::new(Selector::new("set_image_size"), (new_width as i64, new_height as i64), Target::Auto));
                     return;
                 }
 
@@ -231,7 +237,7 @@ impl Widget<FractalData> for FractalWidget {
                     let window_width = settings.get_float("window_width").unwrap();
                     let window_height = settings.get_float("window_height").unwrap();
 
-                    ctx.submit_command(Command::new(Selector::new("set_image_size"), (window_width as i64, window_height as i64)), None);
+                    ctx.submit_command(Command::new(Selector::new("set_image_size"), (window_width as i64, window_height as i64), Target::Auto));
                     return;
                 }
 
@@ -246,7 +252,7 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.image_width = dimensions.0 as usize;
                     renderer.image_height = dimensions.1 as usize;
 
-                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
+                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
                     return;
                 }
 
@@ -264,11 +270,11 @@ impl Widget<FractalData> for FractalWidget {
                         renderer.data_export.maximum_iteration = data.temporary_iterations as usize;
                         renderer.data_export.regenerate();
 
-                        ctx.submit_command(Command::new(Selector::new("repaint"), ()), None);
+                        ctx.submit_command(Command::new(Selector::new("repaint"), (), Target::Auto));
                         return;
                     }
 
-                    ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), ()), None);
+                    ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), (), Target::Auto));
                     return;
                 }
 
@@ -291,7 +297,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
 
-                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
+                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
                     return;
                 }
 
@@ -314,13 +320,13 @@ impl Widget<FractalData> for FractalWidget {
                             // iterations changed
                             if current_iterations == data.temporary_iterations {
                                 // println!("rotation");
-                                ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation.parse::<f64>().unwrap()), None);
+                                ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation.parse::<f64>().unwrap(), Target::Auto));
                                 return;
                             }
 
                             if current_rotation == data.temporary_rotation {
                                 // println!("iterations");
-                                ctx.submit_command(Command::new(Selector::new("set_iterations"), data.temporary_iterations), None);
+                                ctx.submit_command(Command::new(Selector::new("set_iterations"), data.temporary_iterations, Target::Auto));
                                 return;
                             }
 
@@ -331,7 +337,7 @@ impl Widget<FractalData> for FractalWidget {
                             if (data.temporary_iterations as usize) < renderer.maximum_iteration {
                                 // TODO needs to make it so that pixels are only iterated to the right level
                                 renderer.maximum_iteration = data.temporary_iterations as usize;
-                                ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation.parse::<f64>()), None);
+                                ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation.parse::<f64>(), Target::Auto));
                                 return;
                             }
                         } else {
@@ -346,7 +352,7 @@ impl Widget<FractalData> for FractalWidget {
                                 settings.set("zoom", data.temporary_zoom.clone()).unwrap();
                                 renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
 
-                                ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
+                                ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
                                 return;
                             }
                         }
@@ -360,7 +366,7 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("rotate", data.temporary_rotation.clone()).unwrap();
                     settings.set("iterations", data.temporary_iterations.clone()).unwrap();
 
-                    ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), ()), None);
+                    ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), (), Target::Auto));
                     return;
                 }
 
@@ -373,7 +379,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     // TODO properly set the maximum iterations
-                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
+                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
                     return;
                 }
 
@@ -386,10 +392,10 @@ impl Widget<FractalData> for FractalWidget {
                     // We have already computed the iterations and analytic derivatives
                     if renderer.analytic_derivative {
                         renderer.data_export.regenerate();
-                        ctx.submit_command(Command::new(Selector::new("repaint"), ()), None);
+                        ctx.submit_command(Command::new(Selector::new("repaint"), (), Target::Auto));
                     } else {
                         renderer.analytic_derivative = true;
-                        ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
+                        ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
                     };
 
                     return;
@@ -404,7 +410,7 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     renderer.rotate = new_rotate.to_radians();
 
-                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), ()), None);
+                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
                     return;
                 }
 
@@ -435,7 +441,7 @@ impl Widget<FractalData> for FractalWidget {
                     data.temporary_width = settings.get_int("image_width").unwrap();
                     data.temporary_height = settings.get_int("image_height").unwrap();
 
-                    ctx.submit_command(Command::new(Selector::new("repaint"), ()), None);
+                    ctx.submit_command(Command::new(Selector::new("repaint"), (), Target::Auto));
 
                     return;
                 }
@@ -443,7 +449,7 @@ impl Widget<FractalData> for FractalWidget {
                 if let Some(_) = command.get::<()>(Selector::new("reset_renderer_fast")) {
                     // renderer.maximum_iteration = renderer.data_export.maximum_iteration;
                     if data.need_full_rerender {
-                        ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), ()), None);
+                        ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), (), Target::Auto));
                         return;
                     }
 
@@ -477,8 +483,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     ctx.submit_command(Command::new(
                         druid::commands::SHOW_OPEN_PANEL,
-                        open_dialog_options.clone(),
-                    ), None);
+                        open_dialog_options.clone(), Target::Auto));
                     return;
                 }
 
@@ -490,8 +495,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     ctx.submit_command(Command::new(
                         druid::commands::SHOW_SAVE_PANEL,
-                        save_dialog_options.clone(),
-                    ), None);
+                        save_dialog_options.clone(), Target::Auto));
                     return;
                 }
 
@@ -504,8 +508,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     ctx.submit_command(Command::new(
                         druid::commands::SHOW_SAVE_PANEL,
-                        save_dialog_options.clone(),
-                    ), None);
+                        save_dialog_options.clone(),Target::Auto));
                     return;
                 }
 
@@ -608,7 +611,7 @@ impl Widget<FractalData> for FractalWidget {
 
                             if !reset_renderer {
                                 renderer.data_export.regenerate();
-                                ctx.submit_command(Command::new(Selector::new("repaint"), ()), None);
+                                ctx.submit_command(Command::new(Selector::new("repaint"), (), Target::Auto));
                             }
                         }
                         Err(_) => {}
@@ -618,7 +621,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     if reset_renderer {
                         data.temporary_location_source = file_name.to_string();
-                        ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), ()), None);
+                        ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), (), Target::Auto));
                     }
 
                     return;
@@ -717,8 +720,10 @@ pub fn main() {
     let mut settings = Config::default();
     settings.merge(File::with_name("start.toml")).unwrap();
 
+    let window_title = Box::leak(format!("rust-fractal {}", env!("CARGO_PKG_VERSION")).into_boxed_str());
+
     let window = WindowDesc::new(ui::ui_builder).title(
-        LocalizedString::new("rust-fractal-gui"),
+        LocalizedString::new(window_title),
     ).window_size((1280.0, 720.0)).resizable(true);
 
     let launcher = AppLauncher::with_window(window);
@@ -740,11 +745,13 @@ pub fn main() {
     launcher
         // .use_simple_logger()
         .configure_env(|env, _| {
-            env.set(FONT_NAME, "Lucida Console");
+            env.set(UI_FONT, FontDescriptor::new(FontFamily::new_unchecked("lucida console")));
             env.set(TEXT_SIZE_NORMAL, 12.0);
             env.set(BUTTON_BORDER_RADIUS, 2.0);
             env.set(TEXTBOX_BORDER_RADIUS, 2.0);
             env.set(PROGRESS_BAR_RADIUS, 2.0);
+            env.set(BORDERED_WIDGET_HEIGHT, 12.0);
+            
             // for test in env.get_all() {
             //     println!("{:?}", test);
             // };
@@ -850,7 +857,7 @@ fn testing_renderer(
                                         let min_valid_iteration = thread_counter_7.get();
             
                                         test.submit_command(
-                                            Selector::new("update_progress"), (stage, progress, time, min_valid_iteration), None).unwrap();
+                                            Selector::new("update_progress"), (stage, progress, time, min_valid_iteration), Target::Auto).unwrap();
                                     }
                                 };
             
@@ -863,10 +870,10 @@ fn testing_renderer(
                         tx.send(()).unwrap();
 
                         event_sink.submit_command(
-                            Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration), None).unwrap();
+                            Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration), Target::Auto).unwrap();
 
                         event_sink.submit_command(
-                            Selector::new("repaint"), (), None).unwrap();
+                            Selector::new("repaint"), (), Target::Auto).unwrap();
                     }
                     "reset_renderer_fast" => {
                         let mut renderer = thread_renderer.lock().unwrap();
@@ -927,7 +934,7 @@ fn testing_renderer(
                                         let min_valid_iteration = thread_counter_7.get();
 
                                         test.submit_command(
-                                            Selector::new("update_progress"), (stage, progress, time, min_valid_iteration), None).unwrap();
+                                            Selector::new("update_progress"), (stage, progress, time, min_valid_iteration), Target::Auto).unwrap();
                                     }
                                 };
             
@@ -940,10 +947,10 @@ fn testing_renderer(
                         tx.send(()).unwrap();
 
                         event_sink.submit_command(
-                            Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration), None).unwrap();
+                            Selector::new("update_progress"), (3usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration), Target::Auto).unwrap();
 
                         event_sink.submit_command(
-                            Selector::new("repaint"), (), None).unwrap();
+                            Selector::new("repaint"), (), Target::Auto).unwrap();
                     }
                     _ => {
                         println!("thread_command: {}", command);

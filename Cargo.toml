@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-druid = "0.6.0"
+druid = { git = "https://github.com/linebender/druid.git" }
 rust_fractal = {path = "../rust-fractal-core"}
 config = "^0.9"
 atomic-counter = "^1.0.1"
