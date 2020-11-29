@@ -21,6 +21,7 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 mod ui;
 pub mod lens;
 mod saving;
+pub mod custom;
 
 struct FractalWidget {
     buffer: Vec<u8>,
@@ -937,7 +938,7 @@ fn testing_renderer(
                                     }
                                 };
             
-                                thread::sleep(Duration::from_millis(80));
+                                thread::sleep(Duration::from_millis(10));
                             };
                         });
                         
@@ -1024,7 +1025,7 @@ fn testing_renderer(
                                     }
                                 };
             
-                                thread::sleep(Duration::from_millis(80));
+                                thread::sleep(Duration::from_millis(10));
                             };
                         });
 

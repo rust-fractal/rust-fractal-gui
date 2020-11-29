@@ -3,7 +3,7 @@ use druid::{Widget, Command, Selector, Target};
 
 use config::{Config, File};
 
-use crate::{FractalData, FractalWidget};
+use crate::{FractalData, FractalWidget, custom::RenderTimer};
 
 use crate::lens;
 
@@ -327,26 +327,15 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         format!("{:>8} - {:<8}", data.temporary_min_valid_iterations.to_string(), data.temporary_max_valid_iterations.to_string())
     }).align_right();
 
-    let render = Label::new(|data: &FractalData, _env: &_| {
-        let text = match data.temporary_stage {
-            1 => "REFERENCE",
-            2 => "APPROXIMATION",
-            3 => "ITERATION",
-            4 => "CORRECTION",
-            0 => "COMPLETE",
-            _ => "DEFAULT"
-        };
-
-        format!("{:>8} ms{:>14}", data.temporary_time, text)
-    }).align_right();
+    let render_timer = RenderTimer::new().align_right();
 
     let row_13 = Flex::row()
-        .with_child(skipped_label.fix_width(90.0))
+        .with_child(skipped_label.fix_width(50.0))
         .with_flex_child(skipped, 1.0);
 
     let row_14 = Flex::row()
-        .with_child(render_time_label.fix_width(90.0))
-        .with_flex_child(render, 1.0);
+        .with_child(render_time_label.fix_width(50.0))
+        .with_flex_child(render_timer, 1.0);
 
     let render_progress = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress);
 
