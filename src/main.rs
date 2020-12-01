@@ -180,6 +180,10 @@ impl Widget<FractalData> for FractalWidget {
 
                     ctx.submit_command(Command::new(Selector::new("set_rotation"), new_rotate, Target::Auto));
                 }
+
+                if e.mods.ctrl() && (e.key == KbKey::Character("S".to_string()) || e.key == KbKey::Character("s".to_string())) {
+                    ctx.submit_command(Command::new(Selector::new("save_all"), (), Target::Auto));
+                }
             },
             Event::Command(command) => {
                 // println!("{:?}", command);
@@ -539,12 +543,15 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some(file_info) = command.get(commands::OPEN_FILE) {
+                    settings.set("export", "gui").unwrap();
+
                     let mut new_settings = Config::default();
                     new_settings.merge(File::with_name(file_info.path().to_str().unwrap())).unwrap();
 
                     let file_name = file_info.path().file_name().unwrap().to_str().unwrap().split(".").next().unwrap();
 
                     let mut reset_renderer = false;
+                    let mut quick_reset = false;
 
                     match new_settings.get_str("real") {
                         Ok(real) => {
@@ -594,6 +601,42 @@ impl Widget<FractalData> for FractalWidget {
                         }
                     }
 
+                    match new_settings.get_int("image_width") {
+                        Ok(width) => {
+                            data.temporary_width = width;
+                            settings.set("image_width", width.clone()).unwrap();
+                            quick_reset = true;
+                        }
+                        Err(_) => {}
+                    }
+
+                    match new_settings.get_int("image_height") {
+                        Ok(height) => {
+                            data.temporary_height = height;
+                            settings.set("image_height", height.clone()).unwrap();
+                            quick_reset = true;
+                        }
+                        Err(_) => {}
+                    }
+
+                    match new_settings.get_int("approximation_order") {
+                        Ok(order) => {
+                            data.temporary_order = order;
+                            settings.set("approximation_order", order.clone()).unwrap();
+                            quick_reset = true;
+                        }
+                        Err(_) => {}
+                    }
+
+                    match new_settings.get_bool("analytic_derivative") {
+                        Ok(analytic_derivative) => {
+                            renderer.data_export.analytic_derivative = analytic_derivative;
+                            settings.set("analytic_derivative", analytic_derivative.clone()).unwrap();
+                            quick_reset = true;
+                        }
+                        Err(_) => {}
+                    }
+
                     match new_settings.get_array("palette") {
                         Ok(colour_values) => {
                             // Only reset these if the palette is defined
@@ -635,7 +678,7 @@ impl Widget<FractalData> for FractalWidget {
 
                             data.temporary_palette_source = file_name.to_string();
 
-                            if !reset_renderer {
+                            if !reset_renderer || !quick_reset {
                                 renderer.data_export.regenerate();
                                 ctx.submit_command(Command::new(Selector::new("repaint"), (), Target::Auto));
                             }
@@ -649,6 +692,10 @@ impl Widget<FractalData> for FractalWidget {
                         data.temporary_location_source = file_name.to_string();
                         // println!("calling full reset");
                         ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), (), Target::Auto));
+                    } else if quick_reset {
+                        data.temporary_location_source = file_name.to_string();
+                        // println!("calling full reset");
+                        ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
                     }
 
                     return;
@@ -690,7 +737,8 @@ impl Widget<FractalData> for FractalWidget {
                             let palette_offset = settings.get_float("palette_offset").unwrap();
 
                             let output = format!(
-                                "real = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}\n\nimage_width = {}\nimage_height = {}\nglitch_percentage = {}\napproximation_order = {}\nanalytic_derivative = {}\nframes = 1\nframe_offset = 0\nzoom_scale = 2.0\ndisplay_glitches = false\nauto_adjust_iterations = true\nremove_centre = false\nglitch_tolerance = 1.4e-6\nprobe_sampling = 15\ndata_storage_interval = 100\nvalid_iteration_frame_multiplier = 0.10\nvalid_iteration_probe_multiplier = 0.01\nexperimental = true\njitter = false\nexport = \"png\"\n\npalette = {:?}\niteration_division = {}\npalette_offset = {}", 
+                                "version = \"{}\"\n\nreal = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}\n\nimage_width = {}\nimage_height = {}\nglitch_percentage = {}\napproximation_order = {}\nanalytic_derivative = {}\nframes = 1\nframe_offset = 0\nzoom_scale = 2.0\ndisplay_glitches = false\nauto_adjust_iterations = true\nremove_centre = false\nglitch_tolerance = 1.4e-6\nprobe_sampling = 15\ndata_storage_interval = 100\nvalid_iteration_frame_multiplier = 0.10\nvalid_iteration_probe_multiplier = 0.01\nexperimental = true\njitter = false\nexport = \"png\"\n\npalette = {:?}\niteration_division = {}\npalette_offset = {}", 
+                                env!("CARGO_PKG_VERSION"),
                                 real, 
                                 imag, 
                                 zoom, 

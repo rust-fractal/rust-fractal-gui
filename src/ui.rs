@@ -298,15 +298,20 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(4.0)
         .with_flex_child(button_set_order, 0.3);
 
-    let button_save_image = Button::new("SAVE IMAGE").on_click(|ctx, _data: &mut FractalData, _env| {
+    let mut export_label = Label::<FractalData>::new("EXPORT:");
+
+    export_label.set_text_size(14.0);
+
+    let button_save_image = Button::new("IMAGE").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(Command::new(Selector::new("save_image"), (), Target::Auto));
     }).expand_width();
 
-    let button_refresh_full = Button::new("SAVE FULL").on_click(|ctx, _data: &mut FractalData, _env| {
+    let button_refresh_full = Button::new("SETTINGS").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(Command::new(Selector::new("save_all"), (), Target::Auto));
     }).expand_width();
 
     let row_11 = Flex::row()
+        .with_child(export_label.fix_width(90.0))
         .with_flex_child(button_save_image, 1.0)
         .with_spacer(2.0)
         .with_flex_child(button_refresh_full, 1.0);
