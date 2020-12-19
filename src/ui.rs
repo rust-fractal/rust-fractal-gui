@@ -352,11 +352,20 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
         text.to_string()
     }).on_click(|ctx, data: &mut FractalData, _env| {
-        if data.temporary_stage == 0 {
+        if data.temporary_stage == 0 && data.zoom_out_enabled == false {
+            // TODO maybe add a section here that checks if a zoom out sequence is ongoing
             ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
         } else {
             ctx.submit_command(Command::new(Selector::new("stop_rendering"), (), Target::Auto));
         }
+    }).expand_width();
+
+    let button_start_zoom_out = Button::new("START ZOOM OUT").on_click(|ctx, _data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("start_zoom_out"), (), Target::Auto));
+    }).expand_width();
+
+    let button_start_zoom_out_optimised = Button::new("START ZOOM OUT OPTIMISED").on_click(|ctx, _data: &mut FractalData, _env| {
+        ctx.submit_command(Command::new(Selector::new("start_zoom_out_optimised"), (), Target::Auto));
     }).expand_width();
 
     let row_15 = Flex::row()
@@ -396,7 +405,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(4.0)
         .with_child(row_14)
         .with_spacer(4.0)
-        .with_child(row_15);
+        .with_child(row_15)
+        .with_spacer(4.0)
+        .with_child(button_start_zoom_out)
+        .with_spacer(4.0)
+        .with_child(button_start_zoom_out_optimised);
 
     columns.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
 

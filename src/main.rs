@@ -56,6 +56,7 @@ pub struct FractalData {
     sender: Arc<Mutex<mpsc::Sender<String>>>,
     stop_flag: Arc<RelaxedCounter>,
     need_full_rerender: bool,
+    zoom_out_enabled: bool,
 }
 
 impl Widget<FractalData> for FractalWidget {
@@ -186,7 +187,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
             },
             Event::Command(command) => {
-                // println!("{:?}", command);
+                println!("{}", data.zoom_out_enabled);
 
                 if let Some(_) = command.get::<()>(Selector::new("stop_rendering")) {
                     if data.temporary_stage != 0 {
@@ -197,6 +198,8 @@ impl Widget<FractalData> for FractalWidget {
                     if data.temporary_stage == 1 || data.temporary_stage == 2 {
                         data.stop_flag.inc();
                     }
+
+                    data.zoom_out_enabled = false;
 
                     return;
                 }
@@ -216,6 +219,7 @@ impl Widget<FractalData> for FractalWidget {
                     self.reset_buffer = true;
 
                     ctx.request_paint();
+
                     return;
                 }
 
@@ -235,6 +239,8 @@ impl Widget<FractalData> for FractalWidget {
 
                 let mut settings = data.settings.lock().unwrap();
                 let mut renderer = data.renderer.lock().unwrap();
+
+                
 
                 if let Some(factor) = command.get::<f64>(Selector::new("multiply_image_size")) {
                     let new_width = settings.get_int("image_width").unwrap() as f64 * factor;
@@ -391,6 +397,26 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     // TODO properly set the maximum iterations
                     ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
+                    return;
+                }
+
+                if let Some(_) = command.get::<()>(Selector::new("start_zoom_out")) {
+                    renderer.remaining_frames = 2;
+                    data.zoom_out_enabled = true;
+
+                    ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 0.5, Target::Auto));
+
+                    return;
+                }
+
+                if let Some(_) = command.get::<()>(Selector::new("start_zoom_out_optimised")) {
+                    renderer.remaining_frames = 2;
+                    renderer.remove_centre = true;
+                    renderer.data_export.clear_buffers();
+                    data.zoom_out_enabled = true;
+
+                    ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 0.5, Target::Auto));
+
                     return;
                 }
 
@@ -895,7 +921,8 @@ pub fn main() {
             settings: shared_settings,
             sender: Arc::new(Mutex::new(sender)),
             stop_flag: shared_stop_flag,
-            need_full_rerender: false
+            need_full_rerender: false,
+            zoom_out_enabled: false
         })
         .expect("launch failed");
 }
@@ -1086,8 +1113,24 @@ fn testing_renderer(
                             (0usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), 
                             Target::Auto).unwrap();
 
+                        let keep_rendering = (renderer.remaining_frames > 1 && renderer.zoom.to_float() > 0.5) && thread_stop_flag.clone().get() == 0;
+                        // println!("zoom: {}", renderer.zoom.to_float());
+
+                        if !keep_rendering {
+                            renderer.remaining_frames = 1;
+                            renderer.remove_centre = false;
+                        }
+
+                        drop(renderer);
+
                         event_sink.submit_command(
                             Selector::new("repaint"), (), Target::Auto).unwrap();
+
+                        if keep_rendering {
+                            thread::sleep(Duration::from_millis(250));
+
+                            event_sink.submit_command(Selector::new("multiply_zoom_level"), 0.5, Target::Auto).unwrap();
+                        }
                     }
                     _ => {
                         println!("thread_command: {}", command);
