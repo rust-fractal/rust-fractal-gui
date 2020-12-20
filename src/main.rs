@@ -136,7 +136,6 @@ impl Widget<FractalData> for FractalWidget {
                             renderer.maximum_iteration
                         };
 
-                        // BUG, somewhere in this update thing, need to deal with if the maximum iteration is less than reference or something
                         settings.set("iterations", new_iterations as i64).unwrap();
                         data.temporary_iterations = new_iterations as i64;
 
@@ -187,7 +186,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
             },
             Event::Command(command) => {
-                println!("{}", data.zoom_out_enabled);
+                // println!("{}", data.zoom_out_enabled);
 
                 if let Some(_) = command.get::<()>(Selector::new("stop_rendering")) {
                     if data.temporary_stage != 0 {
@@ -470,9 +469,7 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("iteration_division", new_division as f64).unwrap();
                     settings.set("palette_offset", new_offset as f64).unwrap();
 
-                    renderer.data_export.iteration_division = new_division;
-                    renderer.data_export.iteration_offset = new_offset;
-
+                    renderer.data_export.change_palette(None, new_division, new_offset);
                     renderer.data_export.regenerate();
 
                     data.temporary_width = settings.get_int("image_width").unwrap();
@@ -697,10 +694,11 @@ impl Widget<FractalData> for FractalWidget {
                                     value[0].clone().into_int().unwrap() as u8)
                             }).collect::<Vec<(u8, u8, u8)>>();
 
-                            renderer.data_export.palette = palette;
-                            renderer.data_export.iteration_division = settings.get_float("iteration_division").unwrap() as f32;
-                            renderer.data_export.iteration_offset = settings.get_float("palette_offset").unwrap() as f32;
-
+                            renderer.data_export.change_palette(
+                                Some(palette),
+                                settings.get_float("iteration_division").unwrap() as f32,
+                                settings.get_float("palette_offset").unwrap() as f32
+                            );
 
                             data.temporary_palette_source = file_name.to_string();
 
