@@ -346,16 +346,25 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
     let button_toggle_state = Button::new(|data: &FractalData, _env: &_| {
         let text = match data.temporary_stage {
-            0 => "RESET",
-            _ => "CANCEL"
+            0 => {
+                if data.zoom_out_enabled {
+                    "CANCEL"
+                } else {
+                    "RESET"
+                }   
+            },
+            _ => {
+                "CANCEL"
+            }
         };
 
         text.to_string()
     }).on_click(|ctx, data: &mut FractalData, _env| {
-        if data.temporary_stage == 0 && data.zoom_out_enabled == false {
+        if data.temporary_stage == 0 && !data.zoom_out_enabled {
             // TODO maybe add a section here that checks if a zoom out sequence is ongoing
             ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
         } else {
+            // println!("stop called");
             ctx.submit_command(Command::new(Selector::new("stop_rendering"), (), Target::Auto));
         }
     }).expand_width();

@@ -13,9 +13,11 @@ pub fn testing_renderer(
     reciever: mpsc::Receiver<String>, 
     thread_settings: Arc<Mutex<Config>>, 
     thread_renderer: Arc<Mutex<FractalRenderer>>, 
-    thread_stop_flag: Arc<RelaxedCounter>) {
+    thread_stop_flag: Arc<RelaxedCounter>,
+    thread_repeat_flag: Arc<RelaxedCounter>) {
     loop {
         let stop_flag = thread_stop_flag.clone();
+        let repeat_flag = thread_repeat_flag.clone();
 
         match reciever.recv() {
             Ok(command) => {
@@ -194,24 +196,25 @@ pub fn testing_renderer(
                             (0usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), 
                             Target::Auto).unwrap();
 
-                        let keep_rendering = (renderer.remaining_frames > 1 && renderer.zoom.to_float() > 0.5) && thread_stop_flag.clone().get() == 0;
-                        // println!("zoom: {}", renderer.zoom.to_float());
-
-                        if !keep_rendering {
-                            renderer.remaining_frames = 1;
-                            renderer.remove_centre = false;
-                        }
-
                         drop(renderer);
 
                         event_sink.submit_command(
                             Selector::new("repaint"), (), Target::Auto).unwrap();
 
-                        if keep_rendering {
-                            thread::sleep(Duration::from_millis(250));
+                        thread::sleep(Duration::from_millis(100));
 
+                        let mut renderer = thread_renderer.lock().unwrap();
+
+                        // println!("repeat flag: {}", repeat_flag.get());
+                        println!("frames: {}, repeat: {}, zoom: {}", renderer.remaining_frames, repeat_flag.get(), renderer.zoom.to_float());
+
+                        if (renderer.remaining_frames > 1 && renderer.zoom.to_float() > 0.5) && repeat_flag.get() == 0 {
+                            println!("sending multiply command");
                             event_sink.submit_command(Selector::new("multiply_zoom_level"), 0.5, Target::Auto).unwrap();
-                        }
+                        } else {
+                            renderer.remaining_frames = 1;
+                            renderer.remove_centre = false;
+                        };
                     }
                     _ => {
                         println!("thread_command: {}", command);

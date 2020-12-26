@@ -57,6 +57,7 @@ pub struct FractalData {
     settings: Arc<Mutex<Config>>,
     sender: Arc<Mutex<mpsc::Sender<String>>>,
     stop_flag: Arc<RelaxedCounter>,
+    repeat_flag: Arc<RelaxedCounter>,
     need_full_rerender: bool,
     zoom_out_enabled: bool,
 }
@@ -184,10 +185,10 @@ impl Widget<FractalData> for FractalWidget {
                 }
             },
             Event::Command(command) => {
-                // println!("{}", data.zoom_out_enabled);
+                // println!("{:?}", command);
 
                 if let Some(_) = command.get::<()>(Selector::new("stop_rendering")) {
-                    if data.temporary_stage != 0 {
+                    if data.temporary_stage != 0 || data.zoom_out_enabled {
                         data.stop_flag.inc();
                     }
 
@@ -195,6 +196,12 @@ impl Widget<FractalData> for FractalWidget {
                     if data.temporary_stage == 1 || data.temporary_stage == 2 {
                         data.stop_flag.inc();
                     }
+
+                    if data.zoom_out_enabled {
+                        data.repeat_flag.inc();
+                    }
+
+                    // println!("stop {} {}", data.zoom_out_enabled, data.repeat_flag.get());
 
                     data.zoom_out_enabled = false;
 
@@ -404,7 +411,11 @@ impl Widget<FractalData> for FractalWidget {
 
                 if let Some(_) = command.get::<()>(Selector::new("start_zoom_out")) {
                     renderer.remaining_frames = 2;
+
                     data.zoom_out_enabled = true;
+                    data.repeat_flag.add(usize::max_value() - data.repeat_flag.get() + 1);
+
+                    // println!("start zoom out: {}", data.repeat_flag.get());
 
                     ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 0.5, Target::Auto));
 
@@ -415,7 +426,9 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.remaining_frames = 2;
                     renderer.remove_centre = true;
                     renderer.data_export.clear_buffers();
+
                     data.zoom_out_enabled = true;
+                    data.repeat_flag.add(usize::max_value() - data.repeat_flag.get() + 1);
 
                     ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 0.5, Target::Auto));
 
@@ -879,12 +892,14 @@ pub fn main() {
     let shared_settings = Arc::new(Mutex::new(settings.clone()));
     let shared_renderer = Arc::new(Mutex::new(FractalRenderer::new(settings.clone())));
     let shared_stop_flag = Arc::new(RelaxedCounter::new(0));
+    let shared_repeat_flag = Arc::new(RelaxedCounter::new(0));
 
     let thread_settings = shared_settings.clone();
     let thread_renderer = shared_renderer.clone();
     let thread_stop_flag = shared_stop_flag.clone();
+    let thread_repeat_flag = shared_repeat_flag.clone();
 
-    thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer, thread_stop_flag));
+    thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer, thread_stop_flag, thread_repeat_flag));
 
     launcher
         // .use_simple_logger()
@@ -923,6 +938,7 @@ pub fn main() {
             settings: shared_settings,
             sender: Arc::new(Mutex::new(sender)),
             stop_flag: shared_stop_flag,
+            repeat_flag: shared_repeat_flag,
             need_full_rerender: false,
             zoom_out_enabled: false
         })
