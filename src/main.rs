@@ -1,10 +1,11 @@
 use std::sync::{Arc, Mutex};
 
 use druid::widget::prelude::*;
+use druid::Color;
 
 use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Command, Data, Lens, Selector, Target, FontDescriptor, FontFamily};
 use druid::piet::{ImageFormat, InterpolationMode};
-use druid::theme::{BUTTON_BORDER_RADIUS, TEXT_SIZE_NORMAL, UI_FONT, TEXTBOX_BORDER_RADIUS, PROGRESS_BAR_RADIUS, BORDERED_WIDGET_HEIGHT};
+use druid::theme::{BUTTON_BORDER_RADIUS, TEXT_SIZE_NORMAL, UI_FONT, TEXTBOX_BORDER_RADIUS, PROGRESS_BAR_RADIUS, BORDERED_WIDGET_HEIGHT, PRIMARY_LIGHT, PRIMARY_DARK, BACKGROUND_LIGHT, BACKGROUND_DARK, WINDOW_BACKGROUND_COLOR};
 
 use rust_fractal::renderer::FractalRenderer;
 use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended};
@@ -742,7 +743,7 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                if let Some(file_info) = command.get(commands::SAVE_FILE) {
+                if let Some(file_info) = command.get(commands::SAVE_FILE_AS) {
                     match self.save_type {
                         0 => {
                             let real = settings.get_str("real").unwrap();
@@ -753,7 +754,7 @@ impl Widget<FractalData> for FractalWidget {
 
                             let output = format!("real = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}", real, imag, zoom, iterations.to_string(), rotate.to_string());
 
-                            if let Err(e) = std::fs::write(file_info.clone().unwrap().path(), output) {
+                            if let Err(e) = std::fs::write(file_info.path(), output) {
                                 println!("Error writing file: {}", e);
                             }
                         },
@@ -794,12 +795,12 @@ impl Widget<FractalData> for FractalWidget {
                                 iteration_division,
                                 palette_offset);
 
-                            if let Err(e) = std::fs::write(file_info.clone().unwrap().path(), output) {
+                            if let Err(e) = std::fs::write(file_info.path(), output) {
                                 println!("Error writing file: {}", e);
                             }
                         },
                         2 => {
-                            renderer.data_export.save_colour(file_info.clone().unwrap().path().to_str().unwrap());
+                            renderer.data_export.save_colour(file_info.path().to_str().unwrap());
                         },
                         _ => {}
                     }
@@ -906,10 +907,17 @@ pub fn main() {
         .configure_env(|env, _| {
             env.set(UI_FONT, FontDescriptor::new(FontFamily::new_unchecked("lucida console")));
             env.set(TEXT_SIZE_NORMAL, 12.0);
-            env.set(BUTTON_BORDER_RADIUS, 2.0);
-            env.set(TEXTBOX_BORDER_RADIUS, 2.0);
-            env.set(PROGRESS_BAR_RADIUS, 2.0);
+            env.set(BUTTON_BORDER_RADIUS, 0.0);
+            env.set(TEXTBOX_BORDER_RADIUS, 0.0);
+            env.set(PROGRESS_BAR_RADIUS, 0.0);
             env.set(BORDERED_WIDGET_HEIGHT, 12.0);
+            env.set(PRIMARY_LIGHT, Color::from_hex_str("#1DB954").unwrap());
+            env.set(PRIMARY_DARK, Color::from_hex_str("#1DB954").unwrap());
+
+            env.set(BACKGROUND_LIGHT, Color::from_hex_str("#191414").unwrap());
+            env.set(BACKGROUND_DARK, Color::from_hex_str("#191414").unwrap());
+            env.set(WINDOW_BACKGROUND_COLOR, Color::from_hex_str("#191414").unwrap());
+
             
             // for test in env.get_all() {
             //     println!("{:?}", test);

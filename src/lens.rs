@@ -2,6 +2,8 @@ use druid::Lens;
 
 use crate::FractalData;
 
+// TODO replace these with the correct textbox formatter
+
 pub struct WidthLens;
 
 impl Lens<FractalData, String> for WidthLens {
