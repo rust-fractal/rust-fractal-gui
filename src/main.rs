@@ -5,7 +5,23 @@ use druid::Color;
 
 use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Command, Data, Lens, Selector, Target, FontDescriptor, FontFamily};
 use druid::piet::{ImageFormat, InterpolationMode};
-use druid::theme::{BUTTON_BORDER_RADIUS, TEXT_SIZE_NORMAL, UI_FONT, TEXTBOX_BORDER_RADIUS, PROGRESS_BAR_RADIUS, BORDERED_WIDGET_HEIGHT, PRIMARY_LIGHT, PRIMARY_DARK, BACKGROUND_LIGHT, BACKGROUND_DARK, WINDOW_BACKGROUND_COLOR};
+use druid::theme::{
+    TEXT_SIZE_NORMAL, 
+    UI_FONT, 
+    TEXTBOX_BORDER_RADIUS,
+    TEXTBOX_BORDER_WIDTH,
+    PROGRESS_BAR_RADIUS, 
+    BORDERED_WIDGET_HEIGHT, 
+    PRIMARY_LIGHT, 
+    PRIMARY_DARK, 
+    BACKGROUND_LIGHT, 
+    BACKGROUND_DARK, 
+    WINDOW_BACKGROUND_COLOR,
+    BUTTON_BORDER_RADIUS,
+    BUTTON_BORDER_WIDTH,
+    BUTTON_LIGHT,
+    BUTTON_DARK
+};
 
 use rust_fractal::renderer::FractalRenderer;
 use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended};
@@ -61,6 +77,7 @@ pub struct FractalData {
     repeat_flag: Arc<RelaxedCounter>,
     need_full_rerender: bool,
     zoom_out_enabled: bool,
+    show_settings: bool
 }
 
 impl Widget<FractalData> for FractalWidget {
@@ -907,15 +924,25 @@ pub fn main() {
         .configure_env(|env, _| {
             env.set(UI_FONT, FontDescriptor::new(FontFamily::new_unchecked("lucida console")));
             env.set(TEXT_SIZE_NORMAL, 12.0);
+
             env.set(BUTTON_BORDER_RADIUS, 0.0);
             env.set(TEXTBOX_BORDER_RADIUS, 0.0);
             env.set(PROGRESS_BAR_RADIUS, 0.0);
+
+            env.set(BUTTON_BORDER_WIDTH, 1.5);
+            env.set(TEXTBOX_BORDER_WIDTH, 1.5);
+
             env.set(BORDERED_WIDGET_HEIGHT, 12.0);
+
             env.set(PRIMARY_LIGHT, Color::from_hex_str("#1DB954").unwrap());
             env.set(PRIMARY_DARK, Color::from_hex_str("#1DB954").unwrap());
 
             env.set(BACKGROUND_LIGHT, Color::from_hex_str("#191414").unwrap());
             env.set(BACKGROUND_DARK, Color::from_hex_str("#191414").unwrap());
+
+            env.set(BUTTON_LIGHT, Color::from_hex_str("#3F3F3F").unwrap());
+            env.set(BUTTON_DARK, Color::from_hex_str("#3F3F3F").unwrap());
+
             env.set(WINDOW_BACKGROUND_COLOR, Color::from_hex_str("#191414").unwrap());
 
             
@@ -948,7 +975,8 @@ pub fn main() {
             stop_flag: shared_stop_flag,
             repeat_flag: shared_repeat_flag,
             need_full_rerender: false,
-            zoom_out_enabled: false
+            zoom_out_enabled: false,
+            show_settings: false,
         })
         .expect("launch failed");
 }

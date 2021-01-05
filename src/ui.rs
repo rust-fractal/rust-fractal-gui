@@ -1,4 +1,4 @@
-use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt, ProgressBar, LensWrap};
+use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt, ProgressBar, LensWrap, Either};
 use druid::{Widget, Command, Selector, Target};
 
 use config::{Config, File};
@@ -377,6 +377,10 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         ctx.submit_command(Command::new(Selector::new("start_zoom_out_optimised"), (), Target::Auto));
     }).expand_width();
 
+    let button_toggle_menu = Button::new("ADVANCED OPTIONS").on_click(|_ctx, data: &mut FractalData, _env| {
+        data.show_settings = true;
+    }).expand_width();
+
     let row_15 = Flex::row()
         .with_flex_child(render_progress, 0.75)
         .with_spacer(4.0)
@@ -418,7 +422,9 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(4.0)
         .with_child(button_start_zoom_out)
         .with_spacer(4.0)
-        .with_child(button_start_zoom_out_optimised);
+        .with_child(button_start_zoom_out_optimised)
+        .with_spacer(4.0)
+        .with_child(button_toggle_menu);
 
     columns.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
 
@@ -429,6 +435,35 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     
     flex.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
 
+    let mut advanced_options_label = Label::<FractalData>::new("ADVANCED OPTIONS");
+    advanced_options_label.set_text_size(20.0);
 
-    Split::columns(render_screen, flex).split_point(0.75).draggable(true)
+    let button_save_advanced_options = Button::new("SAVE & UPDATE").on_click(|_ctx, data: &mut FractalData, _env| {
+        data.show_settings = false;
+        // ctx.submit_command(Command::new(Selector::new("start_zoom_out"), (), Target::Auto));
+    }).expand_width().fix_height(40.0);
+
+    let advanced_options_title = Flex::<FractalData>::row()
+        .with_flex_child(advanced_options_label.expand_width(), 0.8)
+        .with_spacer(8.0)
+        .with_flex_child(button_save_advanced_options, 0.2);
+
+    let mut advanced_options = Flex::<FractalData>::column()
+        .with_spacer(8.0)
+        .with_child(advanced_options_title);
+
+    advanced_options.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
+    
+    let mut advanced_options_flex = Flex::<FractalData>::row()
+        .with_flex_spacer(0.05)
+        .with_flex_child(advanced_options, 0.9)
+        .with_flex_spacer(0.05);
+
+    advanced_options_flex.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
+
+    let test_switcher = Either::new(|data: &FractalData, _env| {
+            data.show_settings
+        }, advanced_options_flex, render_screen);
+
+    Split::columns(test_switcher, flex).split_point(0.75).draggable(true).solid_bar(true).bar_size(4.0)
 }
