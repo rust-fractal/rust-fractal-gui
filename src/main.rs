@@ -214,6 +214,10 @@ impl Widget<FractalData> for FractalWidget {
             Event::Command(command) => {
                 // println!("{:?}", command);
 
+                if let Some(_) = command.get::<()>(Selector::new("update_palette")) {
+                    return;
+                }
+
                 if let Some(_) = command.get::<()>(Selector::new("stop_rendering")) {
                     if data.temporary_stage != 0 || data.zoom_out_enabled {
                         data.stop_flag.inc();
@@ -730,6 +734,7 @@ impl Widget<FractalData> for FractalWidget {
                             }
 
                             settings.set("palette", colour_values.clone()).unwrap();
+                            ctx.submit_command(Command::new(Selector::new("update_palette"), (), Target::Auto));
 
                             let palette = colour_values.chunks_exact(3).map(|value| {
                                 // We assume the palette is in BGR rather than RGB

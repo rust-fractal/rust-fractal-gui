@@ -1,9 +1,10 @@
-use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt, ProgressBar, LensWrap, Either, Checkbox};
-use druid::{Widget, Command, Selector, Target};
+use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt, ProgressBar, LensWrap, Either, Checkbox, Image, FillStrat};
+use druid::{Widget, Command, Selector, Target, ImageBuf};
+use druid::piet::{ImageFormat, InterpolationMode};
 
 use config::{Config, File};
 
-use crate::{FractalData, FractalWidget, custom::RenderTimer};
+use crate::{FractalData, FractalWidget, custom::RenderTimer, custom::PaletteUpdateController};
 
 use crate::lens;
 
@@ -269,10 +270,25 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(4.0)
         .with_flex_child(set_iteration_offset, 0.3);
 
+    let raw_buffer = settings.get_array("palette").unwrap().chunks(3).map(|value| {
+        Vec::from([value[2].clone().into_int().unwrap() as u8, value[1].clone().into_int().unwrap() as u8, value[0].clone().into_int().unwrap() as u8])
+    }).flatten().collect::<Vec<u8>>();
+
+    let test = ImageBuf::from_raw(raw_buffer.clone(), ImageFormat::Rgb, raw_buffer.len() / 3, 1);
+
+    let test_image = Image::new(test)
+        .interpolation_mode(InterpolationMode::Bilinear)
+        .fill_mode(FillStrat::Fill)
+        .controller(PaletteUpdateController)
+        .fix_height(12.0)
+        .expand_width();
+
     let row_8 = Flex::column()
         .with_child(colouring_method_row)
         .with_spacer(4.0)
         .with_child(palette_row)
+        .with_spacer(4.0)
+        .with_child(test_image)
         .with_spacer(4.0)
         .with_child(offset_division_row);
 
