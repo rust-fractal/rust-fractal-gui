@@ -411,38 +411,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         // ctx.submit_command(Command::new(Selector::new("start_zoom_out"), (), Target::Auto));
     }).expand_width().fix_height(40.0);
 
-    
-
-    let display_glitches_check = LensWrap::new(Checkbox::new(""), FractalData::temporary_display_glitches);
-    let experimental_check = LensWrap::new(Checkbox::new(""), FractalData::temporary_experimental);
-    let jitter_check = LensWrap::new(Checkbox::new(""), FractalData::temporary_jitter);
-    let auto_adjust_iterations_check = LensWrap::new(Checkbox::new(""), FractalData::temporary_auto_adjust_iterations);
-    let remove_centre_check = LensWrap::new(Checkbox::new(""), FractalData::temporary_remove_center);
-
-    let display_glitches = Flex::row()
-        .with_flex_child(Label::new("Show glitched pixels").expand_width(), 1.0)
-        .with_spacer(4.0)
-        .with_child(display_glitches_check);
-
-    let experimental = Flex::row()
-        .with_flex_child(Label::new("Use experimental algorithm").expand_width(), 1.0)
-        .with_spacer(4.0)
-        .with_child(experimental_check);
-
-    let jitter = Flex::row()
-        .with_flex_child(Label::new("Jitter pixels").expand_width(), 1.0)
-        .with_spacer(4.0)
-        .with_child(jitter_check);
-
-    let auto_adjust_iterations = Flex::row()
-        .with_flex_child(Label::new("Automatically adjust iterations").expand_width(), 1.0)
-        .with_spacer(4.0)
-        .with_child(auto_adjust_iterations_check);
-
-    let remove_centre = Flex::row()
-        .with_flex_child(Label::new("Remove image centre").expand_width(), 1.0)
-        .with_spacer(4.0)
-        .with_child(remove_centre_check);
+    let display_glitches = create_checkbox_row("Show glitched pixels").lens(FractalData::temporary_display_glitches);
+    let experimental = create_checkbox_row("Use experimental algorithm").lens(FractalData::temporary_experimental);
+    let jitter = create_checkbox_row("Jitter pixels").lens(FractalData::temporary_jitter);
+    let auto_adjust_iterations = create_checkbox_row("Automatically adjust iterations").lens(FractalData::temporary_auto_adjust_iterations);
+    let remove_centre = create_checkbox_row("Remove image centre").lens(FractalData::temporary_remove_center);
 
     let advanced_options_title = Flex::<FractalData>::row()
         .with_flex_child(advanced_options_label.expand_width(), 0.8)
@@ -549,22 +522,31 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
 
 fn create_label_textbox_row<T: Data + Display + FromStr>(label: &str, width: f64) -> impl Widget<T> where <T as FromStr>::Err: std::error::Error {
-    let label = Label::<T>::new(label);
+    let label = Label::<T>::new(label).with_text_size(14.0);
 
     let text_box = TextBox::new()
         .with_formatter(ParseFormatter::new())
         .update_data_while_editing(true)
         .expand_width();
 
-    // let button_set_order = Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
-    //     ctx.submit_command(Command::new(Selector::new("set_approximation_order"), (), Target::Auto));
-    // }).expand_width();
-
     Flex::row()
         .with_child(label.fix_width(width))
         .with_flex_child(text_box, 1.0)
 }
 
+fn create_checkbox_row(label: &str) -> impl Widget<bool> {
+    let label = Label::<bool>::new(label)
+        .expand_width();
+
+    let check_box = Checkbox::new("");
+
+    Flex::row()
+        .with_flex_child(label, 1.0)
+        .with_spacer(4.0)
+        .with_child(check_box)
+}
 
 
-
+    // let button_set_order = Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
+    //     ctx.submit_command(Command::new(Selector::new("set_approximation_order"), (), Target::Auto));
+    // }).expand_width();
