@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use druid::widget::prelude::*;
 use druid::Color;
 
-use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Command, Data, Lens, Selector, Target, FontDescriptor, FontFamily};
+use druid::{commands, AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Command, Data, Lens, Selector, Target, FontDescriptor, FontFamily, MenuDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::theme::{
     TEXT_SIZE_NORMAL, 
@@ -1011,13 +1011,14 @@ pub fn main() {
     let mut settings = Config::default();
     settings.merge(File::with_name("start.toml")).unwrap();
 
-    let zoom = string_to_extended(&settings.get_str("zoom").unwrap());
+    let zoom_string = settings.get_str("zoom").unwrap();
+    let temp: Vec<&str> = zoom_string.split('E').collect();
 
     let window_title = Box::leak(format!("rust-fractal {}", env!("CARGO_PKG_VERSION")).into_boxed_str());
 
     let window = WindowDesc::new(ui::ui_builder).title(
         LocalizedString::new(window_title),
-    ).window_size((1280.0, 720.0)).resizable(true);
+    ).window_size((1070.0, 720.0)).resizable(true).menu(make_menu());
 
     let launcher = AppLauncher::with_window(window);
 
@@ -1074,9 +1075,9 @@ pub fn main() {
             temporary_height: settings.get_int("image_height").unwrap(),
             temporary_real: settings.get_str("real").unwrap(),
             temporary_imag: settings.get_str("imag").unwrap(),
-            temporary_zoom_mantissa: zoom.mantissa,
-            temporary_zoom_exponent: zoom.exponent as i64,
-            temporary_zoom_string: settings.get_str("zoom").unwrap(),
+            temporary_zoom_mantissa: temp[0].parse::<f64>().unwrap(),
+            temporary_zoom_exponent: temp[1].parse::<i64>().unwrap(),
+            temporary_zoom_string: zoom_string,
             temporary_iterations: settings.get_int("iterations").unwrap(),
             temporary_rotation: settings.get_float("rotate").unwrap().to_string(),
             temporary_order: settings.get_int("approximation_order").unwrap(),
@@ -1108,4 +1109,26 @@ pub fn main() {
             show_settings: false,
         })
         .expect("launch failed");
+}
+
+#[allow(unused_assignments, unused_mut)]
+fn make_menu<T: Data>() -> MenuDesc<T> {
+    let mut base = MenuDesc::empty();
+    #[cfg(target_os = "macos")]
+    {
+        base = base.append(druid::platform_menus::mac::application::default())
+    }
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    {
+        base = base.append(druid::platform_menus::win::file::default());
+    }
+    base.append(
+        MenuDesc::new(LocalizedString::new("common-menu-edit-menu"))
+            .append(druid::platform_menus::common::undo())
+            .append(druid::platform_menus::common::redo())
+            .append_separator()
+            .append(druid::platform_menus::common::cut())
+            .append(druid::platform_menus::common::copy())
+            .append(druid::platform_menus::common::paste()),
+    )
 }
