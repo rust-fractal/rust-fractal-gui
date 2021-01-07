@@ -471,7 +471,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     imag_label.set_text_size(14.0);
 
     let real = LensWrap::new(TextBox::multiline().with_text_size(10.0).expand_width(), lens::RealLens);
+    // let real = TextBox::multiline().with_text_size(10.0).expand_width().lens(FractalData::temporary_real);
+
     let imag = LensWrap::new(TextBox::multiline().with_text_size(10.0).expand_width(), lens::ImagLens);
+
+
 
     let real_row = Flex::row()
         .with_child(real_label.fix_width(60.0))
