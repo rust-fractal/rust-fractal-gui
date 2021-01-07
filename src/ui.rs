@@ -24,17 +24,10 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     };
     // }.debug_invalidation();
 
-    let mut resolution_title = Label::<FractalData>::new("RESOLUTION");
-    resolution_title.set_text_size(20.0);
 
-    let row_1 = Flex::row()
-        .with_flex_child(resolution_title.expand_width(), 1.0);
+    let resolution_title = Label::<FractalData>::new("RESOLUTION").with_text_size(20.0);
 
-    let width_section = create_label_textbox_row("WIDTH:", 80.0)
-        .lens(FractalData::temporary_width);
-
-    let height_section = create_label_textbox_row("HEIGHT:", 80.0)
-        .lens(FractalData::temporary_height);
+    let row_1 = resolution_title.expand_width();
 
 
     let button_set_image_size = Button::new("SET").on_click(|ctx, data: &mut FractalData, _env| {
@@ -42,14 +35,17 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     }).expand_width().fix_height(36.0);
 
     let image_size_column = Flex::column()
-        .with_child(width_section)
+        .with_child(create_label_textbox_row("WIDTH:", 80.0)
+            .lens(FractalData::temporary_width))
         .with_spacer(4.0)
-        .with_child(height_section);
+        .with_child(create_label_textbox_row("HEIGHT:", 80.0)
+            .lens(FractalData::temporary_height));
 
     let row_2 = Flex::row()
         .with_flex_child(image_size_column, 0.75)
         .with_spacer(4.0)
         .with_flex_child(button_set_image_size, 0.25);
+
 
     let button_half = Button::new("HALF").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(Command::new(Selector::new("multiply_image_size"), 0.5, Target::Auto));
@@ -70,22 +66,26 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(2.0)
         .with_flex_child(button_native, 1.0);
 
-    let mut location_title = Label::<FractalData>::new("LOCATION");
-    location_title.set_text_size(20.0);
 
-    let location = Label::new(|data: &FractalData, _env: &_| {
+    let file_location = Label::new(|data: &FractalData, _env: &_| {
         data.temporary_location_source.clone()
-    });
+    }).expand_width();
 
     let row_4 = Flex::row()
-        .with_flex_child(location_title.expand_width(), 0.5)
-        .with_flex_child(location.expand_width(), 0.5);
+        .with_flex_child(Label::<FractalData>::new("LOCATION").with_text_size(20.0).expand_width(), 0.5)
+        .with_flex_child(file_location, 0.5);
 
-    let mut zoom_label = Label::<FractalData>::new("ZOOM:");
+    let zoom_mantissa = TextBox::new()
+        .with_formatter(ParseFormatter::new())
+        .update_data_while_editing(true)
+        .expand_width()
+        .lens(FractalData::temporary_zoom_mantissa);
 
-    zoom_label.set_text_size(14.0);
-
-    let zoom = LensWrap::new(TextBox::new().expand_width(), lens::ZoomLens);
+    let zoom_exponent = TextBox::new()
+        .with_formatter(ParseFormatter::new())
+        .update_data_while_editing(true)
+        .expand_width()
+        .lens(FractalData::temporary_zoom_exponent);
 
     let button_zoom_in = Button::new("+").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 2.0, Target::Auto));
@@ -96,8 +96,12 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     }).expand_width();
 
     let zoom_row = Flex::row()
-        .with_child(zoom_label.fix_width(60.0))
-        .with_flex_child(zoom, 0.7)
+        .with_child(Label::<FractalData>::new("ZOOM:").with_text_size(14.0).fix_width(60.0))
+        .with_flex_child(zoom_mantissa, 0.4)
+        .with_spacer(2.0)
+        .with_child(Label::<FractalData>::new("E").with_text_size(14.0))
+        .with_spacer(2.0)
+        .with_flex_child(zoom_exponent, 0.2)
         .with_spacer(4.0)
         .with_flex_child(button_zoom_in, 0.15)
         .with_spacer(2.0)
@@ -138,6 +142,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(button_increase_rotation, 0.15)
         .with_spacer(2.0)
         .with_flex_child(button_decrease_rotation, 0.15);
+
 
     let row_5 = Flex::column()
         .with_child(zoom_row)

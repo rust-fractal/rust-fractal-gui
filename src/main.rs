@@ -58,7 +58,9 @@ pub struct FractalData {
     temporary_height: i64,
     temporary_real: String,
     temporary_imag: String,
-    temporary_zoom: String,
+    temporary_zoom_mantissa: f64,
+    temporary_zoom_exponent: i64,
+    temporary_zoom_string: String,
     temporary_iterations: i64,
     temporary_rotation: String,
     temporary_order: i64,
@@ -152,14 +154,19 @@ impl Widget<FractalData> for FractalWidget {
                         *location.mut_real() += &temp2 * &temp;
                         *location.mut_imag() += &temp3 * &temp;
 
+                        data.temporary_zoom_string = extended_to_string_long(zoom);
+
                         // Set the overrides for the current location
                         settings.set("real", location.real().to_string()).unwrap();
                         settings.set("imag", location.imag().to_string()).unwrap();
-                        settings.set("zoom", extended_to_string_long(zoom)).unwrap();
+                        settings.set("zoom", data.temporary_zoom_string.clone()).unwrap();
 
                         data.temporary_real = settings.get_str("real").unwrap();
                         data.temporary_imag = settings.get_str("imag").unwrap();
-                        data.temporary_zoom = settings.get_str("zoom").unwrap();
+
+                        let temp: Vec<&str> = data.temporary_zoom_string.split('E').collect();
+                        data.temporary_zoom_mantissa = temp[0].parse::<f64>().unwrap();
+                        data.temporary_zoom_exponent = temp[1].parse::<i64>().unwrap();
 
                         renderer.adjust_iterations();
 
@@ -358,12 +365,15 @@ impl Widget<FractalData> for FractalWidget {
                     let current_real = settings.get_str("real").unwrap();
                     let current_imag = settings.get_str("imag").unwrap();
                     let current_zoom = settings.get_str("zoom").unwrap();
+
                     let current_iterations = settings.get_int("iterations").unwrap();
                     let current_rotation = settings.get_float("rotate").unwrap().to_string();
 
+                    data.temporary_zoom_string = format!("{}E{}", data.temporary_zoom_mantissa, data.temporary_zoom_exponent);
+
                     if current_real == data.temporary_real && current_imag == data.temporary_imag {
                         // Check if the zoom has decreased or is near to the current level
-                        if current_zoom.to_uppercase() == data.temporary_zoom.to_uppercase() {
+                        if current_zoom.to_uppercase() == data.temporary_zoom_string.to_uppercase() {
                             // nothing has changed
                             if current_rotation == data.temporary_rotation && current_iterations == data.temporary_iterations {
                                 // println!("nothing");
@@ -397,12 +407,12 @@ impl Widget<FractalData> for FractalWidget {
                             // Zoom has changed, and need to rerender depending on if the zoom has changed too much
 
                             let current_exponent = renderer.center_reference.zoom.exponent;
-                            let new_zoom = string_to_extended(&data.temporary_zoom.to_uppercase());
+                            let new_zoom = string_to_extended(&data.temporary_zoom_string.to_uppercase());
 
                             if new_zoom.exponent <= current_exponent {
                                 // println!("zoom decreased");
                                 renderer.zoom = new_zoom;
-                                settings.set("zoom", data.temporary_zoom.clone()).unwrap();
+                                settings.set("zoom", data.temporary_zoom_string.clone()).unwrap();
                                 renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
 
                                 ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
@@ -415,7 +425,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     settings.set("real", data.temporary_real.clone()).unwrap();
                     settings.set("imag", data.temporary_imag.clone()).unwrap();
-                    settings.set("zoom", data.temporary_zoom.clone()).unwrap();
+                    settings.set("zoom",  data.temporary_zoom_string.clone()).unwrap();
                     settings.set("rotate", data.temporary_rotation.clone()).unwrap();
                     settings.set("iterations", data.temporary_iterations.clone()).unwrap();
 
@@ -427,8 +437,12 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.zoom.mantissa *= factor;
                     renderer.zoom.reduce();
 
-                    settings.set("zoom", extended_to_string_long(renderer.zoom)).unwrap();
-                    data.temporary_zoom = settings.get_str("zoom").unwrap();
+                    data.temporary_zoom_string = extended_to_string_long(renderer.zoom);
+                    settings.set("zoom", data.temporary_zoom_string.clone()).unwrap();
+                    
+                    let temp: Vec<&str> = data.temporary_zoom_string.split('E').collect();
+                    data.temporary_zoom_mantissa = temp[0].parse::<f64>().unwrap();
+                    data.temporary_zoom_exponent = temp[1].parse::<i64>().unwrap();
 
                     data.need_full_rerender &= renderer.adjust_iterations();
 
@@ -646,7 +660,12 @@ impl Widget<FractalData> for FractalWidget {
                     match new_settings.get_str("zoom") {
                         Ok(zoom) => {
                             settings.set("zoom", zoom.clone()).unwrap();
-                            data.temporary_zoom = zoom;
+                            data.temporary_zoom_string = zoom;
+
+                            let temp: Vec<&str> = data.temporary_zoom_string.split('E').collect();
+                            data.temporary_zoom_mantissa = temp[0].parse::<f64>().unwrap();
+                            data.temporary_zoom_exponent = temp[1].parse::<i64>().unwrap();
+
                             reset_renderer = true;
                         }
                         Err(_) => {}
@@ -910,6 +929,8 @@ pub fn main() {
     let mut settings = Config::default();
     settings.merge(File::with_name("start.toml")).unwrap();
 
+    let zoom = string_to_extended(&settings.get_str("zoom").unwrap());
+
     let window_title = Box::leak(format!("rust-fractal {}", env!("CARGO_PKG_VERSION")).into_boxed_str());
 
     let window = WindowDesc::new(ui::ui_builder).title(
@@ -971,7 +992,9 @@ pub fn main() {
             temporary_height: settings.get_int("image_height").unwrap(),
             temporary_real: settings.get_str("real").unwrap(),
             temporary_imag: settings.get_str("imag").unwrap(),
-            temporary_zoom: settings.get_str("zoom").unwrap().to_uppercase(),
+            temporary_zoom_mantissa: zoom.mantissa,
+            temporary_zoom_exponent: zoom.exponent as i64,
+            temporary_zoom_string: settings.get_str("zoom").unwrap(),
             temporary_iterations: settings.get_int("iterations").unwrap(),
             temporary_rotation: settings.get_float("rotate").unwrap().to_string(),
             temporary_order: settings.get_int("approximation_order").unwrap(),
