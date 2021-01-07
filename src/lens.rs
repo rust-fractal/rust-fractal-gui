@@ -178,28 +178,28 @@ impl Lens<FractalData, String> for OrderLens {
     }
 }
 
-pub struct DivisionLens;
+// pub struct DivisionLens;
 
-impl Lens<FractalData, String> for DivisionLens {
-    fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
-        f(&data.temporary_iteration_division)
-    }
-    fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
-        let v = f(&mut data.temporary_iteration_division);
-        data.temporary_iteration_division.retain(|c| c.is_digit(10) || c == '.');
-        v
-    }
-}
+// impl Lens<FractalData, String> for DivisionLens {
+//     fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
+//         f(&data.temporary_iteration_division)
+//     }
+//     fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
+//         let v = f(&mut data.temporary_iteration_division);
+//         data.temporary_iteration_division.retain(|c| c.is_digit(10) || c == '.');
+//         v
+//     }
+// }
 
-pub struct OffsetLens;
+// pub struct OffsetLens;
 
-impl Lens<FractalData, String> for OffsetLens {
-    fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
-        f(&data.temporary_iteration_offset)
-    }
-    fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
-        let v = f(&mut data.temporary_iteration_offset);
-        data.temporary_iteration_offset.retain(|c| c.is_digit(10) || c == '.');
-        v
-    }
-}
+// impl Lens<FractalData, String> for OffsetLens {
+//     fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
+//         f(&data.temporary_iteration_offset)
+//     }
+//     fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
+//         let v = f(&mut data.temporary_iteration_offset);
+//         data.temporary_iteration_offset.retain(|c| c.is_digit(10) || c == '.');
+//         v
+//     }
+// }

@@ -1,6 +1,9 @@
+use std::{fmt::Display, str::FromStr};
+
 use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt, ProgressBar, LensWrap, Either, Checkbox, Image, FillStrat};
-use druid::{Widget, Command, Selector, Target, ImageBuf};
+use druid::{Widget, Command, Selector, Target, ImageBuf, Data};
 use druid::piet::{ImageFormat, InterpolationMode};
+use druid::text::format::ParseFormatter;
 
 use config::{Config, File};
 
@@ -27,31 +30,21 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     let row_1 = Flex::row()
         .with_flex_child(resolution_title.expand_width(), 1.0);
 
-    let mut width_label = Label::<FractalData>::new("WIDTH:");
-    let mut height_label = Label::<FractalData>::new("HEIGHT:");
+    let width_section = create_label_textbox_row("WIDTH:", 80.0)
+        .lens(FractalData::temporary_width);
 
-    width_label.set_text_size(14.0);
-    height_label.set_text_size(14.0);
+    let height_section = create_label_textbox_row("HEIGHT:", 80.0)
+        .lens(FractalData::temporary_height);
 
-    let image_width = LensWrap::new(TextBox::new().expand_width(), lens::WidthLens);
-    let image_height = LensWrap::new(TextBox::new().expand_width(), lens::HeightLens);
 
     let button_set_image_size = Button::new("SET").on_click(|ctx, data: &mut FractalData, _env| {
         ctx.submit_command(Command::new(Selector::new("set_image_size"), (data.temporary_width, data.temporary_height), Target::Auto));
     }).expand_width().fix_height(36.0);
 
-    let image_width_row = Flex::row()
-        .with_child(width_label.fix_width(80.0))
-        .with_flex_child(image_width, 1.0);
-
-    let image_height_row = Flex::row()
-        .with_child(height_label.fix_width(80.0))
-        .with_flex_child(image_height, 1.0);
-
     let image_size_column = Flex::column()
-        .with_child(image_width_row)
+        .with_child(width_section)
         .with_spacer(4.0)
-        .with_child(image_height_row);
+        .with_child(height_section);
 
     let row_2 = Flex::row()
         .with_flex_child(image_size_column, 0.75)
@@ -88,31 +81,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(location_title.expand_width(), 0.5)
         .with_flex_child(location.expand_width(), 0.5);
 
-    let mut real_label = Label::<FractalData>::new("REAL:");
-    let mut imag_label = Label::<FractalData>::new("IMAG:");
     let mut zoom_label = Label::<FractalData>::new("ZOOM:");
-    let mut iterations_label = Label::<FractalData>::new("ITER:");
-    let mut rotation_label = Label::<FractalData>::new("ROTN:");
 
-    real_label.set_text_size(14.0);
-    imag_label.set_text_size(14.0);
     zoom_label.set_text_size(14.0);
-    iterations_label.set_text_size(14.0);
-    rotation_label.set_text_size(14.0);
 
-    let real = LensWrap::new(TextBox::new().expand_width(), lens::RealLens);
-    let imag = LensWrap::new(TextBox::new().expand_width(), lens::ImagLens);
     let zoom = LensWrap::new(TextBox::new().expand_width(), lens::ZoomLens);
-    let iterations = LensWrap::new(TextBox::new().expand_width(), lens::IterationLens);
-    let rotation = LensWrap::new(TextBox::new().expand_width(), lens::RotationLens);
-
-    let real_row = Flex::row()
-        .with_child(real_label.fix_width(60.0))
-        .with_flex_child(real, 1.0);
-
-    let imag_row = Flex::row()
-        .with_child(imag_label.fix_width(60.0))
-        .with_flex_child(imag, 1.0);
 
     let button_zoom_in = Button::new("+").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 2.0, Target::Auto));
@@ -138,9 +111,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         ctx.submit_command(Command::new(Selector::new("set_iterations"), data.temporary_iterations / 2, Target::Auto));
     }).expand_width();
 
+    let iterations_section = create_label_textbox_row("ITER:", 60.0)
+        .lens(FractalData::temporary_iterations);
+
     let iterations_row = Flex::row()
-        .with_child(iterations_label.fix_width(60.0))
-        .with_flex_child(iterations, 0.7)
+        .with_flex_child(iterations_section, 0.7)
         .with_spacer(4.0)
         .with_flex_child(button_increase_iterations, 0.15)
         .with_spacer(2.0)
@@ -154,19 +129,17 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation.parse::<f64>().unwrap() + 15.0, Target::Auto));
     }).expand_width();
 
+    let rotation_section = create_label_textbox_row("ROTN:", 60.0)
+        .lens(FractalData::temporary_rotation);
+
     let rotation_row = Flex::row()
-        .with_child(rotation_label.fix_width(60.0))
-        .with_flex_child(rotation, 0.7)
+        .with_flex_child(rotation_section, 0.7)
         .with_spacer(4.0)
         .with_flex_child(button_increase_rotation, 0.15)
         .with_spacer(2.0)
         .with_flex_child(button_decrease_rotation, 0.15);
 
     let row_5 = Flex::column()
-        .with_child(real_row)
-        .with_spacer(4.0)
-        .with_child(imag_row)
-        .with_spacer(4.0)
         .with_child(zoom_row)
         .with_spacer(4.0)
         .with_child(iterations_row)
@@ -200,13 +173,9 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
     let mut colouring_method_label = Label::<FractalData>::new("METHOD:");
     let mut palette_label = Label::<FractalData>::new("PALETTE:");
-    let mut iteration_division_label = Label::<FractalData>::new("DIVISION:");
-    let mut palette_offset_label = Label::<FractalData>::new("OFFSET:");
 
     colouring_method_label.set_text_size(14.0);
     palette_label.set_text_size(14.0);
-    iteration_division_label.set_text_size(14.0);
-    palette_offset_label.set_text_size(14.0);
 
     let mut colouring = Label::new(|data: &FractalData, _env: &_| {
         let settings = data.settings.lock().unwrap();
@@ -224,9 +193,6 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
     colouring.set_text_size(12.0);
     palette.set_text_size(8.0);
-
-    let iteration_division = LensWrap::new(TextBox::new().expand_width(), lens::DivisionLens);
-    let palette_offset = LensWrap::new(TextBox::new().expand_width(), lens::OffsetLens);
 
     let button_set_method = Button::new("TOGGLE").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(Command::new(Selector::new("toggle_derivative"), (), Target::Auto));
@@ -248,22 +214,20 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(2.0)
         .with_flex_child(button_set_palette, 0.4);
 
-    let iteration_division_row = Flex::row()
-        .with_child(iteration_division_label.fix_width(90.0))
-        .with_flex_child(iteration_division, 1.0);
+    let iteration_division_section = create_label_textbox_row("DIVISION:", 90.0)
+        .lens(FractalData::temporary_iteration_division);
 
-    let palette_offset_row = Flex::row()
-        .with_child(palette_offset_label.fix_width(90.0))
-        .with_flex_child(palette_offset, 1.0);
+    let iteration_offset_section = create_label_textbox_row("OFFSET:", 90.0)
+        .lens(FractalData::temporary_iteration_offset);
 
     let set_iteration_offset = Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(Command::new(Selector::new("set_offset_division"), (), Target::Auto));
     }).expand_width().fix_height(36.0);
 
     let offset_division_column = Flex::column()
-        .with_child(iteration_division_row)
+        .with_child(iteration_division_section)
         .with_spacer(4.0)
-        .with_child(palette_offset_row);
+        .with_child(iteration_offset_section);
 
     let offset_division_row = Flex::row()
         .with_flex_child(offset_division_column, 0.7)
@@ -297,22 +261,6 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
     let row_9 = Flex::row()
         .with_flex_child(options_title.expand_width(), 1.0);
-
-    let mut order_label = Label::<FractalData>::new("ORDER:");
-
-    order_label.set_text_size(14.0);
-
-    let order = LensWrap::new(TextBox::new().expand_width(), lens::OrderLens);
-
-    let button_set_order = Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_approximation_order"), (), Target::Auto));
-    }).expand_width();
-
-    let row_10 = Flex::row()
-        .with_child(order_label.fix_width(90.0))
-        .with_flex_child(order, 0.7)
-        .with_spacer(4.0)
-        .with_flex_child(button_set_order, 0.3);
 
     let mut export_label = Label::<FractalData>::new("EXPORT:");
 
@@ -424,8 +372,6 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(8.0)
         .with_child(row_9)
         .with_spacer(4.0)
-        .with_child(row_10)
-        .with_spacer(4.0)
         .with_child(row_11)
         .with_spacer(8.0)
         .with_child(row_12)
@@ -459,6 +405,8 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         data.show_settings = false;
         // ctx.submit_command(Command::new(Selector::new("start_zoom_out"), (), Target::Auto));
     }).expand_width().fix_height(40.0);
+
+    
 
     let display_glitches_check = LensWrap::new(Checkbox::new(""), FractalData::temporary_display_glitches);
     let experimental_check = LensWrap::new(Checkbox::new(""), FractalData::temporary_experimental);
@@ -496,10 +444,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(8.0)
         .with_flex_child(button_save_advanced_options, 0.2);
 
-    let mut advanced_options = Flex::<FractalData>::column()
-        .with_spacer(8.0)
-        .with_child(advanced_options_title)
-        .with_spacer(4.0)
+    let booleans_section = Flex::column()
         .with_child(display_glitches)
         .with_spacer(4.0)
         .with_child(experimental)
@@ -510,6 +455,63 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(4.0)
         .with_child(remove_centre);
 
+    let order_section = create_label_textbox_row("SERIES APPROXIMATION ORDER:", 280.0)
+        .lens(FractalData::temporary_order);
+
+    let glitch_tolerance_section = create_label_textbox_row("GLITCH TOLERANCE:", 280.0)
+        .lens(FractalData::temporary_glitch_tolerance);
+
+    let glitch_percentage_section = create_label_textbox_row("GLITCH PERCENTAGE:", 280.0)
+        .lens(FractalData::temporary_glitch_percentage);
+
+    let storage_interval_section = create_label_textbox_row("DATA STORAGE INTERVAL:", 280.0)
+        .lens(FractalData::temporary_iteration_interval);
+
+    let probe_sampling_section = create_label_textbox_row("PROBE SAMPLING:", 280.0)
+        .lens(FractalData::temporary_probe_sampling);
+
+    let values_section = Flex::column()
+        .with_child(order_section)
+        .with_spacer(4.0)
+        .with_child(glitch_tolerance_section)
+        .with_spacer(4.0)
+        .with_child(glitch_percentage_section)
+        .with_spacer(4.0)
+        .with_child(storage_interval_section)
+        .with_spacer(4.0)
+        .with_child(probe_sampling_section);
+
+    let advanced_section = Flex::row()
+        .with_flex_child(booleans_section, 0.5)
+        .with_spacer(32.0)
+        .with_flex_child(values_section, 0.5);
+
+    let mut real_label = Label::<FractalData>::new("REAL:");
+    let mut imag_label = Label::<FractalData>::new("IMAG:");
+    real_label.set_text_size(14.0);
+    imag_label.set_text_size(14.0);
+
+    let real = LensWrap::new(TextBox::multiline().with_text_size(10.0).expand_width(), lens::RealLens);
+    let imag = LensWrap::new(TextBox::multiline().with_text_size(10.0).expand_width(), lens::ImagLens);
+
+    let real_row = Flex::row()
+        .with_child(real_label.fix_width(60.0))
+        .with_flex_child(real, 1.0);
+
+    let imag_row = Flex::row()
+        .with_child(imag_label.fix_width(60.0))
+        .with_flex_child(imag, 1.0);
+
+    let mut advanced_options = Flex::<FractalData>::column()
+        .with_spacer(8.0)
+        .with_child(advanced_options_title)
+        .with_spacer(4.0)
+        .with_child(advanced_section)
+        .with_spacer(32.0)
+        .with_child(real_row)
+        .with_spacer(4.0)
+        .with_child(imag_row);
+        
     advanced_options.set_cross_axis_alignment(druid::widget::CrossAxisAlignment::Start);
     
     let mut advanced_options_flex = Flex::<FractalData>::row()
@@ -531,6 +533,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     // jitter
     // auto adjust iterations?
     // remove center
+    // maybe add jitter factor?
 
     let test_switcher = Either::new(|data: &FractalData, _env| {
             data.show_settings
@@ -538,3 +541,25 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
     Split::columns(test_switcher, flex).split_point(0.75).draggable(true).solid_bar(true).bar_size(4.0)
 }
+
+
+fn create_label_textbox_row<T: Data + Display + FromStr>(label: &str, width: f64) -> impl Widget<T> where <T as FromStr>::Err: std::error::Error {
+    let label = Label::<T>::new(label);
+
+    let text_box = TextBox::new()
+        .with_formatter(ParseFormatter::new())
+        .update_data_while_editing(true)
+        .expand_width();
+
+    // let button_set_order = Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
+    //     ctx.submit_command(Command::new(Selector::new("set_approximation_order"), (), Target::Auto));
+    // }).expand_width();
+
+    Flex::row()
+        .with_child(label.fix_width(width))
+        .with_flex_child(text_box, 1.0)
+}
+
+
+
+

@@ -39,6 +39,7 @@ pub mod lens;
 mod saving;
 pub mod custom;
 pub mod render_thread;
+pub mod formatters;
 
 use render_thread::testing_renderer;
 
@@ -63,16 +64,16 @@ pub struct FractalData {
     temporary_order: i64,
     temporary_palette_source: String,
     temporary_location_source: String,
-    temporary_iteration_division: String,
-    temporary_iteration_offset: String,
+    temporary_iteration_division: f64,
+    temporary_iteration_offset: f64,
     temporary_progress: f64,
     temporary_stage: usize,
     temporary_time: usize,
     temporary_min_valid_iterations: usize,
     temporary_max_valid_iterations: usize,
     temporary_display_glitches: bool,
-    temporary_glitch_tolerance: String,
-    temporary_glitch_percentage: String,
+    temporary_glitch_tolerance: f64,
+    temporary_glitch_percentage: f64,
     temporary_iteration_interval: i64,
     temporary_experimental: bool,
     temporary_probe_sampling: i64,
@@ -498,11 +499,11 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("set_offset_division")) {
-                    let current_division = settings.get_float("iteration_division").unwrap() as f32;
-                    let current_offset = settings.get_float("palette_offset").unwrap() as f32;
+                    let current_division = settings.get_float("iteration_division").unwrap();
+                    let current_offset = settings.get_float("palette_offset").unwrap();
 
-                    let new_division = data.temporary_iteration_division.parse::<f32>().unwrap();
-                    let new_offset = data.temporary_iteration_offset.parse::<f32>().unwrap() % renderer.data_export.palette.len() as f32;
+                    let new_division = data.temporary_iteration_division;
+                    let new_offset = data.temporary_iteration_offset % renderer.data_export.palette.len() as f64;
 
                     // println!("{} {} {}", data.temporary_iteration_offset, new_offset, new_division);
 
@@ -510,13 +511,13 @@ impl Widget<FractalData> for FractalWidget {
                         return;
                     }
 
-                    data.temporary_iteration_division = new_division.to_string();
-                    data.temporary_iteration_offset = new_offset.to_string();
+                    data.temporary_iteration_division = new_division;
+                    data.temporary_iteration_offset = new_offset;
 
-                    settings.set("iteration_division", new_division as f64).unwrap();
-                    settings.set("palette_offset", new_offset as f64).unwrap();
+                    settings.set("iteration_division", new_division).unwrap();
+                    settings.set("palette_offset", new_offset).unwrap();
 
-                    renderer.data_export.change_palette(None, new_division, new_offset);
+                    renderer.data_export.change_palette(None, new_division as f32, new_offset as f32);
                     renderer.data_export.regenerate();
 
                     data.temporary_width = settings.get_int("image_width").unwrap();
@@ -714,22 +715,22 @@ impl Widget<FractalData> for FractalWidget {
                             match new_settings.get_float("iteration_division") {
                                 Ok(iteration_division) => {
                                     settings.set("iteration_division", iteration_division).unwrap();
-                                    data.temporary_iteration_division = iteration_division.to_string();
+                                    data.temporary_iteration_division = iteration_division;
                                 }
                                 Err(_) => {
                                     settings.set("iteration_division", 1.0).unwrap();
-                                    data.temporary_iteration_division = String::from("1.0");
+                                    data.temporary_iteration_division = 1.0;
                                 }
                             }
         
                             match new_settings.get_float("palette_offset") {
                                 Ok(palette_offset) => {
                                     settings.set("palette_offset", palette_offset).unwrap();
-                                    data.temporary_iteration_offset = palette_offset.to_string();
+                                    data.temporary_iteration_offset = palette_offset;
                                 }
                                 Err(_) => {
                                     settings.set("palette_offset", 0.0).unwrap();
-                                    data.temporary_iteration_offset = String::from("0.0");
+                                    data.temporary_iteration_offset = 0.0;
                                 }
                             }
 
@@ -976,16 +977,16 @@ pub fn main() {
             temporary_order: settings.get_int("approximation_order").unwrap(),
             temporary_palette_source: "default".to_string(),
             temporary_location_source: "default".to_string(),
-            temporary_iteration_division: settings.get_float("iteration_division").unwrap().to_string(),
-            temporary_iteration_offset: settings.get_float("palette_offset").unwrap().to_string(),
+            temporary_iteration_division: settings.get_float("iteration_division").unwrap(),
+            temporary_iteration_offset: settings.get_float("palette_offset").unwrap(),
             temporary_progress: 0.0,
             temporary_stage: 1,
             temporary_time: 0,
             temporary_min_valid_iterations: 1,
             temporary_max_valid_iterations: 1,
             temporary_display_glitches: settings.get_bool("display_glitches").unwrap(),
-            temporary_glitch_tolerance: settings.get_float("glitch_tolerance").unwrap().to_string(),
-            temporary_glitch_percentage: settings.get_float("glitch_percentage").unwrap().to_string(),
+            temporary_glitch_tolerance: settings.get_float("glitch_tolerance").unwrap(),
+            temporary_glitch_percentage: settings.get_float("glitch_percentage").unwrap(),
             temporary_iteration_interval: settings.get_int("data_storage_interval").unwrap(),
             temporary_experimental: settings.get_bool("experimental").unwrap(),
             temporary_probe_sampling: settings.get_int("probe_sampling").unwrap(),
