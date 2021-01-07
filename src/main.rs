@@ -395,6 +395,7 @@ impl Widget<FractalData> for FractalWidget {
 
                         println!("glitch percentage or jitter or remove centre changed");
                     } else if renderer.data_export.display_glitches != data.temporary_display_glitches {
+                        renderer.data_export.display_glitches = data.temporary_display_glitches;
                         renderer.data_export.regenerate();
                         ctx.submit_command(Command::new(Selector::new("repaint"), (), Target::Auto));
 
