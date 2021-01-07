@@ -405,9 +405,10 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     let mut advanced_options_label = Label::<FractalData>::new("ADVANCED OPTIONS");
     advanced_options_label.set_text_size(20.0);
 
-    let button_save_advanced_options = Button::new("SAVE & UPDATE").on_click(|_ctx, data: &mut FractalData, _env| {
+    let button_save_advanced_options = Button::new("SAVE & UPDATE").on_click(|ctx, data: &mut FractalData, _env| {
         // println!("{}", data.temporary_display_glitches);
         data.show_settings = false;
+        ctx.submit_command(Command::new(Selector::new("set_advanced_options"), (), Target::Auto));
         // ctx.submit_command(Command::new(Selector::new("start_zoom_out"), (), Target::Auto));
     }).expand_width().fix_height(40.0);
 

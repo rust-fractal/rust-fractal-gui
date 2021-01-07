@@ -338,27 +338,110 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                if let Some(_) = command.get::<()>(Selector::new("set_approximation_order")) {
-                    if (data.temporary_order as usize) == renderer.series_approximation.order {
+                // Handles setting the advanced options
+                if let Some(_) = command.get::<()>(Selector::new("set_advanced_options")) {
+                    // These options require the entire renderer to be refreshed
+                    if renderer.center_reference.data_storage_interval != data.temporary_iteration_interval as usize ||
+                        renderer.center_reference.glitch_tolerance != data.temporary_glitch_tolerance {
+                        if data.temporary_iteration_interval < 1 {
+                            data.temporary_iteration_interval = 1;
+                        }
+
+                        if data.temporary_glitch_tolerance < 0.0 {
+                            data.temporary_glitch_tolerance = 0.0;
+                        }
+
+
+                        ctx.submit_command(Command::new(Selector::new("reset_renderer_full"), (), Target::Auto));
+
+                        println!("interval or glitch tolerance changed");
+                    } else if renderer.series_approximation.order != data.temporary_order as usize ||
+                        renderer.series_approximation.probe_sampling != data.temporary_probe_sampling as usize ||
+                        renderer.series_approximation.experimental != data.temporary_experimental {
+                        // apply limits to the values 
+
+                        if (data.temporary_order as usize) > 128 {
+                            data.temporary_order = 128;
+                        } else if (data.temporary_order as usize) < 4 {
+                            data.temporary_order = 4;
+                        }
+
+                        if (data.temporary_probe_sampling as usize) > 128 {
+                            data.temporary_probe_sampling = 128;
+                        } else if (data.temporary_probe_sampling as usize) < 2 {
+                            data.temporary_probe_sampling = 2;
+                        }
+
+                        renderer.progress.reset_series_approximation();
+
+                        // renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+
+                        ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
+
+                        println!("order or probe sampling or experimental changed");
+                    } else if renderer.glitch_percentage != data.temporary_glitch_percentage || 
+                        renderer.jitter != data.temporary_jitter ||
+                        renderer.remove_centre != data.temporary_remove_center {
+
+                        if data.temporary_glitch_percentage > 100.0 {
+                            data.temporary_glitch_percentage = 100.0;
+                        }
+    
+                        if data.temporary_glitch_percentage < 0.0 {
+                            data.temporary_glitch_percentage = 0.0;
+                        }
+
+                        ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
+
+                        println!("glitch percentage or jitter or remove centre changed");
+                    } else if renderer.data_export.display_glitches != data.temporary_display_glitches {
+                        renderer.data_export.regenerate();
+                        ctx.submit_command(Command::new(Selector::new("repaint"), (), Target::Auto));
+
+                        println!("display glitches changed");
+                    } else if renderer.auto_adjust_iterations != data.temporary_auto_adjust_iterations {
+                        println!("auto adjust iterations changed");
+                    } else {
+                        println!("nothing changed");
                         return;
                     }
 
-                    if (data.temporary_order as usize) > 128 {
-                        data.temporary_order = 128;
-                    }
-
-                    if (data.temporary_order as usize) < 4 {
-                        data.temporary_order = 4;
-                    }
-
+                    // set all the config to be updated
+                    settings.set("data_storage_interval", data.temporary_iteration_interval).unwrap();
+                    settings.set("glitch_tolerance", data.temporary_glitch_tolerance).unwrap();
                     settings.set("approximation_order", data.temporary_order).unwrap();
+                    settings.set("probe_sampling", data.temporary_probe_sampling).unwrap();
+                    settings.set("experimental", data.temporary_experimental).unwrap();
+                    settings.set("glitch_percentage", data.temporary_glitch_percentage).unwrap();
+                    settings.set("jitter", data.temporary_jitter).unwrap();
+                    settings.set("remove_centre", data.temporary_remove_center).unwrap();
+                    settings.set("display_glitches", data.temporary_display_glitches).unwrap();
+                    settings.set("auto_adjust_iterations", data.temporary_auto_adjust_iterations).unwrap();
+
+                    renderer.center_reference.data_storage_interval = data.temporary_iteration_interval as usize;
+                    renderer.center_reference.glitch_tolerance = data.temporary_glitch_tolerance;
+
                     renderer.series_approximation.order = data.temporary_order as usize;
-                    renderer.progress.reset_series_approximation();
+                    renderer.series_approximation.probe_sampling = data.temporary_probe_sampling as usize;
+                    renderer.series_approximation.experimental = data.temporary_experimental;
 
-                    renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                    renderer.glitch_percentage = data.temporary_glitch_percentage;
+                    renderer.jitter = data.temporary_jitter;
+                    renderer.remove_centre = data.temporary_remove_center;
 
-                    ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
-                    return;
+                    renderer.data_export.display_glitches = data.temporary_display_glitches;
+
+                    renderer.auto_adjust_iterations = data.temporary_auto_adjust_iterations;
+
+
+                    // settings.set("approximation_order", data.temporary_order).unwrap();
+                    // renderer.series_approximation.order = data.temporary_order as usize;
+                    // renderer.progress.reset_series_approximation();
+
+                    // renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+
+                    // ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
+                    // return;
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("set_location")) {
@@ -567,7 +650,6 @@ impl Widget<FractalData> for FractalWidget {
 
                     data.temporary_width = settings.get_int("image_width").unwrap();
                     data.temporary_height = settings.get_int("image_height").unwrap();
-                    data.temporary_order = settings.get_int("approximation_order").unwrap();
                     data.updated += 1;
 
                     return;
@@ -660,7 +742,7 @@ impl Widget<FractalData> for FractalWidget {
                     match new_settings.get_str("zoom") {
                         Ok(zoom) => {
                             settings.set("zoom", zoom.clone()).unwrap();
-                            data.temporary_zoom_string = zoom;
+                            data.temporary_zoom_string = zoom.to_uppercase();
 
                             let temp: Vec<&str> = data.temporary_zoom_string.split('E').collect();
                             data.temporary_zoom_mantissa = temp[0].parse::<f64>().unwrap();
