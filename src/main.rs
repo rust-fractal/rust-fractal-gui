@@ -80,6 +80,7 @@ pub struct FractalData {
     temporary_experimental: bool,
     temporary_probe_sampling: i64,
     temporary_jitter: bool,
+    temporary_jitter_factor: f64,
     temporary_auto_adjust_iterations: bool,
     temporary_remove_center: bool,
     renderer: Arc<Mutex<FractalRenderer>>,
@@ -190,10 +191,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if e.key == KbKey::Character("O".to_string()) || e.key == KbKey::Character("o".to_string()) {
-                    ctx.submit_command(Command::new(
-                        Selector::new("open_location"), 
-                        ()
-                    , Target::Auto));
+                    ctx.submit_command(Command::new(Selector::new("open_location"), (), Target::Auto));
                 }
 
                 if e.key == KbKey::Character("N".to_string()) || e.key == KbKey::Character("n".to_string()) {
@@ -383,7 +381,8 @@ impl Widget<FractalData> for FractalWidget {
                         println!("order or probe sampling or experimental changed");
                     } else if renderer.glitch_percentage != data.temporary_glitch_percentage || 
                         renderer.jitter != data.temporary_jitter ||
-                        renderer.remove_centre != data.temporary_remove_center {
+                        renderer.remove_centre != data.temporary_remove_center ||
+                        renderer.jitter_factor != data.temporary_jitter_factor {
 
                         if data.temporary_glitch_percentage > 100.0 {
                             data.temporary_glitch_percentage = 100.0;
@@ -421,6 +420,7 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("experimental", data.temporary_experimental).unwrap();
                     settings.set("glitch_percentage", data.temporary_glitch_percentage).unwrap();
                     settings.set("jitter", data.temporary_jitter).unwrap();
+                    settings.set("jitter_factor", data.temporary_jitter_factor).unwrap();
                     settings.set("remove_centre", data.temporary_remove_center).unwrap();
                     settings.set("display_glitches", data.temporary_display_glitches).unwrap();
                     settings.set("auto_adjust_iterations", data.temporary_auto_adjust_iterations).unwrap();
@@ -434,6 +434,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     renderer.glitch_percentage = data.temporary_glitch_percentage;
                     renderer.jitter = data.temporary_jitter;
+                    renderer.jitter_factor = data.temporary_jitter_factor;
 
                     println!("setting to {}", data.temporary_remove_center);
                     renderer.remove_centre = data.temporary_remove_center;
@@ -1112,6 +1113,7 @@ pub fn main() {
             temporary_experimental: settings.get_bool("experimental").unwrap(),
             temporary_probe_sampling: settings.get_int("probe_sampling").unwrap(),
             temporary_jitter: settings.get_bool("jitter").unwrap(),
+            temporary_jitter_factor: settings.get_float("jitter_factor").unwrap(),
             temporary_auto_adjust_iterations: settings.get_bool("auto_adjust_iterations").unwrap(),
             temporary_remove_center: settings.get_bool("remove_centre").unwrap(),
             renderer: shared_renderer,

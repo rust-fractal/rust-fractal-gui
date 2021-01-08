@@ -29,6 +29,7 @@ experimental = true
 analytic_derivative = false
 
 jitter = false
+jitter_factor = 0.2
 show_output = false
 iterations = 1000
 

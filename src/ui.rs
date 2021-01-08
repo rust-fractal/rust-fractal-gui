@@ -449,6 +449,9 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     let probe_sampling_section = create_label_textbox_row("PROBE SAMPLING:", 280.0)
         .lens(FractalData::temporary_probe_sampling);
 
+    let jitter_factor_section = create_label_textbox_row("JITTER FACTOR:", 280.0)
+        .lens(FractalData::temporary_jitter_factor);
+
     let values_section = Flex::column()
         .with_child(order_section)
         .with_spacer(4.0)
@@ -458,7 +461,9 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(4.0)
         .with_child(storage_interval_section)
         .with_spacer(4.0)
-        .with_child(probe_sampling_section);
+        .with_child(probe_sampling_section)
+        .with_spacer(4.0)
+        .with_child(jitter_factor_section);
 
     let advanced_section = Flex::row()
         .with_flex_child(booleans_section, 0.5)
