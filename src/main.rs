@@ -340,6 +340,8 @@ impl Widget<FractalData> for FractalWidget {
 
                 // Handles setting the advanced options
                 if let Some(_) = command.get::<()>(Selector::new("set_advanced_options")) {
+                    println!("{} {} {}", data.temporary_remove_center, renderer.remove_centre, renderer.data_export.centre_removed);
+
                     // These options require the entire renderer to be refreshed
                     if renderer.center_reference.data_storage_interval != data.temporary_iteration_interval as usize ||
                         renderer.center_reference.glitch_tolerance != data.temporary_glitch_tolerance {
@@ -391,6 +393,10 @@ impl Widget<FractalData> for FractalWidget {
                             data.temporary_glitch_percentage = 0.0;
                         }
 
+                        if data.temporary_remove_center {
+                            renderer.data_export.clear_buffers();
+                        }
+
                         ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
 
                         println!("glitch percentage or jitter or remove centre changed");
@@ -428,7 +434,10 @@ impl Widget<FractalData> for FractalWidget {
 
                     renderer.glitch_percentage = data.temporary_glitch_percentage;
                     renderer.jitter = data.temporary_jitter;
+
+                    println!("setting to {}", data.temporary_remove_center);
                     renderer.remove_centre = data.temporary_remove_center;
+                    // renderer.data_export.centre_removed = false;
 
                     renderer.data_export.display_glitches = data.temporary_display_glitches;
 
@@ -540,7 +549,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some(_) = command.get::<()>(Selector::new("start_zoom_out")) {
-                    renderer.remaining_frames = 2;
+                    // renderer.remaining_frames = 2;
 
                     data.zoom_out_enabled = true;
                     data.repeat_flag.add(usize::max_value() - data.repeat_flag.get() + 1);
@@ -555,7 +564,12 @@ impl Widget<FractalData> for FractalWidget {
                 if let Some(_) = command.get::<()>(Selector::new("start_zoom_out_optimised")) {
                     renderer.remaining_frames = 2;
                     renderer.remove_centre = true;
+
+                    renderer.data_export.centre_removed = false;
                     renderer.data_export.clear_buffers();
+
+                    data.temporary_remove_center = true;
+                    settings.set("remove_centre", true).unwrap();
 
                     data.zoom_out_enabled = true;
                     data.repeat_flag.add(usize::max_value() - data.repeat_flag.get() + 1);
@@ -1019,7 +1033,7 @@ pub fn main() {
 
     let window = WindowDesc::new(ui::ui_builder).title(
         LocalizedString::new(window_title),
-    ).window_size((1070.0, 720.0)).resizable(true).menu(make_menu());
+    ).window_size((1388.0, 827.0)).resizable(true).menu(make_menu());
 
     let launcher = AppLauncher::with_window(window);
 
@@ -1030,7 +1044,7 @@ pub fn main() {
     let shared_settings = Arc::new(Mutex::new(settings.clone()));
     let shared_renderer = Arc::new(Mutex::new(FractalRenderer::new(settings.clone())));
     let shared_stop_flag = Arc::new(RelaxedCounter::new(0));
-    let shared_repeat_flag = Arc::new(RelaxedCounter::new(0));
+    let shared_repeat_flag = Arc::new(RelaxedCounter::new(1));
 
     let thread_settings = shared_settings.clone();
     let thread_renderer = shared_renderer.clone();

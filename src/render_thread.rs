@@ -196,25 +196,24 @@ pub fn testing_renderer(
                             (0usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), 
                             Target::Auto).unwrap();
 
-                        drop(renderer);
+                        println!("frames: {}, repeat: {}, zoom: {}", renderer.remaining_frames, repeat_flag.get(), renderer.zoom.to_float());
 
                         event_sink.submit_command(
                             Selector::new("repaint"), (), Target::Auto).unwrap();
 
-                        thread::sleep(Duration::from_millis(100));
+                        if (renderer.zoom.to_float() > 0.5) && repeat_flag.get() == 0 {
+                            drop(renderer);
 
-                        let mut renderer = thread_renderer.lock().unwrap();
+                            thread::sleep(Duration::from_millis(100));
 
-                        // println!("repeat flag: {}", repeat_flag.get());
-                        println!("frames: {}, repeat: {}, zoom: {}", renderer.remaining_frames, repeat_flag.get(), renderer.zoom.to_float());
-
-                        if (renderer.remaining_frames > 1 && renderer.zoom.to_float() > 0.5) && repeat_flag.get() == 0 {
                             println!("sending multiply command");
                             event_sink.submit_command(Selector::new("multiply_zoom_level"), 0.5, Target::Auto).unwrap();
                         } else {
-                            renderer.remaining_frames = 1;
-                            renderer.remove_centre = false;
+                            println!("not repeating any more");
+                            repeat_flag.inc();
                         };
+
+                        
                     }
                     _ => {
                         println!("thread_command: {}", command);
