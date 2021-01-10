@@ -1614,7 +1614,7 @@ dependencies = [
 
 [[package]]
 name = "rust_fractal_gui"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "atomic-counter",
  "config",
