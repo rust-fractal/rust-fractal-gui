@@ -126,11 +126,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(button_decrease_iterations, 0.15);
 
     let button_increase_rotation = Button::new("+").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation.parse::<f64>().unwrap() - 15.0, Target::Auto));
+        ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation - 15.0, Target::Auto));
     }).expand_width();
 
     let button_decrease_rotation = Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation.parse::<f64>().unwrap() + 15.0, Target::Auto));
+        ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation + 15.0, Target::Auto));
     }).expand_width();
 
     let rotation_section = create_label_textbox_row("ROTN:", 60.0)
