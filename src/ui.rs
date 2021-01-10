@@ -1,13 +1,15 @@
 use std::{fmt::Display, str::FromStr};
 
 use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt, ProgressBar, LensWrap, Either, Checkbox, Image, FillStrat};
-use druid::{Widget, Command, Selector, Target, ImageBuf, Data};
+use druid::{Widget, ImageBuf, Data};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::text::format::ParseFormatter;
 
 use config::{Config, File};
 
 use crate::{FractalData, FractalWidget, custom::RenderTimer, custom::PaletteUpdateController};
+
+use crate::commands::*;
 
 use crate::lens;
 
@@ -31,7 +33,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
 
     let button_set_image_size = Button::new("SET").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_image_size"), (data.temporary_width, data.temporary_height), Target::Auto));
+        ctx.submit_command(SET_SIZE.with((data.temporary_width, data.temporary_height)));
     }).expand_width().fix_height(36.0);
 
     let image_size_column = Flex::column()
@@ -48,15 +50,15 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
 
     let button_half = Button::new("HALF").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("multiply_image_size"), 0.5, Target::Auto));
+        ctx.submit_command(MULTIPLY_SIZE.with(0.5));
     }).expand_width();
 
     let button_double = Button::new("DOUBLE").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("multiply_image_size"), 2.0, Target::Auto));
+        ctx.submit_command(MULTIPLY_SIZE.with(2.0));
     }).expand_width();
 
     let button_native = Button::new("NATIVE").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("native_image_size"), (), Target::Auto));
+        ctx.submit_command(NATIVE_SIZE);
     }).expand_width();
 
     let row_3 = Flex::row()
@@ -88,11 +90,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .lens(FractalData::temporary_zoom_exponent);
 
     let button_zoom_in = Button::new("+").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 2.0, Target::Auto));
+        ctx.submit_command(MULTIPLY_ZOOM.with(2.0));
     }).expand_width();
 
     let button_zoom_out = Button::new("-").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("multiply_zoom_level"), 0.5, Target::Auto));
+        ctx.submit_command(MULTIPLY_ZOOM.with(0.5));
     }).expand_width();
 
     let zoom_row = Flex::row()
@@ -108,11 +110,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(button_zoom_out, 0.15);
 
     let button_increase_iterations = Button::new("+").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_iterations"), 2 * data.temporary_iterations, Target::Auto));
+        ctx.submit_command(SET_ITERATIONS.with(2 * data.temporary_iterations));
     }).expand_width();
 
     let button_decrease_iterations = Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_iterations"), data.temporary_iterations / 2, Target::Auto));
+        ctx.submit_command(SET_ITERATIONS.with(data.temporary_iterations / 2));
     }).expand_width();
 
     let iterations_section = create_label_textbox_row("ITER:", 60.0)
@@ -126,11 +128,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(button_decrease_iterations, 0.15);
 
     let button_increase_rotation = Button::new("+").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation - 15.0, Target::Auto));
+        ctx.submit_command(SET_ROTATION.with(data.temporary_rotation - 15.0));
     }).expand_width();
 
     let button_decrease_rotation = Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_rotation"), data.temporary_rotation + 15.0, Target::Auto));
+        ctx.submit_command(SET_ROTATION.with(data.temporary_rotation + 15.0));
     }).expand_width();
 
     let rotation_section = create_label_textbox_row("ROTN:", 60.0)
@@ -152,15 +154,15 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_child(rotation_row);
 
     let button_set_location = Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_location"), (), Target::Auto));
+        ctx.submit_command(SET_LOCATION);
     }).expand_width();
 
     let button_load_location = Button::new("LOAD").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("open_location"), (), Target::Auto));
+        ctx.submit_command(OPEN_LOCATION);
     }).expand_width();
 
     let button_save_location = Button::new("SAVE").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("save_location"), (), Target::Auto));
+        ctx.submit_command(SAVE_LOCATION);
     }).expand_width();
 
     let row_6 = Flex::row()
@@ -200,7 +202,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     palette.set_text_size(8.0);
 
     let button_set_method = Button::new("TOGGLE").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("toggle_derivative"), (), Target::Auto));
+        ctx.submit_command(TOGGLE_DERIVATIVE);
     }).expand_width();
 
     let colouring_method_row = Flex::row()
@@ -210,7 +212,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(button_set_method, 0.4);
 
     let button_set_palette = Button::new("LOAD").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("open_location"), (), Target::Auto));
+        ctx.submit_command(OPEN_LOCATION);
     }).expand_width();
     
     let palette_row = Flex::row()
@@ -226,7 +228,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .lens(FractalData::temporary_iteration_offset);
 
     let set_iteration_offset = Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("set_offset_division"), (), Target::Auto));
+        ctx.submit_command(SET_OFFSET_DIVISION);
     }).expand_width().fix_height(36.0);
 
     let offset_division_column = Flex::column()
@@ -272,11 +274,11 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     export_label.set_text_size(14.0);
 
     let button_save_image = Button::new("IMAGE").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("save_image"), (), Target::Auto));
+        ctx.submit_command(SAVE_IMAGE);
     }).expand_width();
 
     let button_refresh_full = Button::new("SETTINGS").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("save_all"), (), Target::Auto));
+        ctx.submit_command(SAVE_ALL);
     }).expand_width();
 
     let row_11 = Flex::row()
@@ -331,19 +333,19 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     }).on_click(|ctx, data: &mut FractalData, _env| {
         if data.temporary_stage == 0 && !data.zoom_out_enabled {
             // TODO maybe add a section here that checks if a zoom out sequence is ongoing
-            ctx.submit_command(Command::new(Selector::new("reset_renderer_fast"), (), Target::Auto));
+            ctx.submit_command(RESET_RENDERER_FAST);
         } else {
             // println!("stop called");
-            ctx.submit_command(Command::new(Selector::new("stop_rendering"), (), Target::Auto));
+            ctx.submit_command(STOP_RENDERING);
         }
     }).expand_width();
 
     let button_start_zoom_out = Button::new("START ZOOM OUT").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("start_zoom_out"), (), Target::Auto));
+        ctx.submit_command(ZOOM_OUT);
     }).expand_width();
 
     let button_start_zoom_out_optimised = Button::new("START ZOOM OUT OPTIMISED").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(Command::new(Selector::new("start_zoom_out_optimised"), (), Target::Auto));
+        ctx.submit_command(ZOOM_OUT_OPTIMISED);
     }).expand_width();
 
     let button_toggle_menu = Button::new("ADVANCED OPTIONS").on_click(|_ctx, data: &mut FractalData, _env| {
@@ -408,7 +410,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     let button_save_advanced_options = Button::new("SAVE & UPDATE").on_click(|ctx, data: &mut FractalData, _env| {
         // println!("{}", data.temporary_display_glitches);
         data.show_settings = false;
-        ctx.submit_command(Command::new(Selector::new("set_advanced_options"), (), Target::Auto));
+        ctx.submit_command(SET_ADVANCED_OPTIONS);
         // ctx.submit_command(Command::new(Selector::new("start_zoom_out"), (), Target::Auto));
     }).expand_width().fix_height(40.0);
 
