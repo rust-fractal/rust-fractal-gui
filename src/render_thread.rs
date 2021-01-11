@@ -1,16 +1,19 @@
 use std::sync::mpsc;
 use std::time::{Instant, Duration};
 use rust_fractal::renderer::FractalRenderer;
-use druid::{Selector, Target};
+use druid::Target;
+
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use std::sync::{Arc, Mutex};
 use config::Config;
 use std::thread;
 
+use crate::commands::*;
+
 
 pub fn testing_renderer(
     event_sink: druid::ExtEventSink, 
-    reciever: mpsc::Receiver<String>, 
+    reciever: mpsc::Receiver<usize>, 
     thread_settings: Arc<Mutex<Config>>, 
     thread_renderer: Arc<Mutex<FractalRenderer>>, 
     thread_stop_flag: Arc<RelaxedCounter>,
@@ -22,8 +25,9 @@ pub fn testing_renderer(
         match reciever.recv() {
             Ok(command) => {
                 // execute commands
-                match command.as_ref() {
-                    "reset_renderer_full" => {
+
+                match command {
+                    THREAD_RESET_RENDERER_FULL => {
                         let mut renderer = thread_renderer.lock().unwrap();
 
                         *renderer = FractalRenderer::new(thread_settings.lock().unwrap().clone());
@@ -90,9 +94,8 @@ pub fn testing_renderer(
                                         let time = start.elapsed().as_millis() as usize;
                                         let min_valid_iteration = thread_counter_7.get();
                                         let max_valid_iteration = thread_counter_8.get();
-            
-                                        test.submit_command(
-                                            Selector::new("update_progress"), (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
+
+                                        test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
                                     }
                                 };
             
@@ -104,15 +107,10 @@ pub fn testing_renderer(
 
                         tx.send(()).unwrap();
 
-                        event_sink.submit_command(
-                            Selector::new("update_progress"), 
-                            (0usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), 
-                            Target::Auto).unwrap();
-
-                        event_sink.submit_command(
-                            Selector::new("repaint"), (), Target::Auto).unwrap();
+                        event_sink.submit_command(UPDATE_PROGRESS, (0, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), Target::Auto).unwrap();
+                        event_sink.submit_command(REPAINT, (), Target::Auto).unwrap();
                     }
-                    "reset_renderer_fast" => {
+                    THREAD_RESET_RENDERER_FAST => {
                         let mut renderer = thread_renderer.lock().unwrap();
 
                         let total_pixels = (renderer.image_width * renderer.image_height) as f64;
@@ -178,8 +176,7 @@ pub fn testing_renderer(
                                         let min_valid_iteration = thread_counter_7.get();
                                         let max_valid_iteration = thread_counter_8.get();
 
-                                        test.submit_command(
-                                            Selector::new("update_progress"), (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
+                                        test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
                                     }
                                 };
             
@@ -191,23 +188,17 @@ pub fn testing_renderer(
 
                         tx.send(()).unwrap();
 
-                        event_sink.submit_command(
-                            Selector::new("update_progress"), 
-                            (0usize, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), 
-                            Target::Auto).unwrap();
-
+                        event_sink.submit_command(UPDATE_PROGRESS, (0, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), Target::Auto).unwrap();
+                        
                         println!("frames: {}, repeat: {}, zoom: {}", renderer.remaining_frames, repeat_flag.get(), renderer.zoom.to_float());
 
-                        event_sink.submit_command(
-                            Selector::new("repaint"), (), Target::Auto).unwrap();
+                        event_sink.submit_command(REPAINT, (), Target::Auto).unwrap();
+
 
                         if (renderer.zoom.to_float() > 0.5) && repeat_flag.get() == 0 {
                             drop(renderer);
-
                             thread::sleep(Duration::from_millis(100));
-
-                            println!("sending multiply command");
-                            event_sink.submit_command(Selector::new("multiply_zoom_level"), 0.5, Target::Auto).unwrap();
+                            event_sink.submit_command(MULTIPLY_ZOOM, 0.5, Target::Auto).unwrap();
                         } else {
                             println!("not repeating any more");
                             repeat_flag.inc();

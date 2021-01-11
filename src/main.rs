@@ -79,7 +79,7 @@ pub struct FractalData {
     temporary_remove_center: bool,
     renderer: Arc<Mutex<FractalRenderer>>,
     settings: Arc<Mutex<Config>>,
-    sender: Arc<Mutex<mpsc::Sender<String>>>,
+    sender: Arc<Mutex<mpsc::Sender<usize>>>,
     stop_flag: Arc<RelaxedCounter>,
     repeat_flag: Arc<RelaxedCounter>,
     need_full_rerender: bool,
@@ -100,7 +100,8 @@ impl Widget<FractalData> for FractalWidget {
                 data.temporary_height = settings.get_int("image_height").unwrap();
 
                 let sender = data.sender.lock().unwrap();
-                sender.send(String::from("reset_renderer_full")).unwrap();
+                // sender.send(String::from("reset_renderer_full")).unwrap();
+                sender.send(THREAD_RESET_RENDERER_FULL).unwrap();
 
                 data.updated += 1;
             }
@@ -641,7 +642,7 @@ impl Widget<FractalData> for FractalWidget {
                     }
 
                     let sender = data.sender.lock().unwrap();
-                    sender.send(String::from("reset_renderer_fast")).unwrap();
+                    sender.send(THREAD_RESET_RENDERER_FAST).unwrap();
 
                     data.temporary_width = settings.get_int("image_width").unwrap();
                     data.temporary_height = settings.get_int("image_height").unwrap();
@@ -652,7 +653,7 @@ impl Widget<FractalData> for FractalWidget {
 
                 if command.is(RESET_RENDERER_FULL) {
                     let sender = data.sender.lock().unwrap();
-                    sender.send(String::from("reset_renderer_full")).unwrap();
+                    sender.send(THREAD_RESET_RENDERER_FULL).unwrap();
 
                     data.temporary_width = settings.get_int("image_width").unwrap();
                     data.temporary_height = settings.get_int("image_height").unwrap();
