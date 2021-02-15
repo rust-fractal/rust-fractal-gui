@@ -1015,7 +1015,7 @@ pub fn main() {
 
     let window_title = Box::leak(format!("rust-fractal {}", env!("CARGO_PKG_VERSION")).into_boxed_str());
 
-    let window = WindowDesc::new(ui::ui_builder).title(
+    let window = WindowDesc::new(ui::ui_builder()).title(
         LocalizedString::new(window_title),
     ).window_size((1388.0, 827.0)).resizable(true).menu(make_menu());
 
@@ -1095,9 +1095,6 @@ fn make_menu<T: Data>() -> MenuDesc<T> {
     }
     base.append(
         MenuDesc::new(LocalizedString::new("common-menu-edit-menu"))
-            .append(druid::platform_menus::common::undo())
-            .append(druid::platform_menus::common::redo())
-            .append_separator()
             .append(druid::platform_menus::common::cut())
             .append(druid::platform_menus::common::copy())
             .append(druid::platform_menus::common::paste()),
