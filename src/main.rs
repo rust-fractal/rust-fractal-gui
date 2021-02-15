@@ -1085,14 +1085,14 @@ pub fn main() {
 #[allow(unused_assignments, unused_mut)]
 fn make_menu<T: Data>() -> MenuDesc<T> {
     let mut base = MenuDesc::empty();
-    #[cfg(target_os = "macos")]
-    {
-        base = base.append(druid::platform_menus::mac::application::default())
-    }
-    #[cfg(any(target_os = "windows", target_os = "linux"))]
-    {
-        base = base.append(druid::platform_menus::win::file::default());
-    }
+    // #[cfg(target_os = "macos")]
+    // {
+    //     base = base.append(druid::platform_menus::mac::application::default())
+    // }
+    // #[cfg(any(target_os = "windows", target_os = "linux"))]
+    // {
+    //     base = base.append(druid::platform_menus::win::file::default());
+    // }
     base.append(
         MenuDesc::new(LocalizedString::new("common-menu-edit-menu"))
             .append(druid::platform_menus::common::cut())
