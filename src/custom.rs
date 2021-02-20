@@ -41,7 +41,7 @@ impl RenderTimer {
             let m = s / 60;
             let h = m / 60;
 
-            let formatted_time = format!("{}:{:0>2}:{:0>2}.{:0>3}", h, m % 60, s % 60, ms);
+            let formatted_time = format!("{}:{:0>2}:{:0>2}:{:0>3}", h, m % 60, s % 60, ms);
 
             self.text
                 .set_text(format!("{:>14} {:>14}", text, formatted_time).into());
