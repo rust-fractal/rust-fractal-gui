@@ -107,7 +107,7 @@ pub fn testing_renderer(
 
                                 index += 1;
 
-                                if index % 10 == 0 {
+                                if index % 50 == 0 {
                                     test.submit_command(UPDATE_BUFFER, (), Target::Auto).unwrap();
                                     index = 0;
                                 }
@@ -198,7 +198,7 @@ pub fn testing_renderer(
 
                                 index += 1;
 
-                                if index % 10 == 0 {
+                                if index % 50 == 0 {
                                     test.submit_command(UPDATE_BUFFER, (), Target::Auto).unwrap();
                                     index = 0;
                                 }

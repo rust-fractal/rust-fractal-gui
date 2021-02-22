@@ -1,6 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 
-use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt, ProgressBar, LensWrap, Either, Checkbox, Image, FillStrat};
+use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt, ProgressBar, LensWrap, Either, Checkbox, Image, FillStrat, Align};
 use druid::{Widget, ImageBuf, Data};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::text::format::ParseFormatter;
@@ -24,6 +24,9 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         image_height: 0,
         save_type: 0
     };
+
+    let render_screen = Align::centered(render_screen);
+
     // }.debug_invalidation();
 
 

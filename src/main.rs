@@ -275,6 +275,9 @@ impl Widget<FractalData> for FractalWidget {
 
                     self.buffer = data.buffer.lock().unwrap().lock().unwrap().rgb.clone();
 
+                    self.image_width = data.buffer.lock().unwrap().lock().unwrap().image_width;
+                    self.image_height = data.buffer.lock().unwrap().lock().unwrap().image_height;
+
                     ctx.request_paint();
                     return;
                 }
@@ -314,6 +317,7 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.image_width = dimensions.0 as usize;
                     renderer.image_height = dimensions.1 as usize;
 
+                    ctx.request_layout();
                     ctx.submit_command(RESET_RENDERER_FAST);
                     return;
                 }
@@ -977,7 +981,15 @@ impl Widget<FractalData> for FractalWidget {
             self.image_height = settings.get_int("image_height").unwrap() as usize;
         }
 
-        test.height = test.width * self.image_height as f64 / self.image_width as f64;
+        let aspect_image = self.image_width as f64 / self.image_height as f64;
+        let aspect_constraints = test.width / test.height;
+
+        // If the aspect ratio is greater than the size, we limit based on the width
+        if aspect_image >= aspect_constraints {
+            test.height = test.width / aspect_image;
+        } else {
+            test.width = test.height * aspect_image;
+        }
 
         test
     }
