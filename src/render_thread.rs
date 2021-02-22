@@ -1,6 +1,7 @@
-use std::sync::mpsc;
+use std::{sync::mpsc};
 use std::time::{Instant, Duration};
 use rust_fractal::renderer::FractalRenderer;
+use rust_fractal::util::data_export::DataExport;
 use druid::Target;
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
@@ -17,7 +18,8 @@ pub fn testing_renderer(
     thread_settings: Arc<Mutex<Config>>, 
     thread_renderer: Arc<Mutex<FractalRenderer>>, 
     thread_stop_flag: Arc<RelaxedCounter>,
-    thread_repeat_flag: Arc<RelaxedCounter>) {
+    thread_repeat_flag: Arc<RelaxedCounter>,
+    buffer: Arc<Mutex<Arc<Mutex<DataExport>>>>) {
     loop {
         let stop_flag = thread_stop_flag.clone();
         let repeat_flag = thread_repeat_flag.clone();
@@ -31,6 +33,8 @@ pub fn testing_renderer(
                         let mut renderer = thread_renderer.lock().unwrap();
 
                         *renderer = FractalRenderer::new(thread_settings.lock().unwrap().clone());
+
+                        *buffer.lock().unwrap() = renderer.data_export.clone();
 
                         let total_pixels = (renderer.image_width * renderer.image_height) as f64;
 
@@ -49,6 +53,8 @@ pub fn testing_renderer(
 
                         thread::spawn(move || {
                             let start = Instant::now();
+
+                            let mut index = 0;
 
                             loop {
                                 match rx.try_recv() {
@@ -98,7 +104,14 @@ pub fn testing_renderer(
                                         test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
                                     }
                                 };
-            
+
+                                index += 1;
+
+                                if index % 10 == 0 {
+                                    test.submit_command(UPDATE_BUFFER, (), Target::Auto).unwrap();
+                                    index = 0;
+                                }
+                                
                                 thread::sleep(Duration::from_millis(10));
                             };
                         });
@@ -108,6 +121,7 @@ pub fn testing_renderer(
                         tx.send(()).unwrap();
 
                         event_sink.submit_command(UPDATE_PROGRESS, (0, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), Target::Auto).unwrap();
+                        event_sink.submit_command(UPDATE_BUFFER, (), Target::Auto).unwrap();
                         event_sink.submit_command(REPAINT, (), Target::Auto).unwrap();
                     }
                     THREAD_RESET_RENDERER_FAST => {
@@ -131,6 +145,8 @@ pub fn testing_renderer(
                         thread::spawn(move || {
                             let start = Instant::now();
 
+                            let mut index = 0;
+
                             loop {
                                 match rx.try_recv() {
                                     Ok(_) => {
@@ -179,6 +195,13 @@ pub fn testing_renderer(
                                         test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
                                     }
                                 };
+
+                                index += 1;
+
+                                if index % 10 == 0 {
+                                    test.submit_command(UPDATE_BUFFER, (), Target::Auto).unwrap();
+                                    index = 0;
+                                }
             
                                 thread::sleep(Duration::from_millis(10));
                             };
@@ -192,6 +215,7 @@ pub fn testing_renderer(
                         
                         println!("frames: {}, repeat: {}, zoom: {}", renderer.remaining_frames, repeat_flag.get(), renderer.zoom.to_float());
 
+                        event_sink.submit_command(UPDATE_BUFFER, (), Target::Auto).unwrap();
                         event_sink.submit_command(REPAINT, (), Target::Auto).unwrap();
 
 

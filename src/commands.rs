@@ -29,6 +29,7 @@ pub const STOP_RENDERING: Selector<()> = Selector::new("stop_rendering");
 pub const REPAINT: Selector<()> = Selector::new("repaint");
 
 pub const UPDATE_PROGRESS: Selector<(usize, f64, usize, usize, usize)> = Selector::new("update_progress");
+pub const UPDATE_BUFFER: Selector<()> = Selector::new("update_buffer");
 
 pub const ZOOM_OUT: Selector<()> = Selector::new("start_zoom_out");
 pub const ZOOM_OUT_OPTIMISED: Selector<()> = Selector::new("start_zoom_out_optimised");

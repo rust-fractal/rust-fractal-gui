@@ -13,7 +13,7 @@ use druid::commands::{
     SHOW_SAVE_PANEL
 };
 
-use rust_fractal::renderer::FractalRenderer;
+use rust_fractal::{renderer::FractalRenderer, util::data_export::DataExport};
 use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended};
 
 use config::{Config, File};
@@ -82,6 +82,7 @@ pub struct FractalData {
     sender: Arc<Mutex<mpsc::Sender<usize>>>,
     stop_flag: Arc<RelaxedCounter>,
     repeat_flag: Arc<RelaxedCounter>,
+    buffer: Arc<Mutex<Arc<Mutex<DataExport>>>>,
     need_full_rerender: bool,
     zoom_out_enabled: bool,
     show_settings: bool
@@ -268,6 +269,16 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
+                // TODO, have some option that only runs a repaint here if needed
+                if let Some(()) = command.get(UPDATE_BUFFER) {
+                    // println!("buffer updated");
+
+                    self.buffer = data.buffer.lock().unwrap().lock().unwrap().rgb.clone();
+
+                    ctx.request_paint();
+                    return;
+                }
+
                 // If the rendering has not completed, stop
                 if data.temporary_stage != 0 {
                     return;
@@ -310,7 +321,7 @@ impl Widget<FractalData> for FractalWidget {
                 // At the moment, if the reference has already been done at a higher iteration number we just set the data export
                 // iteration number to less, rather than actually reducing the iteration level
                 if let Some(iterations) = command.get(SET_ITERATIONS) {
-                    if *iterations as usize == renderer.data_export.maximum_iteration {
+                    if *iterations as usize == renderer.data_export.lock().unwrap().maximum_iteration {
                         return;
                     }
 
@@ -318,8 +329,8 @@ impl Widget<FractalData> for FractalWidget {
                     data.temporary_iterations = *iterations;
 
                     if *iterations as usize <= renderer.maximum_iteration {
-                        renderer.data_export.maximum_iteration = data.temporary_iterations as usize;
-                        renderer.data_export.regenerate();
+                        renderer.data_export.lock().unwrap().maximum_iteration = data.temporary_iterations as usize;
+                        renderer.data_export.lock().unwrap().regenerate();
 
                         ctx.submit_command(REPAINT);
                         return;
@@ -331,7 +342,7 @@ impl Widget<FractalData> for FractalWidget {
 
                 // Handles setting the advanced options
                 if command.is(SET_ADVANCED_OPTIONS) {
-                    println!("{} {} {}", data.temporary_remove_center, renderer.remove_centre, renderer.data_export.centre_removed);
+                    println!("{} {} {}", data.temporary_remove_center, renderer.remove_centre, renderer.data_export.lock().unwrap().centre_removed);
 
                     // These options require the entire renderer to be refreshed
                     if renderer.center_reference.data_storage_interval != data.temporary_iteration_interval as usize ||
@@ -394,15 +405,15 @@ impl Widget<FractalData> for FractalWidget {
                         }
 
                         if data.temporary_remove_center {
-                            renderer.data_export.clear_buffers();
+                            renderer.data_export.lock().unwrap().clear_buffers();
                         }
 
                         ctx.submit_command(RESET_RENDERER_FAST);
 
                         println!("glitch percentage or jitter or remove centre changed");
-                    } else if renderer.data_export.display_glitches != data.temporary_display_glitches {
-                        renderer.data_export.display_glitches = data.temporary_display_glitches;
-                        renderer.data_export.regenerate();
+                    } else if renderer.data_export.lock().unwrap().display_glitches != data.temporary_display_glitches {
+                        renderer.data_export.lock().unwrap().display_glitches = data.temporary_display_glitches;
+                        renderer.data_export.lock().unwrap().regenerate();
                         ctx.submit_command(REPAINT);
 
                         println!("display glitches changed");
@@ -439,9 +450,9 @@ impl Widget<FractalData> for FractalWidget {
 
                     println!("setting to {}", data.temporary_remove_center);
                     renderer.remove_centre = data.temporary_remove_center;
-                    // renderer.data_export.centre_removed = false;
+                    // renderer.data_export.lock().unwrap().centre_removed = false;
 
-                    renderer.data_export.display_glitches = data.temporary_display_glitches;
+                    renderer.data_export.lock().unwrap().display_glitches = data.temporary_display_glitches;
 
                     renderer.auto_adjust_iterations = data.temporary_auto_adjust_iterations;
                     return;
@@ -558,8 +569,8 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.remaining_frames = 2;
                     renderer.remove_centre = true;
 
-                    renderer.data_export.centre_removed = false;
-                    renderer.data_export.clear_buffers();
+                    renderer.data_export.lock().unwrap().centre_removed = false;
+                    renderer.data_export.lock().unwrap().clear_buffers();
 
                     data.temporary_remove_center = true;
                     settings.set("remove_centre", true).unwrap();
@@ -575,11 +586,11 @@ impl Widget<FractalData> for FractalWidget {
                     let current_derivative = settings.get_bool("analytic_derivative").unwrap();
                     settings.set("analytic_derivative", !current_derivative).unwrap();
 
-                    renderer.data_export.analytic_derivative = !current_derivative;
+                    renderer.data_export.lock().unwrap().analytic_derivative = !current_derivative;
 
                     // We have already computed the iterations and analytic derivatives
                     if renderer.analytic_derivative {
-                        renderer.data_export.regenerate();
+                        renderer.data_export.lock().unwrap().regenerate();
                         ctx.submit_command(REPAINT);
                     } else {
                         renderer.analytic_derivative = true;
@@ -607,7 +618,7 @@ impl Widget<FractalData> for FractalWidget {
                     let current_offset = settings.get_float("palette_offset").unwrap();
 
                     let new_division = data.temporary_iteration_division;
-                    let new_offset = data.temporary_iteration_offset % renderer.data_export.palette.len() as f64;
+                    let new_offset = data.temporary_iteration_offset % renderer.data_export.lock().unwrap().palette.len() as f64;
 
                     // println!("{} {} {}", data.temporary_iteration_offset, new_offset, new_division);
 
@@ -621,8 +632,8 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("iteration_division", new_division).unwrap();
                     settings.set("palette_offset", new_offset).unwrap();
 
-                    renderer.data_export.change_palette(None, new_division as f32, new_offset as f32);
-                    renderer.data_export.regenerate();
+                    renderer.data_export.lock().unwrap().change_palette(None, new_division as f32, new_offset as f32);
+                    renderer.data_export.lock().unwrap().regenerate();
 
                     data.temporary_width = settings.get_int("image_width").unwrap();
                     data.temporary_height = settings.get_int("image_height").unwrap();
@@ -633,7 +644,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if command.is(RESET_RENDERER_FAST) {
-                    // renderer.maximum_iteration = renderer.data_export.maximum_iteration;
+                    // renderer.maximum_iteration = renderer.data_export.lock().unwrap().maximum_iteration;
 
                     if data.need_full_rerender {
                         // println!("needs full rerender");
@@ -802,7 +813,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     match new_settings.get_bool("analytic_derivative") {
                         Ok(analytic_derivative) => {
-                            renderer.data_export.analytic_derivative = analytic_derivative;
+                            renderer.data_export.lock().unwrap().analytic_derivative = analytic_derivative;
                             settings.set("analytic_derivative", analytic_derivative.clone()).unwrap();
                             quick_reset = true;
                         }
@@ -844,7 +855,7 @@ impl Widget<FractalData> for FractalWidget {
                                     value[0].clone().into_int().unwrap() as u8)
                             }).collect::<Vec<(u8, u8, u8)>>();
 
-                            renderer.data_export.change_palette(
+                            renderer.data_export.lock().unwrap().change_palette(
                                 Some(palette),
                                 settings.get_float("iteration_division").unwrap() as f32,
                                 settings.get_float("palette_offset").unwrap() as f32
@@ -853,7 +864,7 @@ impl Widget<FractalData> for FractalWidget {
                             data.temporary_palette_source = file_name.to_string();
 
                             if !reset_renderer || !quick_reset {
-                                renderer.data_export.regenerate();
+                                renderer.data_export.lock().unwrap().regenerate();
                                 ctx.submit_command(REPAINT);
                             }
                         }
@@ -903,7 +914,7 @@ impl Widget<FractalData> for FractalWidget {
                             let approximation_order = settings.get_int("approximation_order").unwrap();
                             let analytic_derivative = settings.get_bool("analytic_derivative").unwrap();
 
-                            let palette = renderer.data_export.palette.clone().into_iter().flat_map(|seq| {
+                            let palette = renderer.data_export.lock().unwrap().palette.clone().into_iter().flat_map(|seq| {
                                 // BGR format
                                 vec![seq.2, seq.1, seq.0]
                             }).collect::<Vec<u8>>();
@@ -932,7 +943,7 @@ impl Widget<FractalData> for FractalWidget {
                             }
                         },
                         2 => {
-                            renderer.data_export.save_colour(file_info.path().to_str().unwrap());
+                            renderer.data_export.lock().unwrap().save_colour(file_info.path().to_str().unwrap());
                         },
                         _ => {}
                     }
@@ -975,10 +986,10 @@ impl Widget<FractalData> for FractalWidget {
         // println!("paint called");
         let size = ctx.size().to_rect();
 
-        if self.reset_buffer {
-            let renderer = data.renderer.lock().unwrap();
+        // self.buffer = data.buffer.lock().unwrap().lock().unwrap().rgb.clone();
 
-            self.buffer = renderer.data_export.rgb.clone();
+        if self.reset_buffer {
+            self.buffer = data.buffer.lock().unwrap().lock().unwrap().rgb.clone();
 
             self.reset_buffer = false;
         };
@@ -1035,7 +1046,10 @@ pub fn main() {
     let thread_stop_flag = shared_stop_flag.clone();
     let thread_repeat_flag = shared_repeat_flag.clone();
 
-    thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer, thread_stop_flag, thread_repeat_flag));
+    let buffer = Arc::new(Mutex::new(shared_renderer.lock().unwrap().data_export.clone()));
+    let buffer2 = buffer.clone();
+
+    thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer, thread_stop_flag, thread_repeat_flag, buffer2));
 
     launcher
         .configure_env(|env, _| configure_env(env))
@@ -1075,6 +1089,7 @@ pub fn main() {
             sender: Arc::new(Mutex::new(sender)),
             stop_flag: shared_stop_flag,
             repeat_flag: shared_repeat_flag,
+            buffer,
             need_full_rerender: false,
             zoom_out_enabled: false,
             show_settings: false,
