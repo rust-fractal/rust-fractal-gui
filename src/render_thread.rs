@@ -108,7 +108,7 @@ pub fn testing_renderer(
                                 index += 1;
 
                                 if index % 50 == 0 {
-                                    test.submit_command(UPDATE_BUFFER, (), Target::Auto).unwrap();
+                                    test.submit_command(REPAINT, (), Target::Auto).unwrap();
                                     index = 0;
                                 }
                                 
@@ -121,7 +121,6 @@ pub fn testing_renderer(
                         tx.send(()).unwrap();
 
                         event_sink.submit_command(UPDATE_PROGRESS, (0, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), Target::Auto).unwrap();
-                        event_sink.submit_command(UPDATE_BUFFER, (), Target::Auto).unwrap();
                         event_sink.submit_command(REPAINT, (), Target::Auto).unwrap();
                     }
                     THREAD_RESET_RENDERER_FAST => {
@@ -199,7 +198,7 @@ pub fn testing_renderer(
                                 index += 1;
 
                                 if index % 50 == 0 {
-                                    test.submit_command(UPDATE_BUFFER, (), Target::Auto).unwrap();
+                                    test.submit_command(REPAINT, (), Target::Auto).unwrap();
                                     index = 0;
                                 }
             
@@ -213,18 +212,16 @@ pub fn testing_renderer(
 
                         event_sink.submit_command(UPDATE_PROGRESS, (0, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), Target::Auto).unwrap();
                         
-                        println!("frames: {}, repeat: {}, zoom: {}", renderer.remaining_frames, repeat_flag.get(), renderer.zoom.to_float());
+                        // println!("frames: {}, repeat: {}, zoom: {}", renderer.remaining_frames, repeat_flag.get(), renderer.zoom.to_float());
 
-                        event_sink.submit_command(UPDATE_BUFFER, (), Target::Auto).unwrap();
                         event_sink.submit_command(REPAINT, (), Target::Auto).unwrap();
-
 
                         if (renderer.zoom.to_float() > 0.5) && repeat_flag.get() == 0 {
                             drop(renderer);
                             thread::sleep(Duration::from_millis(100));
                             event_sink.submit_command(MULTIPLY_ZOOM, 0.5, Target::Auto).unwrap();
                         } else {
-                            println!("not repeating any more");
+                            // println!("not repeating any more");
                             repeat_flag.inc();
                         };
 

@@ -253,7 +253,10 @@ impl Widget<FractalData> for FractalWidget {
 
                     data.updated += 1;
 
-                    self.reset_buffer = true;
+                    // TODO need to update image width and height
+                    self.buffer = data.buffer.lock().unwrap().lock().unwrap().rgb.clone();
+                    self.image_width = data.buffer.lock().unwrap().lock().unwrap().image_width;
+                    self.image_height = data.buffer.lock().unwrap().lock().unwrap().image_height;
 
                     ctx.request_paint();
 
@@ -266,19 +269,6 @@ impl Widget<FractalData> for FractalWidget {
                     data.temporary_time = *time;
                     data.temporary_min_valid_iterations = *min_valid_iterations;
                     data.temporary_max_valid_iterations = *max_valid_iterations;
-                    return;
-                }
-
-                // TODO, have some option that only runs a repaint here if needed
-                if let Some(()) = command.get(UPDATE_BUFFER) {
-                    // println!("buffer updated");
-
-                    self.buffer = data.buffer.lock().unwrap().lock().unwrap().rgb.clone();
-
-                    self.image_width = data.buffer.lock().unwrap().lock().unwrap().image_width;
-                    self.image_height = data.buffer.lock().unwrap().lock().unwrap().image_height;
-
-                    ctx.request_paint();
                     return;
                 }
 

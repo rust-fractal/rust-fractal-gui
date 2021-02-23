@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
-use druid::widget::{Label, Split, TextBox, Flex, Button, WidgetExt, ProgressBar, LensWrap, Either, Checkbox, Image, FillStrat, Align};
-use druid::{Widget, ImageBuf, Data};
+use druid::widget::{Align, Button, Checkbox, Either, FillStrat, Flex, Image, Label, LensWrap, ProgressBar, Slider, Split, TextBox, WidgetExt};
+use druid::{Widget, ImageBuf, Data, LensExt};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::text::format::ParseFormatter;
 
@@ -439,8 +439,8 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(4.0)
         .with_child(remove_centre);
 
-    let order_section = create_label_textbox_row("SERIES APPROXIMATION ORDER:", 280.0)
-        .lens(FractalData::temporary_order);
+    let order_section = create_label_slider_row("SERIES APPROXIMATION ORDER:", 280.0, 4.0, 128.0)
+        .lens(FractalData::temporary_order.map(|val| *val as f64, |val, new| *val = new as i64));
 
     let glitch_tolerance_section = create_label_textbox_row("GLITCH TOLERANCE:", 280.0)
         .lens(FractalData::temporary_glitch_tolerance);
@@ -547,6 +547,23 @@ fn create_label_textbox_row<T: Data + Display + FromStr>(label: &str, width: f64
     Flex::row()
         .with_child(label.fix_width(width))
         .with_flex_child(text_box, 1.0)
+}
+
+fn create_label_slider_row(label: &str, width: f64, min: f64, max: f64) -> impl Widget<f64> {
+    let label = Label::<f64>::new(label).with_text_size(14.0);
+
+    let slider = Slider::new()
+        .with_range(min, max)
+        .expand_width();
+
+    let value = Label::<f64>::new(|data: &f64, _env: &_| {
+        format!("{:>3}", *data as i64)
+    });
+
+    Flex::row()
+        .with_child(label.fix_width(width))
+        .with_flex_child(slider, 1.0)
+        .with_child(value)
 }
 
 fn create_checkbox_row(label: &str) -> impl Widget<bool> {
