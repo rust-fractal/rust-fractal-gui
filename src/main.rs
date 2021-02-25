@@ -39,7 +39,6 @@ use render_thread::testing_renderer;
 
 struct FractalWidget {
     buffer: Vec<u8>,
-    reset_buffer: bool,
     image_width: usize,
     image_height: usize,
     save_type: usize,
@@ -214,7 +213,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
             },
             Event::Command(command) => {
-                println!("{:?}", command);
+                // println!("{:?}", command);
 
                 if command.is(UPDATE_PALETTE) {
                     return;
@@ -969,23 +968,18 @@ impl Widget<FractalData> for FractalWidget {
     fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &FractalData, _env: &Env) {}
 
     fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &FractalData, _data: &FractalData, _env: &Env) {
-        // println!("update called");
+        println!("update called");
         return;
     }
 
     fn layout(&mut self, _layout_ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &FractalData, _env: &Env) -> Size {
-        // println!("layout called");
+        println!("layout called");
         let mut test = bc.max();
 
         let mut settings = data.settings.lock().unwrap();
 
         settings.set("window_width", test.width).unwrap();
         settings.set("window_height", test.height).unwrap();
-
-        if self.reset_buffer {  
-            self.image_width = settings.get_int("image_width").unwrap() as usize;
-            self.image_height = settings.get_int("image_height").unwrap() as usize;
-        }
 
         let aspect_image = self.image_width as f64 / self.image_height as f64;
         let aspect_constraints = test.width / test.height;
@@ -1000,19 +994,14 @@ impl Widget<FractalData> for FractalWidget {
         test
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, _data: &FractalData, _env: &Env) {
         let start = Instant::now();
 
-        // println!("paint called");
+        println!("paint called");
         let size = ctx.size().to_rect();
 
         // self.buffer = data.buffer.lock().unwrap().lock().unwrap().rgb.clone();
 
-        if self.reset_buffer {
-            self.buffer = data.buffer.lock().unwrap().rgb.clone();
-
-            self.reset_buffer = false;
-        };
 
         if self.image_width * self.image_height > 0 {
             let image = ctx

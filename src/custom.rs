@@ -1,9 +1,9 @@
 
-use crate::FractalData;
+use crate::{FractalData, commands::UPDATE_PALETTE};
 
 use druid::piet::{FontFamily, PietText, ImageFormat, ImageBuf};
 use druid::widget::prelude::*;
-use druid::{ArcStr, Color, FontDescriptor, Point, TextLayout, Selector};
+use druid::{ArcStr, Color, FontDescriptor, Point, TextLayout};
 use druid::widget::{Controller, Image};
 
 const LINE_HEIGHT_FACTOR: f64 = 1.2;
@@ -61,12 +61,14 @@ impl Widget<FractalData> for RenderTimer {
     fn lifecycle(&mut self, _: &mut LifeCycleCtx, _: &LifeCycle, _: &FractalData, _: &Env) {}
 
     fn update(&mut self, ctx: &mut UpdateCtx, _: &FractalData, _: &FractalData, _: &Env) {
+        // println!("timer update");
         // TODO: update on env changes also
         self.needs_update = true;
         ctx.request_paint();
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &FractalData, env: &Env) -> Size {
+        // println!("timer layout");
         let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
         self.make_layout_if_needed(data.temporary_time, data.temporary_stage, &mut ctx.text(), env);
         bc.constrain((
@@ -76,6 +78,7 @@ impl Widget<FractalData> for RenderTimer {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, env: &Env) {
+        // println!("timer paint");
         self.make_layout_if_needed(data.temporary_time, data.temporary_stage, &mut ctx.text(), env);
         let origin = Point::new(X_PADDING, 0.0);
         self.text.draw(ctx, origin);
@@ -95,7 +98,7 @@ impl Controller<FractalData, Image> for PaletteUpdateController {
     ) {
         match event {
             Event::Command(command) => {
-                if let Some(_) = command.get::<()>(Selector::new("update_palette")) {
+                if command.is(UPDATE_PALETTE) {
                     let settings = data.settings.lock().unwrap();
 
                     let raw_buffer = settings.get_array("palette").unwrap().chunks(3).map(|value| {
@@ -109,16 +112,5 @@ impl Controller<FractalData, Image> for PaletteUpdateController {
             }
             other => child.event(ctx, other, data, env),
         }
-    }
-
-    fn update(
-        &mut self,
-        child: &mut Image,
-        ctx: &mut UpdateCtx,
-        old_data: &FractalData,
-        data: &FractalData,
-        env: &Env,
-    ) {
-        child.update(ctx, old_data, data, env);
     }
 }

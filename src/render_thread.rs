@@ -99,7 +99,7 @@ pub fn testing_renderer(
                                         let min_valid_iteration = thread_counter_7.get();
                                         let max_valid_iteration = thread_counter_8.get();
 
-                                        // test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
+                                        test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
                                     }
                                 };
 
@@ -189,7 +189,7 @@ pub fn testing_renderer(
                                         let min_valid_iteration = thread_counter_7.get();
                                         let max_valid_iteration = thread_counter_8.get();
 
-                                        // test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
+                                        test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
                                     }
                                 };
 

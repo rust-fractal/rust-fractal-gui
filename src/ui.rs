@@ -19,16 +19,12 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
     let render_screen = FractalWidget {
         buffer: Vec::new(),
-        reset_buffer: false,
         image_width: 0,
         image_height: 0,
         save_type: 0
     };
 
-    let render_screen = Align::centered(render_screen);
-
-    // }.debug_invalidation();
-
+    let render_screen = Align::centered(render_screen).debug_invalidation();
 
     let resolution_title = Label::<FractalData>::new("RESOLUTION").with_text_size(20.0);
 
