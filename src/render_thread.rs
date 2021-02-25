@@ -1,7 +1,6 @@
 use std::{sync::mpsc};
 use std::time::{Instant, Duration};
 use rust_fractal::renderer::FractalRenderer;
-use rust_fractal::util::data_export::DataExport;
 use druid::Target;
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
@@ -18,8 +17,7 @@ pub fn testing_renderer(
     thread_settings: Arc<Mutex<Config>>, 
     thread_renderer: Arc<Mutex<FractalRenderer>>, 
     thread_stop_flag: Arc<RelaxedCounter>,
-    thread_repeat_flag: Arc<RelaxedCounter>,
-    buffer: Arc<Mutex<Arc<Mutex<DataExport>>>>) {
+    thread_repeat_flag: Arc<RelaxedCounter>) {
     loop {
         let stop_flag = thread_stop_flag.clone();
         let repeat_flag = thread_repeat_flag.clone();
@@ -34,7 +32,7 @@ pub fn testing_renderer(
 
                         *renderer = FractalRenderer::new(thread_settings.lock().unwrap().clone());
 
-                        *buffer.lock().unwrap() = renderer.data_export.clone();
+                        event_sink.submit_command(UPDATE_BUFFER, renderer.data_export.clone(), Target::Auto).unwrap();
 
                         let total_pixels = (renderer.image_width * renderer.image_height) as f64;
 
@@ -101,7 +99,7 @@ pub fn testing_renderer(
                                         let min_valid_iteration = thread_counter_7.get();
                                         let max_valid_iteration = thread_counter_8.get();
 
-                                        test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
+                                        // test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
                                     }
                                 };
 
@@ -191,7 +189,7 @@ pub fn testing_renderer(
                                         let min_valid_iteration = thread_counter_7.get();
                                         let max_valid_iteration = thread_counter_8.get();
 
-                                        test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
+                                        // test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
                                     }
                                 };
 

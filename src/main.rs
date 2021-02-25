@@ -1,6 +1,6 @@
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, time::Instant};
 
-use druid::widget::prelude::*;
+use druid::{widget::prelude::*};
 
 use druid::{AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Data, Lens, MenuDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
@@ -82,7 +82,7 @@ pub struct FractalData {
     sender: Arc<Mutex<mpsc::Sender<usize>>>,
     stop_flag: Arc<RelaxedCounter>,
     repeat_flag: Arc<RelaxedCounter>,
-    buffer: Arc<Mutex<Arc<Mutex<DataExport>>>>,
+    buffer: Arc<Mutex<DataExport>>,
     need_full_rerender: bool,
     zoom_out_enabled: bool,
     show_settings: bool
@@ -214,7 +214,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
             },
             Event::Command(command) => {
-                // println!("{:?}", command);
+                println!("{:?}", command);
 
                 if command.is(UPDATE_PALETTE) {
                     return;
@@ -241,6 +241,14 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
+                if let Some(buffer) = command.get(UPDATE_BUFFER) {
+                    data.buffer = buffer.clone();
+
+                    println!("resetting buffer arc mutex");
+
+                    return;
+                }
+
                 if command.is(REPAINT) {
                     if data.stop_flag.get() >= 2 {
                         // use wrapping to reset to zero
@@ -253,10 +261,18 @@ impl Widget<FractalData> for FractalWidget {
 
                     data.updated += 1;
 
+                    let start = Instant::now();
+
                     // TODO need to update image width and height
-                    self.buffer = data.buffer.lock().unwrap().lock().unwrap().rgb.clone();
-                    self.image_width = data.buffer.lock().unwrap().lock().unwrap().image_width;
-                    self.image_height = data.buffer.lock().unwrap().lock().unwrap().image_height;
+                    let buffer = data.buffer.lock().unwrap();
+
+                    self.buffer = buffer.rgb.clone();
+                    self.image_width = buffer.image_width;
+                    self.image_height = buffer.image_height;
+
+                    let time = start.elapsed().as_millis() as usize;
+
+                    println!("buffer copy: {}ms", time);
 
                     ctx.request_paint();
 
@@ -985,13 +1001,15 @@ impl Widget<FractalData> for FractalWidget {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, _env: &Env) {
+        let start = Instant::now();
+
         // println!("paint called");
         let size = ctx.size().to_rect();
 
         // self.buffer = data.buffer.lock().unwrap().lock().unwrap().rgb.clone();
 
         if self.reset_buffer {
-            self.buffer = data.buffer.lock().unwrap().lock().unwrap().rgb.clone();
+            self.buffer = data.buffer.lock().unwrap().rgb.clone();
 
             self.reset_buffer = false;
         };
@@ -1007,6 +1025,10 @@ impl Widget<FractalData> for FractalWidget {
                 ctx.draw_image(&image, size, InterpolationMode::NearestNeighbor);
             };
         }
+
+        let time = start.elapsed().as_millis() as usize;
+
+        println!("paint: {}ms", time);
     }
 
     fn id(&self) -> Option<WidgetId> {
@@ -1048,10 +1070,9 @@ pub fn main() {
     let thread_stop_flag = shared_stop_flag.clone();
     let thread_repeat_flag = shared_repeat_flag.clone();
 
-    let buffer = Arc::new(Mutex::new(shared_renderer.lock().unwrap().data_export.clone()));
-    let buffer2 = buffer.clone();
+    let buffer = shared_renderer.lock().unwrap().data_export.clone();
 
-    thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer, thread_stop_flag, thread_repeat_flag, buffer2));
+    thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer, thread_stop_flag, thread_repeat_flag));
 
     launcher
         .configure_env(|env, _| configure_env(env))
