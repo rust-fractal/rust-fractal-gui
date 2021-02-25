@@ -53,6 +53,7 @@ pub fn testing_renderer(
                             let start = Instant::now();
 
                             let mut index = 0;
+                            let mut stage = 1usize;
 
                             loop {
                                 match rx.try_recv() {
@@ -63,8 +64,7 @@ pub fn testing_renderer(
                                         let series_validation_progress = thread_counter_4.get();
 
                                         let mut progress = 0.0;
-                                        let mut stage = 1usize;
-
+                                        
                                         // Less than two means that the series validation has not completed
                                         if series_validation_progress < 2 {
                                             let series_approximation_amount = thread_counter_2.get();
@@ -105,7 +105,7 @@ pub fn testing_renderer(
 
                                 index += 1;
 
-                                if index % 50 == 0 {
+                                if index % 20 == 0 && stage > 2 {
                                     test.submit_command(REPAINT, (), Target::Auto).unwrap();
                                     index = 0;
                                 }
@@ -143,6 +143,7 @@ pub fn testing_renderer(
                             let start = Instant::now();
 
                             let mut index = 0;
+                            let mut stage = 1usize;
 
                             loop {
                                 match rx.try_recv() {
@@ -153,8 +154,7 @@ pub fn testing_renderer(
                                         let series_validation_progress = thread_counter_4.get();
 
                                         let mut progress = 0.0;
-                                        let mut stage = 1usize;
-
+                                        
                                         // Less than two means that the series validation has not completed
                                         if series_validation_progress < 2 {
                                             let series_approximation_amount = thread_counter_2.get();
@@ -195,7 +195,7 @@ pub fn testing_renderer(
 
                                 index += 1;
 
-                                if index % 50 == 0 {
+                                if index % 20 == 0 && stage > 2 {
                                     test.submit_command(REPAINT, (), Target::Auto).unwrap();
                                     index = 0;
                                 }

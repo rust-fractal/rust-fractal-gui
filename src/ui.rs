@@ -1,13 +1,13 @@
 use std::{fmt::Display, str::FromStr};
 
-use druid::widget::{Align, Button, Checkbox, Either, FillStrat, Flex, Image, Label, LensWrap, ProgressBar, Slider, Split, TextBox, WidgetExt};
+use druid::widget::{Align, Button, Checkbox, FillStrat, Flex, Image, Label, LensWrap, ProgressBar, Slider, Split, TextBox, WidgetExt};
 use druid::{Widget, ImageBuf, Data, LensExt};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::text::format::ParseFormatter;
 
 use config::{Config, File};
 
-use crate::{FractalData, FractalWidget, custom::RenderTimer, custom::PaletteUpdateController};
+use crate::{FractalData, FractalWidget, custom::Either, custom::PaletteUpdateController, custom::{RenderTimer, SkippedLabel}};
 
 use crate::commands::*;
 
@@ -21,10 +21,10 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         buffer: Vec::new(),
         image_width: 0,
         image_height: 0,
-        save_type: 0
+        save_type: 0,
     };
 
-    let render_screen = Align::centered(render_screen).debug_invalidation();
+    let render_screen = Align::centered(render_screen);
 
     let resolution_title = Label::<FractalData>::new("RESOLUTION").with_text_size(20.0);
 
@@ -298,10 +298,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     skipped_label.set_text_size(14.0);
     render_time_label.set_text_size(14.0);
 
-    let skipped = Label::new(|data: &FractalData, _env: &_| {
-        format!("{:>8} - {:<8}", data.temporary_min_valid_iterations.to_string(), data.temporary_max_valid_iterations.to_string())
-    }).align_right();
-
+    let skipped = SkippedLabel::new().align_right();
     let render_timer = RenderTimer::new().align_right();
 
     let row_13 = Flex::row()
@@ -312,7 +309,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_child(render_time_label.fix_width(50.0))
         .with_flex_child(render_timer, 1.0);
 
-    let render_progress = LensWrap::new(ProgressBar::new().expand_width(), FractalData::temporary_progress);
+    let render_progress = ProgressBar::new().lens(FractalData::temporary_progress).expand_width();
 
     let button_toggle_state = Button::new(|data: &FractalData, _env: &_| {
         let text = match data.temporary_stage {
@@ -347,9 +344,9 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         ctx.submit_command(ZOOM_OUT_OPTIMISED);
     }).expand_width();
 
-    let button_toggle_menu = Button::new("ADVANCED OPTIONS").on_click(|_ctx, data: &mut FractalData, _env| {
-        data.show_settings = true;
-    }).expand_width();
+    let button_toggle_menu = Button::new("ADVANCED OPTIONS").on_click(|_ctx, data: &mut bool, _env| {
+        *data = true;
+    }).lens(FractalData::show_settings).expand_width();
 
     let row_15 = Flex::row()
         .with_flex_child(render_progress, 0.75)
@@ -406,12 +403,12 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     let mut advanced_options_label = Label::<FractalData>::new("ADVANCED OPTIONS");
     advanced_options_label.set_text_size(20.0);
 
-    let button_save_advanced_options = Button::new("SAVE & UPDATE").on_click(|ctx, data: &mut FractalData, _env| {
+    let button_save_advanced_options = Button::new("SAVE & UPDATE").on_click(|ctx, data: &mut bool, _env| {
         // println!("{}", data.temporary_display_glitches);
-        data.show_settings = false;
+        *data = false;
         ctx.submit_command(SET_ADVANCED_OPTIONS);
         // ctx.submit_command(Command::new(Selector::new("start_zoom_out"), (), Target::Auto));
-    }).expand_width().fix_height(40.0);
+    }).lens(FractalData::show_settings).expand_width().fix_height(40.0);
 
     let display_glitches = create_checkbox_row("Show glitched pixels").lens(FractalData::temporary_display_glitches);
     let experimental = create_checkbox_row("Use experimental algorithm").lens(FractalData::temporary_experimental);

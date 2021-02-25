@@ -41,7 +41,7 @@ struct FractalWidget {
     buffer: Vec<u8>,
     image_width: usize,
     image_height: usize,
-    save_type: usize,
+    save_type: usize
 }
 
 #[derive(Clone, Data, Lens)]
@@ -279,6 +279,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some((stage, progress, time, min_valid_iterations, max_valid_iterations)) = command.get(UPDATE_PROGRESS) {
+                    data.show_settings = false;
                     data.temporary_progress = *progress;
                     data.temporary_stage = *stage;
                     data.temporary_time = *time;
@@ -968,12 +969,12 @@ impl Widget<FractalData> for FractalWidget {
     fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &FractalData, _env: &Env) {}
 
     fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &FractalData, _data: &FractalData, _env: &Env) {
-        println!("update called");
+        // println!("update called");
         return;
     }
 
     fn layout(&mut self, _layout_ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &FractalData, _env: &Env) -> Size {
-        println!("layout called");
+        // println!("layout called");
         let mut test = bc.max();
 
         let mut settings = data.settings.lock().unwrap();
@@ -995,29 +996,25 @@ impl Widget<FractalData> for FractalWidget {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, _data: &FractalData, _env: &Env) {
-        let start = Instant::now();
-
-        println!("paint called");
-        let size = ctx.size().to_rect();
-
-        // self.buffer = data.buffer.lock().unwrap().lock().unwrap().rgb.clone();
-
-
         if self.image_width * self.image_height > 0 {
-            let image = ctx
-            .make_image(self.image_width, self.image_height, &self.buffer, ImageFormat::Rgb)
-            .unwrap();
+            let start = Instant::now();
 
-            if self.image_width > size.width() as usize {
+            let size = ctx.size().to_rect();
+
+            let image = ctx
+                .make_image(self.image_width, self.image_height, &self.buffer, ImageFormat::Rgb)
+                .unwrap();
+
+            if self.image_width > size.width() as usize || self.image_height > size.height() as usize {
                 ctx.draw_image(&image, size, InterpolationMode::Bilinear);
             } else {
                 ctx.draw_image(&image, size, InterpolationMode::NearestNeighbor);
             };
+
+            let time = start.elapsed().as_millis() as usize;
+
+            println!("paint: {}ms", time);
         }
-
-        let time = start.elapsed().as_millis() as usize;
-
-        println!("paint: {}ms", time);
     }
 
     fn id(&self) -> Option<WidgetId> {
@@ -1104,7 +1101,7 @@ pub fn main() {
             buffer,
             need_full_rerender: false,
             zoom_out_enabled: false,
-            show_settings: false,
+            show_settings: true,
         })
         .expect("launch failed");
 }
