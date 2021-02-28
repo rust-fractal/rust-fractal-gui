@@ -160,7 +160,7 @@ impl Controller<FractalData, Image> for PaletteUpdateController {
         match event {
             Event::Command(command) => {
                 if command.is(UPDATE_PALETTE) {
-                    let settings = data.settings.lock().unwrap();
+                    let settings = data.settings.lock();
 
                     let raw_buffer = settings.get_array("palette").unwrap().chunks(3).map(|value| {
                         Vec::from([value[2].clone().into_int().unwrap() as u8, value[1].clone().into_int().unwrap() as u8, value[0].clone().into_int().unwrap() as u8])

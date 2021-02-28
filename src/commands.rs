@@ -1,4 +1,5 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use parking_lot::Mutex;
 
 use druid::Selector;
 use rust_fractal::util::data_export::DataExport;

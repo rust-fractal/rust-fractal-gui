@@ -4,7 +4,8 @@ use rust_fractal::renderer::FractalRenderer;
 use druid::Target;
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use parking_lot::Mutex;
 use config::Config;
 use std::thread;
 
@@ -28,9 +29,9 @@ pub fn testing_renderer(
 
                 match command {
                     THREAD_RESET_RENDERER_FULL => {
-                        let mut renderer = thread_renderer.lock().unwrap();
+                        let mut renderer = thread_renderer.lock();
 
-                        *renderer = FractalRenderer::new(thread_settings.lock().unwrap().clone());
+                        *renderer = FractalRenderer::new(thread_settings.lock().clone());
 
                         event_sink.submit_command(UPDATE_BUFFER, renderer.data_export.clone(), Target::Auto).unwrap();
 
@@ -122,7 +123,7 @@ pub fn testing_renderer(
                         event_sink.submit_command(REPAINT, (), Target::Auto).unwrap();
                     }
                     THREAD_RESET_RENDERER_FAST => {
-                        let mut renderer = thread_renderer.lock().unwrap();
+                        let mut renderer = thread_renderer.lock();
 
                         let total_pixels = (renderer.image_width * renderer.image_height) as f64;
 

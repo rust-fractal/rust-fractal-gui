@@ -1,4 +1,7 @@
-use std::{sync::{Arc, Mutex}, time::Instant};
+use std::sync::Arc;
+use std::time::Instant;
+
+use parking_lot::Mutex;
 
 use druid::{widget::prelude::*};
 
@@ -94,12 +97,12 @@ impl Widget<FractalData> for FractalWidget {
 
         match event {
             Event::WindowConnected => {
-                let settings = data.settings.lock().unwrap();
+                let settings = data.settings.lock();
 
                 data.temporary_width = settings.get_int("image_width").unwrap();
                 data.temporary_height = settings.get_int("image_height").unwrap();
 
-                let sender = data.sender.lock().unwrap();
+                let sender = data.sender.lock();
                 // sender.send(String::from("reset_renderer_full")).unwrap();
                 sender.send(THREAD_RESET_RENDERER_FULL).unwrap();
 
@@ -111,8 +114,8 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                let mut settings = data.settings.lock().unwrap();
-                let mut renderer = data.renderer.lock().unwrap();
+                let mut settings = data.settings.lock();
+                let mut renderer = data.renderer.lock();
 
                 // For a mousedown event we only check the left and right buttons
                 if e.button == MouseButton::Left || e.button == MouseButton::Right {
@@ -202,7 +205,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if e.key == KbKey::Character("R".to_string()) || e.key == KbKey::Character("r".to_string()) {
-                    let settings = data.settings.lock().unwrap();
+                    let settings = data.settings.lock();
                     let new_rotate = (settings.get_float("rotate").unwrap() + 15.0) % 360.0;
 
                     ctx.submit_command(SET_ROTATION.with(new_rotate));
@@ -263,7 +266,7 @@ impl Widget<FractalData> for FractalWidget {
                     let start = Instant::now();
 
                     // TODO need to update image width and height
-                    let buffer = data.buffer.lock().unwrap();
+                    let buffer = data.buffer.lock();
 
                     self.buffer = buffer.rgb.clone();
 
@@ -297,8 +300,8 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                let mut settings = data.settings.lock().unwrap();
-                let mut renderer = data.renderer.lock().unwrap();
+                let mut settings = data.settings.lock();
+                let mut renderer = data.renderer.lock();
 
                 if let Some(factor) = command.get(MULTIPLY_SIZE) {
                     let new_width = settings.get_int("image_width").unwrap() as f64 * factor;
@@ -334,7 +337,7 @@ impl Widget<FractalData> for FractalWidget {
                 // At the moment, if the reference has already been done at a higher iteration number we just set the data export
                 // iteration number to less, rather than actually reducing the iteration level
                 if let Some(iterations) = command.get(SET_ITERATIONS) {
-                    if *iterations as usize == renderer.data_export.lock().unwrap().maximum_iteration {
+                    if *iterations as usize == renderer.data_export.lock().maximum_iteration {
                         return;
                     }
 
@@ -342,8 +345,8 @@ impl Widget<FractalData> for FractalWidget {
                     data.temporary_iterations = *iterations;
 
                     if *iterations as usize <= renderer.maximum_iteration {
-                        renderer.data_export.lock().unwrap().maximum_iteration = data.temporary_iterations as usize;
-                        renderer.data_export.lock().unwrap().regenerate();
+                        renderer.data_export.lock().maximum_iteration = data.temporary_iterations as usize;
+                        renderer.data_export.lock().regenerate();
 
                         ctx.submit_command(REPAINT);
                         return;
@@ -355,7 +358,7 @@ impl Widget<FractalData> for FractalWidget {
 
                 // Handles setting the advanced options
                 if command.is(SET_ADVANCED_OPTIONS) {
-                    println!("{} {} {}", data.temporary_remove_center, renderer.remove_centre, renderer.data_export.lock().unwrap().centre_removed);
+                    println!("{} {} {}", data.temporary_remove_center, renderer.remove_centre, renderer.data_export.lock().centre_removed);
 
                     // These options require the entire renderer to be refreshed
                     if renderer.center_reference.data_storage_interval != data.temporary_iteration_interval as usize ||
@@ -418,15 +421,15 @@ impl Widget<FractalData> for FractalWidget {
                         }
 
                         if data.temporary_remove_center {
-                            renderer.data_export.lock().unwrap().clear_buffers();
+                            renderer.data_export.lock().clear_buffers();
                         }
 
                         ctx.submit_command(RESET_RENDERER_FAST);
 
                         println!("glitch percentage or jitter or remove centre changed");
-                    } else if renderer.data_export.lock().unwrap().display_glitches != data.temporary_display_glitches {
-                        renderer.data_export.lock().unwrap().display_glitches = data.temporary_display_glitches;
-                        renderer.data_export.lock().unwrap().regenerate();
+                    } else if renderer.data_export.lock().display_glitches != data.temporary_display_glitches {
+                        renderer.data_export.lock().display_glitches = data.temporary_display_glitches;
+                        renderer.data_export.lock().regenerate();
                         ctx.submit_command(REPAINT);
 
                         println!("display glitches changed");
@@ -463,9 +466,9 @@ impl Widget<FractalData> for FractalWidget {
 
                     println!("setting to {}", data.temporary_remove_center);
                     renderer.remove_centre = data.temporary_remove_center;
-                    // renderer.data_export.lock().unwrap().centre_removed = false;
+                    // renderer.data_export.lock().centre_removed = false;
 
-                    renderer.data_export.lock().unwrap().display_glitches = data.temporary_display_glitches;
+                    renderer.data_export.lock().display_glitches = data.temporary_display_glitches;
 
                     renderer.auto_adjust_iterations = data.temporary_auto_adjust_iterations;
                     return;
@@ -582,8 +585,8 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.remaining_frames = 2;
                     renderer.remove_centre = true;
 
-                    renderer.data_export.lock().unwrap().centre_removed = false;
-                    renderer.data_export.lock().unwrap().clear_buffers();
+                    renderer.data_export.lock().centre_removed = false;
+                    renderer.data_export.lock().clear_buffers();
 
                     data.temporary_remove_center = true;
                     settings.set("remove_centre", true).unwrap();
@@ -599,11 +602,11 @@ impl Widget<FractalData> for FractalWidget {
                     let current_derivative = settings.get_bool("analytic_derivative").unwrap();
                     settings.set("analytic_derivative", !current_derivative).unwrap();
 
-                    renderer.data_export.lock().unwrap().analytic_derivative = !current_derivative;
+                    renderer.data_export.lock().analytic_derivative = !current_derivative;
 
                     // We have already computed the iterations and analytic derivatives
                     if renderer.analytic_derivative {
-                        renderer.data_export.lock().unwrap().regenerate();
+                        renderer.data_export.lock().regenerate();
                         ctx.submit_command(REPAINT);
                     } else {
                         renderer.analytic_derivative = true;
@@ -631,7 +634,7 @@ impl Widget<FractalData> for FractalWidget {
                     let current_offset = settings.get_float("palette_offset").unwrap();
 
                     let new_division = data.temporary_iteration_division;
-                    let new_offset = data.temporary_iteration_offset % renderer.data_export.lock().unwrap().palette.len() as f64;
+                    let new_offset = data.temporary_iteration_offset % renderer.data_export.lock().palette.len() as f64;
 
                     // println!("{} {} {}", data.temporary_iteration_offset, new_offset, new_division);
 
@@ -645,8 +648,8 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("iteration_division", new_division).unwrap();
                     settings.set("palette_offset", new_offset).unwrap();
 
-                    renderer.data_export.lock().unwrap().change_palette(None, new_division as f32, new_offset as f32);
-                    renderer.data_export.lock().unwrap().regenerate();
+                    renderer.data_export.lock().change_palette(None, new_division as f32, new_offset as f32);
+                    renderer.data_export.lock().regenerate();
 
                     data.temporary_width = settings.get_int("image_width").unwrap();
                     data.temporary_height = settings.get_int("image_height").unwrap();
@@ -657,7 +660,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if command.is(RESET_RENDERER_FAST) {
-                    // renderer.maximum_iteration = renderer.data_export.lock().unwrap().maximum_iteration;
+                    // renderer.maximum_iteration = renderer.data_export.lock().maximum_iteration;
 
                     if data.need_full_rerender {
                         // println!("needs full rerender");
@@ -665,7 +668,7 @@ impl Widget<FractalData> for FractalWidget {
                         return;
                     }
 
-                    let sender = data.sender.lock().unwrap();
+                    let sender = data.sender.lock();
                     sender.send(THREAD_RESET_RENDERER_FAST).unwrap();
 
                     data.temporary_width = settings.get_int("image_width").unwrap();
@@ -676,7 +679,7 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if command.is(RESET_RENDERER_FULL) {
-                    let sender = data.sender.lock().unwrap();
+                    let sender = data.sender.lock();
                     sender.send(THREAD_RESET_RENDERER_FULL).unwrap();
 
                     data.temporary_width = settings.get_int("image_width").unwrap();
@@ -826,7 +829,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     match new_settings.get_bool("analytic_derivative") {
                         Ok(analytic_derivative) => {
-                            renderer.data_export.lock().unwrap().analytic_derivative = analytic_derivative;
+                            renderer.data_export.lock().analytic_derivative = analytic_derivative;
                             settings.set("analytic_derivative", analytic_derivative.clone()).unwrap();
                             quick_reset = true;
                         }
@@ -868,7 +871,7 @@ impl Widget<FractalData> for FractalWidget {
                                     value[0].clone().into_int().unwrap() as u8)
                             }).collect::<Vec<(u8, u8, u8)>>();
 
-                            renderer.data_export.lock().unwrap().change_palette(
+                            renderer.data_export.lock().change_palette(
                                 Some(palette),
                                 settings.get_float("iteration_division").unwrap() as f32,
                                 settings.get_float("palette_offset").unwrap() as f32
@@ -877,7 +880,7 @@ impl Widget<FractalData> for FractalWidget {
                             data.temporary_palette_source = file_name.to_string();
 
                             if !reset_renderer || !quick_reset {
-                                renderer.data_export.lock().unwrap().regenerate();
+                                renderer.data_export.lock().regenerate();
                                 ctx.submit_command(REPAINT);
                             }
                         }
@@ -927,7 +930,7 @@ impl Widget<FractalData> for FractalWidget {
                             let approximation_order = settings.get_int("approximation_order").unwrap();
                             let analytic_derivative = settings.get_bool("analytic_derivative").unwrap();
 
-                            let palette = renderer.data_export.lock().unwrap().palette.clone().into_iter().flat_map(|seq| {
+                            let palette = renderer.data_export.lock().palette.clone().into_iter().flat_map(|seq| {
                                 // BGR format
                                 vec![seq.2, seq.1, seq.0]
                             }).collect::<Vec<u8>>();
@@ -956,7 +959,7 @@ impl Widget<FractalData> for FractalWidget {
                             }
                         },
                         2 => {
-                            renderer.data_export.lock().unwrap().save_colour(file_info.path().to_str().unwrap());
+                            renderer.data_export.lock().save_colour(file_info.path().to_str().unwrap());
                         },
                         _ => {}
                     }
@@ -980,7 +983,7 @@ impl Widget<FractalData> for FractalWidget {
         // println!("layout called");
         let mut test = bc.max();
 
-        let mut settings = data.settings.lock().unwrap();
+        let mut settings = data.settings.lock();
 
         settings.set("window_width", test.width).unwrap();
         settings.set("window_height", test.height).unwrap();
@@ -1059,7 +1062,7 @@ pub fn main() {
     let thread_stop_flag = shared_stop_flag.clone();
     let thread_repeat_flag = shared_repeat_flag.clone();
 
-    let buffer = shared_renderer.lock().unwrap().data_export.clone();
+    let buffer = shared_renderer.lock().data_export.clone();
 
     thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer, thread_stop_flag, thread_repeat_flag));
 

@@ -184,7 +184,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     palette_label.set_text_size(14.0);
 
     let mut colouring = Label::new(|data: &FractalData, _env: &_| {
-        let settings = data.settings.lock().unwrap();
+        let settings = data.settings.lock();
 
         if settings.get_bool("analytic_derivative").unwrap() {
             "distance".to_string()
