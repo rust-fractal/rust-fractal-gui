@@ -266,8 +266,12 @@ impl Widget<FractalData> for FractalWidget {
                     let buffer = data.buffer.lock().unwrap();
 
                     self.buffer = buffer.rgb.clone();
-                    self.image_width = buffer.image_width;
-                    self.image_height = buffer.image_height;
+
+                    if self.image_width != buffer.image_width || self.image_height != buffer.image_height {
+                        self.image_width = buffer.image_width;
+                        self.image_height = buffer.image_height;
+                        ctx.request_layout();
+                    }
 
                     let time = start.elapsed().as_millis() as usize;
 
@@ -323,7 +327,6 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.image_width = dimensions.0 as usize;
                     renderer.image_height = dimensions.1 as usize;
 
-                    ctx.request_layout();
                     ctx.submit_command(RESET_RENDERER_FAST);
                     return;
                 }
