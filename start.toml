@@ -30,7 +30,7 @@ analytic_derivative = false
 
 jitter = false
 jitter_factor = 0.2
-show_output = false
+show_output = true
 iterations = 1000
 
 palette = [

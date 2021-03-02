@@ -33,9 +33,7 @@ pub fn testing_renderer(
 
                         renderer.regenerate_from_settings(thread_settings.lock().clone());
 
-                        event_sink.submit_command(UPDATE_BUFFER, renderer.data_export.clone(), Target::Auto).unwrap();
-
-                        let total_pixels = (renderer.image_width * renderer.image_height) as f64;
+                        let total_pixels = renderer.total_pixels as f64;
 
                         let (tx, rx) = mpsc::channel();
 
@@ -125,7 +123,7 @@ pub fn testing_renderer(
                     THREAD_RESET_RENDERER_FAST => {
                         let mut renderer = thread_renderer.lock();
 
-                        let total_pixels = (renderer.image_width * renderer.image_height) as f64;
+                        let total_pixels = renderer.total_pixels as f64;
 
                         let (tx, rx) = mpsc::channel();
 

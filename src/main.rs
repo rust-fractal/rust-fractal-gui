@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::time::Instant;
+// use std::time::Instant;
 
 use parking_lot::Mutex;
 
@@ -243,14 +243,6 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                if let Some(buffer) = command.get(UPDATE_BUFFER) {
-                    data.buffer = buffer.clone();
-
-                    println!("resetting buffer arc mutex");
-
-                    return;
-                }
-
                 if command.is(REPAINT) {
                     if data.stop_flag.get() >= 2 {
                         // use wrapping to reset to zero
@@ -263,7 +255,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     data.updated += 1;
 
-                    let start = Instant::now();
+                    // let start = Instant::now();
 
                     // TODO need to update image width and height
                     let buffer = data.buffer.lock();
@@ -276,9 +268,9 @@ impl Widget<FractalData> for FractalWidget {
                         ctx.request_layout();
                     }
 
-                    let time = start.elapsed().as_millis() as usize;
+                    // let time = start.elapsed().as_millis() as usize;
 
-                    println!("buffer copy: {}ms", time);
+                    // println!("buffer copy: {}ms", time);
 
                     ctx.request_paint();
 
@@ -1003,7 +995,7 @@ impl Widget<FractalData> for FractalWidget {
 
     fn paint(&mut self, ctx: &mut PaintCtx, _data: &FractalData, _env: &Env) {
         if self.image_width * self.image_height > 0 {
-            let start = Instant::now();
+            // let start = Instant::now();
 
             let size = ctx.size().to_rect();
 
@@ -1017,9 +1009,9 @@ impl Widget<FractalData> for FractalWidget {
                 ctx.draw_image(&image, size, InterpolationMode::NearestNeighbor);
             };
 
-            let time = start.elapsed().as_millis() as usize;
+            // let time = start.elapsed().as_millis() as usize;
 
-            println!("paint: {}ms", time);
+            // println!("paint: {}ms", time);
         }
     }
 
