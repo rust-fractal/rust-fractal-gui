@@ -31,7 +31,7 @@ pub fn testing_renderer(
                     THREAD_RESET_RENDERER_FULL => {
                         let mut renderer = thread_renderer.lock();
 
-                        *renderer = FractalRenderer::new(thread_settings.lock().clone());
+                        renderer.regenerate_from_settings(thread_settings.lock().clone());
 
                         event_sink.submit_command(UPDATE_BUFFER, renderer.data_export.clone(), Target::Auto).unwrap();
 
