@@ -24,6 +24,8 @@ use config::{Config, File};
 use std::thread;
 use std::sync::mpsc;
 
+use std::cmp::min;
+
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 
 mod ui;
@@ -49,36 +51,37 @@ struct FractalWidget {
 
 #[derive(Clone, Data, Lens)]
 pub struct FractalData {
-    updated: usize,
-    temporary_width: i64,
-    temporary_height: i64,
-    temporary_real: String,
-    temporary_imag: String,
-    temporary_zoom_mantissa: f64,
-    temporary_zoom_exponent: i64,
-    temporary_zoom_string: String,
-    temporary_iterations: i64,
-    temporary_rotation: f64,
-    temporary_order: i64,
-    temporary_palette_source: String,
-    temporary_location_source: String,
-    temporary_iteration_division: f64,
-    temporary_iteration_offset: f64,
-    temporary_progress: f64,
-    temporary_stage: usize,
-    temporary_time: usize,
-    temporary_min_valid_iterations: usize,
-    temporary_max_valid_iterations: usize,
-    temporary_display_glitches: bool,
-    temporary_glitch_tolerance: f64,
-    temporary_glitch_percentage: f64,
-    temporary_iteration_interval: i64,
-    temporary_experimental: bool,
-    temporary_probe_sampling: i64,
-    temporary_jitter: bool,
-    temporary_jitter_factor: f64,
-    temporary_auto_adjust_iterations: bool,
-    temporary_remove_center: bool,
+    image_width: i64,
+    image_height: i64,
+    real: String,
+    imag: String,
+    zoom_mantissa: f64,
+    zoom_exponent: i64,
+    zoom: String,
+    maximum_iterations: i64,
+    rotation: f64,
+    order: i64,
+    palette_source: String,
+    location_source: String,
+    iteration_division: f64,
+    iteration_offset: f64,
+    progress: f64,
+    stage: usize,
+    time: usize,
+    min_valid_iterations: usize,
+    max_valid_iterations: usize,
+    min_iterations: usize,
+    max_iterations: usize,
+    display_glitches: bool,
+    glitch_tolerance: f64,
+    glitch_percentage: f64,
+    iteration_interval: i64,
+    experimental: bool,
+    probe_sampling: i64,
+    jitter: bool,
+    jitter_factor: f64,
+    auto_adjust_iterations: bool,
+    remove_centre: bool,
     renderer: Arc<Mutex<FractalRenderer>>,
     settings: Arc<Mutex<Config>>,
     sender: Arc<Mutex<mpsc::Sender<usize>>>,
@@ -99,18 +102,16 @@ impl Widget<FractalData> for FractalWidget {
             Event::WindowConnected => {
                 let settings = data.settings.lock();
 
-                data.temporary_width = settings.get_int("image_width").unwrap();
-                data.temporary_height = settings.get_int("image_height").unwrap();
+                data.image_width = settings.get_int("image_width").unwrap();
+                data.image_height = settings.get_int("image_height").unwrap();
 
                 let sender = data.sender.lock();
                 // sender.send(String::from("reset_renderer_full")).unwrap();
                 sender.send(THREAD_RESET_RENDERER_FULL).unwrap();
-
-                data.updated += 1;
             }
             Event::MouseDown(e) => {
                 // If the rendering has not completed, stop
-                if data.temporary_stage != 0 {
+                if data.stage != 0 {
                     return;
                 }
 
@@ -153,24 +154,24 @@ impl Widget<FractalData> for FractalWidget {
                         *location.mut_real() += &temp2 * &temp;
                         *location.mut_imag() += &temp3 * &temp;
 
-                        data.temporary_zoom_string = extended_to_string_long(zoom);
+                        data.zoom = extended_to_string_long(zoom);
 
                         // Set the overrides for the current location
                         settings.set("real", location.real().to_string()).unwrap();
                         settings.set("imag", location.imag().to_string()).unwrap();
-                        settings.set("zoom", data.temporary_zoom_string.clone()).unwrap();
+                        settings.set("zoom", data.zoom.clone()).unwrap();
 
-                        data.temporary_real = settings.get_str("real").unwrap();
-                        data.temporary_imag = settings.get_str("imag").unwrap();
+                        data.real = settings.get_str("real").unwrap();
+                        data.imag = settings.get_str("imag").unwrap();
 
-                        let temp: Vec<&str> = data.temporary_zoom_string.split('E').collect();
-                        data.temporary_zoom_mantissa = temp[0].parse::<f64>().unwrap();
-                        data.temporary_zoom_exponent = temp[1].parse::<i64>().unwrap();
+                        let temp: Vec<&str> = data.zoom.split('E').collect();
+                        data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
+                        data.zoom_exponent = temp[1].parse::<i64>().unwrap();
 
                         renderer.adjust_iterations();
 
                         settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
-                        data.temporary_iterations = renderer.maximum_iteration as i64;
+                        data.maximum_iterations = renderer.maximum_iteration as i64;
 
                         ctx.submit_command(RESET_RENDERER_FULL);
                     } else {
@@ -223,12 +224,12 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if command.is(STOP_RENDERING) {
-                    if data.temporary_stage != 0 || data.zoom_out_enabled {
+                    if data.stage != 0 || data.zoom_out_enabled {
                         data.stop_flag.inc();
                     }
 
                     // if the renderer was stopped during SA / reference
-                    if data.temporary_stage == 1 || data.temporary_stage == 2 {
+                    if data.stage == 1 || data.stage == 2 {
                         data.stop_flag.inc();
                     }
 
@@ -252,8 +253,6 @@ impl Widget<FractalData> for FractalWidget {
                     }
 
                     data.stop_flag.add(usize::max_value() - data.stop_flag.get() + 1);
-
-                    data.updated += 1;
 
                     // let start = Instant::now();
 
@@ -279,16 +278,25 @@ impl Widget<FractalData> for FractalWidget {
 
                 if let Some((stage, progress, time, min_valid_iterations, max_valid_iterations)) = command.get(UPDATE_PROGRESS) {
                     data.show_settings = false;
-                    data.temporary_progress = *progress;
-                    data.temporary_stage = *stage;
-                    data.temporary_time = *time;
-                    data.temporary_min_valid_iterations = *min_valid_iterations;
-                    data.temporary_max_valid_iterations = *max_valid_iterations;
+                    data.progress = *progress;
+                    data.stage = *stage;
+                    data.time = *time;
+
+                    if *stage >= 2 || *stage == 0 {
+                        data.min_valid_iterations = *min_valid_iterations;
+                        data.max_valid_iterations = *max_valid_iterations;
+                    }
+
+                    if *stage == 0 {
+                        data.min_iterations = *data.buffer.lock().iterations.iter().min().unwrap() as usize;
+                        data.max_iterations = min(*data.buffer.lock().iterations.iter().max().unwrap() as usize, data.maximum_iterations as usize);
+                    }
+                    
                     return;
                 }
 
                 // If the rendering has not completed, stop
-                if data.temporary_stage != 0 {
+                if data.stage != 0 {
                     return;
                 }
 
@@ -322,6 +330,18 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.image_width = dimensions.0 as usize;
                     renderer.image_height = dimensions.1 as usize;
 
+                    renderer.total_pixels = renderer.image_width * renderer.image_height;
+
+                    if renderer.remove_centre {
+                        let temp = 1.0 / renderer.zoom_scale_factor;
+
+                        // Add one to avoid rescaling artifacts
+                        let val1 = (renderer.image_width as f64 * temp).ceil() as usize - 1;
+                        let val2 = (renderer.image_height as f64 * temp).ceil() as usize - 1;
+                
+                        renderer.total_pixels -= val1 * val2;
+                    }
+
                     ctx.submit_command(RESET_RENDERER_FAST);
                     return;
                 }
@@ -334,10 +354,10 @@ impl Widget<FractalData> for FractalWidget {
                     }
 
                     settings.set("iterations", *iterations).unwrap();
-                    data.temporary_iterations = *iterations;
+                    data.maximum_iterations = *iterations;
 
                     if *iterations as usize <= renderer.maximum_iteration {
-                        renderer.data_export.lock().maximum_iteration = data.temporary_iterations as usize;
+                        renderer.data_export.lock().maximum_iteration = data.maximum_iterations as usize;
                         renderer.data_export.lock().regenerate();
 
                         ctx.submit_command(REPAINT);
@@ -350,38 +370,38 @@ impl Widget<FractalData> for FractalWidget {
 
                 // Handles setting the advanced options
                 if command.is(SET_ADVANCED_OPTIONS) {
-                    println!("{} {} {}", data.temporary_remove_center, renderer.remove_centre, renderer.data_export.lock().centre_removed);
+                    println!("{} {} {}", data.remove_centre, renderer.remove_centre, renderer.data_export.lock().centre_removed);
 
                     // These options require the entire renderer to be refreshed
-                    if renderer.center_reference.data_storage_interval != data.temporary_iteration_interval as usize ||
-                        renderer.center_reference.glitch_tolerance != data.temporary_glitch_tolerance {
-                        if data.temporary_iteration_interval < 1 {
-                            data.temporary_iteration_interval = 1;
+                    if renderer.center_reference.data_storage_interval != data.iteration_interval as usize ||
+                        renderer.center_reference.glitch_tolerance != data.glitch_tolerance {
+                        if data.iteration_interval < 1 {
+                            data.iteration_interval = 1;
                         }
 
-                        if data.temporary_glitch_tolerance < 0.0 {
-                            data.temporary_glitch_tolerance = 0.0;
+                        if data.glitch_tolerance < 0.0 {
+                            data.glitch_tolerance = 0.0;
                         }
 
 
                         ctx.submit_command(RESET_RENDERER_FULL);
 
                         println!("interval or glitch tolerance changed");
-                    } else if renderer.series_approximation.order != data.temporary_order as usize ||
-                        renderer.series_approximation.probe_sampling != data.temporary_probe_sampling as usize ||
-                        renderer.series_approximation.experimental != data.temporary_experimental {
+                    } else if renderer.series_approximation.order != data.order as usize ||
+                        renderer.series_approximation.probe_sampling != data.probe_sampling as usize ||
+                        renderer.series_approximation.experimental != data.experimental {
                         // apply limits to the values 
 
-                        if (data.temporary_order as usize) > 128 {
-                            data.temporary_order = 128;
-                        } else if (data.temporary_order as usize) < 4 {
-                            data.temporary_order = 4;
+                        if (data.order as usize) > 128 {
+                            data.order = 128;
+                        } else if (data.order as usize) < 4 {
+                            data.order = 4;
                         }
 
-                        if (data.temporary_probe_sampling as usize) > 128 {
-                            data.temporary_probe_sampling = 128;
-                        } else if (data.temporary_probe_sampling as usize) < 2 {
-                            data.temporary_probe_sampling = 2;
+                        if (data.probe_sampling as usize) > 128 {
+                            data.probe_sampling = 128;
+                        } else if (data.probe_sampling as usize) < 2 {
+                            data.probe_sampling = 2;
                         }
 
                         renderer.progress.reset_series_approximation();
@@ -391,41 +411,41 @@ impl Widget<FractalData> for FractalWidget {
                         ctx.submit_command(RESET_RENDERER_FAST);
 
                         println!("order or probe sampling or experimental changed");
-                    } else if renderer.glitch_percentage != data.temporary_glitch_percentage || 
-                        renderer.jitter != data.temporary_jitter ||
-                        renderer.remove_centre != data.temporary_remove_center ||
-                        (renderer.jitter && renderer.jitter_factor != data.temporary_jitter_factor) {
+                    } else if renderer.glitch_percentage != data.glitch_percentage || 
+                        renderer.jitter != data.jitter ||
+                        renderer.remove_centre != data.remove_centre ||
+                        (renderer.jitter && renderer.jitter_factor != data.jitter_factor) {
 
-                        if data.temporary_glitch_percentage > 100.0 {
-                            data.temporary_glitch_percentage = 100.0;
+                        if data.glitch_percentage > 100.0 {
+                            data.glitch_percentage = 100.0;
                         }
     
-                        if data.temporary_glitch_percentage < 0.0 {
-                            data.temporary_glitch_percentage = 0.0;
+                        if data.glitch_percentage < 0.0 {
+                            data.glitch_percentage = 0.0;
                         }
 
-                        if data.temporary_jitter_factor > 100.0 {
-                            data.temporary_glitch_percentage = 100.0;
+                        if data.jitter_factor > 100.0 {
+                            data.glitch_percentage = 100.0;
                         }
     
-                        if data.temporary_jitter_factor < 0.0 {
-                            data.temporary_glitch_percentage = 0.0;
+                        if data.jitter_factor < 0.0 {
+                            data.glitch_percentage = 0.0;
                         }
 
-                        if data.temporary_remove_center {
+                        if data.remove_centre {
                             renderer.data_export.lock().clear_buffers();
                         }
 
                         ctx.submit_command(RESET_RENDERER_FAST);
 
                         println!("glitch percentage or jitter or remove centre changed");
-                    } else if renderer.data_export.lock().display_glitches != data.temporary_display_glitches {
-                        renderer.data_export.lock().display_glitches = data.temporary_display_glitches;
+                    } else if renderer.data_export.lock().display_glitches != data.display_glitches {
+                        renderer.data_export.lock().display_glitches = data.display_glitches;
                         renderer.data_export.lock().regenerate();
                         ctx.submit_command(REPAINT);
 
                         println!("display glitches changed");
-                    } else if renderer.auto_adjust_iterations != data.temporary_auto_adjust_iterations {
+                    } else if renderer.auto_adjust_iterations != data.auto_adjust_iterations {
                         println!("auto adjust iterations changed");
                     } else {
                         println!("nothing changed");
@@ -433,36 +453,36 @@ impl Widget<FractalData> for FractalWidget {
                     }
 
                     // set all the config to be updated
-                    settings.set("data_storage_interval", data.temporary_iteration_interval).unwrap();
-                    settings.set("glitch_tolerance", data.temporary_glitch_tolerance).unwrap();
-                    settings.set("approximation_order", data.temporary_order).unwrap();
-                    settings.set("probe_sampling", data.temporary_probe_sampling).unwrap();
-                    settings.set("experimental", data.temporary_experimental).unwrap();
-                    settings.set("glitch_percentage", data.temporary_glitch_percentage).unwrap();
-                    settings.set("jitter", data.temporary_jitter).unwrap();
-                    settings.set("jitter_factor", data.temporary_jitter_factor).unwrap();
-                    settings.set("remove_centre", data.temporary_remove_center).unwrap();
-                    settings.set("display_glitches", data.temporary_display_glitches).unwrap();
-                    settings.set("auto_adjust_iterations", data.temporary_auto_adjust_iterations).unwrap();
+                    settings.set("data_storage_interval", data.iteration_interval).unwrap();
+                    settings.set("glitch_tolerance", data.glitch_tolerance).unwrap();
+                    settings.set("approximation_order", data.order).unwrap();
+                    settings.set("probe_sampling", data.probe_sampling).unwrap();
+                    settings.set("experimental", data.experimental).unwrap();
+                    settings.set("glitch_percentage", data.glitch_percentage).unwrap();
+                    settings.set("jitter", data.jitter).unwrap();
+                    settings.set("jitter_factor", data.jitter_factor).unwrap();
+                    settings.set("remove_centre", data.remove_centre).unwrap();
+                    settings.set("display_glitches", data.display_glitches).unwrap();
+                    settings.set("auto_adjust_iterations", data.auto_adjust_iterations).unwrap();
 
-                    renderer.center_reference.data_storage_interval = data.temporary_iteration_interval as usize;
-                    renderer.center_reference.glitch_tolerance = data.temporary_glitch_tolerance;
+                    renderer.center_reference.data_storage_interval = data.iteration_interval as usize;
+                    renderer.center_reference.glitch_tolerance = data.glitch_tolerance;
 
-                    renderer.series_approximation.order = data.temporary_order as usize;
-                    renderer.series_approximation.probe_sampling = data.temporary_probe_sampling as usize;
-                    renderer.series_approximation.experimental = data.temporary_experimental;
+                    renderer.series_approximation.order = data.order as usize;
+                    renderer.series_approximation.probe_sampling = data.probe_sampling as usize;
+                    renderer.series_approximation.experimental = data.experimental;
 
-                    renderer.glitch_percentage = data.temporary_glitch_percentage;
-                    renderer.jitter = data.temporary_jitter;
-                    renderer.jitter_factor = data.temporary_jitter_factor;
+                    renderer.glitch_percentage = data.glitch_percentage;
+                    renderer.jitter = data.jitter;
+                    renderer.jitter_factor = data.jitter_factor;
 
-                    println!("setting to {}", data.temporary_remove_center);
-                    renderer.remove_centre = data.temporary_remove_center;
+                    println!("setting to {}", data.remove_centre);
+                    renderer.remove_centre = data.remove_centre;
                     // renderer.data_export.lock().centre_removed = false;
 
-                    renderer.data_export.lock().display_glitches = data.temporary_display_glitches;
+                    renderer.data_export.lock().display_glitches = data.display_glitches;
 
-                    renderer.auto_adjust_iterations = data.temporary_auto_adjust_iterations;
+                    renderer.auto_adjust_iterations = data.auto_adjust_iterations;
                     return;
                 }
 
@@ -474,50 +494,50 @@ impl Widget<FractalData> for FractalWidget {
                     let current_iterations = settings.get_int("iterations").unwrap();
                     let current_rotation = settings.get_float("rotate").unwrap();
 
-                    data.temporary_zoom_string = format!("{}E{}", data.temporary_zoom_mantissa, data.temporary_zoom_exponent);
+                    data.zoom = format!("{}E{}", data.zoom_mantissa, data.zoom_exponent);
 
-                    if current_real == data.temporary_real && current_imag == data.temporary_imag {
+                    if current_real == data.real && current_imag == data.imag {
                         // Check if the zoom has decreased or is near to the current level
-                        if current_zoom.to_uppercase() == data.temporary_zoom_string.to_uppercase() {
+                        if current_zoom.to_uppercase() == data.zoom.to_uppercase() {
                             // nothing has changed
-                            if current_rotation == data.temporary_rotation && current_iterations == data.temporary_iterations {
+                            if current_rotation == data.rotation && current_iterations == data.maximum_iterations {
                                 // println!("nothing");
                                 return;
                             }
 
                             // iterations changed
-                            if current_iterations == data.temporary_iterations {
+                            if current_iterations == data.maximum_iterations {
                                 // println!("rotation");
-                                ctx.submit_command(SET_ROTATION.with(data.temporary_rotation));
+                                ctx.submit_command(SET_ROTATION.with(data.rotation));
                                 return;
                             }
 
-                            if current_rotation == data.temporary_rotation {
+                            if current_rotation == data.rotation {
                                 // println!("iterations");
-                                ctx.submit_command(SET_ITERATIONS.with(data.temporary_iterations));
+                                ctx.submit_command(SET_ITERATIONS.with(data.maximum_iterations));
                                 return;
                             }
 
                             // println!("rotation & iterations");
 
-                            settings.set("iterations", data.temporary_iterations).unwrap();
+                            settings.set("iterations", data.maximum_iterations).unwrap();
 
-                            if (data.temporary_iterations as usize) < renderer.maximum_iteration {
+                            if (data.maximum_iterations as usize) < renderer.maximum_iteration {
                                 // TODO needs to make it so that pixels are only iterated to the right level
-                                renderer.maximum_iteration = data.temporary_iterations as usize;
-                                ctx.submit_command(SET_ROTATION.with(data.temporary_rotation));
+                                renderer.maximum_iteration = data.maximum_iterations as usize;
+                                ctx.submit_command(SET_ROTATION.with(data.rotation));
                                 return;
                             }
                         } else {
                             // Zoom has changed, and need to rerender depending on if the zoom has changed too much
 
                             let current_exponent = renderer.center_reference.zoom.exponent;
-                            let new_zoom = string_to_extended(&data.temporary_zoom_string.to_uppercase());
+                            let new_zoom = string_to_extended(&data.zoom.to_uppercase());
 
                             if new_zoom.exponent <= current_exponent {
                                 // println!("zoom decreased");
                                 renderer.zoom = new_zoom;
-                                settings.set("zoom", data.temporary_zoom_string.clone()).unwrap();
+                                settings.set("zoom", data.zoom.clone()).unwrap();
                                 renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
 
                                 ctx.submit_command(RESET_RENDERER_FAST);
@@ -528,11 +548,11 @@ impl Widget<FractalData> for FractalWidget {
 
                     // println!("location changed / zoom increased / iterations increased and rotation");
 
-                    settings.set("real", data.temporary_real.clone()).unwrap();
-                    settings.set("imag", data.temporary_imag.clone()).unwrap();
-                    settings.set("zoom",  data.temporary_zoom_string.clone()).unwrap();
-                    settings.set("rotate", data.temporary_rotation.clone()).unwrap();
-                    settings.set("iterations", data.temporary_iterations.clone()).unwrap();
+                    settings.set("real", data.real.clone()).unwrap();
+                    settings.set("imag", data.imag.clone()).unwrap();
+                    settings.set("zoom",  data.zoom.clone()).unwrap();
+                    settings.set("rotate", data.rotation.clone()).unwrap();
+                    settings.set("iterations", data.maximum_iterations.clone()).unwrap();
 
                     ctx.submit_command(RESET_RENDERER_FULL);
                     return;
@@ -542,17 +562,17 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.zoom.mantissa *= factor;
                     renderer.zoom.reduce();
 
-                    data.temporary_zoom_string = extended_to_string_long(renderer.zoom);
-                    settings.set("zoom", data.temporary_zoom_string.clone()).unwrap();
+                    data.zoom = extended_to_string_long(renderer.zoom);
+                    settings.set("zoom", data.zoom.clone()).unwrap();
                     
-                    let temp: Vec<&str> = data.temporary_zoom_string.split('E').collect();
-                    data.temporary_zoom_mantissa = temp[0].parse::<f64>().unwrap();
-                    data.temporary_zoom_exponent = temp[1].parse::<i64>().unwrap();
+                    let temp: Vec<&str> = data.zoom.split('E').collect();
+                    data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
+                    data.zoom_exponent = temp[1].parse::<i64>().unwrap();
 
                     data.need_full_rerender &= renderer.adjust_iterations();
 
                     settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
-                    data.temporary_iterations = renderer.maximum_iteration as i64;
+                    data.maximum_iterations = renderer.maximum_iteration as i64;
 
                     renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     // TODO properly set the maximum iterations
@@ -580,7 +600,7 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.data_export.lock().centre_removed = false;
                     renderer.data_export.lock().clear_buffers();
 
-                    data.temporary_remove_center = true;
+                    data.remove_centre = true;
                     settings.set("remove_centre", true).unwrap();
 
                     data.zoom_out_enabled = true;
@@ -612,7 +632,7 @@ impl Widget<FractalData> for FractalWidget {
                     let new_rotate = (rotation % 360.0 + 360.0) % 360.0;
 
                     settings.set("rotate", new_rotate).unwrap();
-                    data.temporary_rotation = new_rotate;
+                    data.rotation = new_rotate;
 
                     renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     renderer.rotate = new_rotate.to_radians();
@@ -625,8 +645,8 @@ impl Widget<FractalData> for FractalWidget {
                     let current_division = settings.get_float("iteration_division").unwrap();
                     let current_offset = settings.get_float("palette_offset").unwrap();
 
-                    let new_division = data.temporary_iteration_division;
-                    let new_offset = data.temporary_iteration_offset % renderer.data_export.lock().palette.len() as f64;
+                    let new_division = data.iteration_division;
+                    let new_offset = data.iteration_offset % renderer.data_export.lock().palette.len() as f64;
 
                     // println!("{} {} {}", data.temporary_iteration_offset, new_offset, new_division);
 
@@ -634,8 +654,8 @@ impl Widget<FractalData> for FractalWidget {
                         return;
                     }
 
-                    data.temporary_iteration_division = new_division;
-                    data.temporary_iteration_offset = new_offset;
+                    data.iteration_division = new_division;
+                    data.iteration_offset = new_offset;
 
                     settings.set("iteration_division", new_division).unwrap();
                     settings.set("palette_offset", new_offset).unwrap();
@@ -643,8 +663,8 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.data_export.lock().change_palette(None, new_division as f32, new_offset as f32);
                     renderer.data_export.lock().regenerate();
 
-                    data.temporary_width = settings.get_int("image_width").unwrap();
-                    data.temporary_height = settings.get_int("image_height").unwrap();
+                    data.image_width = settings.get_int("image_width").unwrap();
+                    data.image_height = settings.get_int("image_height").unwrap();
 
                     ctx.submit_command(REPAINT);
 
@@ -663,9 +683,12 @@ impl Widget<FractalData> for FractalWidget {
                     let sender = data.sender.lock();
                     sender.send(THREAD_RESET_RENDERER_FAST).unwrap();
 
-                    data.temporary_width = settings.get_int("image_width").unwrap();
-                    data.temporary_height = settings.get_int("image_height").unwrap();
-                    data.updated += 1;
+                    data.image_width = settings.get_int("image_width").unwrap();
+                    data.image_height = settings.get_int("image_height").unwrap();
+                    data.min_valid_iterations = 1;
+                    data.max_valid_iterations = 1;
+                    data.min_iterations = 1;
+                    data.max_iterations = 1;
 
                     return;
                 }
@@ -674,9 +697,12 @@ impl Widget<FractalData> for FractalWidget {
                     let sender = data.sender.lock();
                     sender.send(THREAD_RESET_RENDERER_FULL).unwrap();
 
-                    data.temporary_width = settings.get_int("image_width").unwrap();
-                    data.temporary_height = settings.get_int("image_height").unwrap();
-                    data.updated += 1;
+                    data.image_width = settings.get_int("image_width").unwrap();
+                    data.image_height = settings.get_int("image_height").unwrap();
+                    data.min_valid_iterations = 1;
+                    data.max_valid_iterations = 1;
+                    data.min_iterations = 1;
+                    data.max_iterations = 1;
 
                     return;
                 }
@@ -742,7 +768,7 @@ impl Widget<FractalData> for FractalWidget {
                     match new_settings.get_str("real") {
                         Ok(real) => {
                             settings.set("real", real.clone()).unwrap();
-                            data.temporary_real = real;
+                            data.real = real;
                             reset_renderer = true;
                         }
                         Err(_) => {}
@@ -751,7 +777,7 @@ impl Widget<FractalData> for FractalWidget {
                     match new_settings.get_str("imag") {
                         Ok(imag) => {
                             settings.set("imag", imag.clone()).unwrap();
-                            data.temporary_imag = imag;
+                            data.imag = imag;
                             reset_renderer = true;
                         }
                         Err(_) => {}
@@ -760,11 +786,11 @@ impl Widget<FractalData> for FractalWidget {
                     match new_settings.get_str("zoom") {
                         Ok(zoom) => {
                             settings.set("zoom", zoom.clone()).unwrap();
-                            data.temporary_zoom_string = zoom.to_uppercase();
+                            data.zoom = zoom.to_uppercase();
 
-                            let temp: Vec<&str> = data.temporary_zoom_string.split('E').collect();
-                            data.temporary_zoom_mantissa = temp[0].parse::<f64>().unwrap();
-                            data.temporary_zoom_exponent = temp[1].parse::<i64>().unwrap();
+                            let temp: Vec<&str> = data.zoom.split('E').collect();
+                            data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
+                            data.zoom_exponent = temp[1].parse::<i64>().unwrap();
 
                             reset_renderer = true;
                         }
@@ -774,7 +800,7 @@ impl Widget<FractalData> for FractalWidget {
                     match new_settings.get_int("iterations") {
                         Ok(iterations) => {
                             settings.set("iterations", iterations.clone()).unwrap();
-                            data.temporary_iterations = iterations;
+                            data.maximum_iterations = iterations;
                             reset_renderer = true;
                         }
                         Err(_) => {}
@@ -783,18 +809,18 @@ impl Widget<FractalData> for FractalWidget {
                     match new_settings.get_float("rotate") {
                         Ok(rotate) => {
                             settings.set("rotate", rotate.clone()).unwrap();
-                            data.temporary_rotation = rotate;
+                            data.rotation = rotate;
                             reset_renderer = true;
                         }
                         Err(_) => {
                             settings.set("rotate", 0.0).unwrap();
-                            data.temporary_rotation = 0.0;
+                            data.rotation = 0.0;
                         }
                     }
 
                     match new_settings.get_int("image_width") {
                         Ok(width) => {
-                            data.temporary_width = width;
+                            data.image_width = width;
                             settings.set("image_width", width.clone()).unwrap();
                             quick_reset = true;
                         }
@@ -803,7 +829,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     match new_settings.get_int("image_height") {
                         Ok(height) => {
-                            data.temporary_height = height;
+                            data.image_height = height;
                             settings.set("image_height", height.clone()).unwrap();
                             quick_reset = true;
                         }
@@ -812,7 +838,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     match new_settings.get_int("approximation_order") {
                         Ok(order) => {
-                            data.temporary_order = order;
+                            data.order = order;
                             settings.set("approximation_order", order.clone()).unwrap();
                             quick_reset = true;
                         }
@@ -834,22 +860,22 @@ impl Widget<FractalData> for FractalWidget {
                             match new_settings.get_float("iteration_division") {
                                 Ok(iteration_division) => {
                                     settings.set("iteration_division", iteration_division).unwrap();
-                                    data.temporary_iteration_division = iteration_division;
+                                    data.iteration_division = iteration_division;
                                 }
                                 Err(_) => {
                                     settings.set("iteration_division", 1.0).unwrap();
-                                    data.temporary_iteration_division = 1.0;
+                                    data.iteration_division = 1.0;
                                 }
                             }
         
                             match new_settings.get_float("palette_offset") {
                                 Ok(palette_offset) => {
                                     settings.set("palette_offset", palette_offset).unwrap();
-                                    data.temporary_iteration_offset = palette_offset;
+                                    data.iteration_offset = palette_offset;
                                 }
                                 Err(_) => {
                                     settings.set("palette_offset", 0.0).unwrap();
-                                    data.temporary_iteration_offset = 0.0;
+                                    data.iteration_offset = 0.0;
                                 }
                             }
 
@@ -869,7 +895,7 @@ impl Widget<FractalData> for FractalWidget {
                                 settings.get_float("palette_offset").unwrap() as f32
                             );
 
-                            data.temporary_palette_source = file_name.to_string();
+                            data.palette_source = file_name.to_string();
 
                             if !reset_renderer || !quick_reset {
                                 renderer.data_export.lock().regenerate();
@@ -882,11 +908,11 @@ impl Widget<FractalData> for FractalWidget {
                     settings.merge(new_settings).unwrap();
 
                     if reset_renderer {
-                        data.temporary_location_source = file_name.to_string();
+                        data.location_source = file_name.to_string();
                         // println!("calling full reset");
                         ctx.submit_command(RESET_RENDERER_FULL);
                     } else if quick_reset {
-                        data.temporary_location_source = file_name.to_string();
+                        data.location_source = file_name.to_string();
                         // println!("calling full reset");
                         ctx.submit_command(RESET_RENDERER_FAST);
                     }
@@ -1061,36 +1087,37 @@ pub fn main() {
     launcher
         .configure_env(|env, _| configure_env(env))
         .launch(FractalData {
-            updated: 0,
-            temporary_width: settings.get_int("image_width").unwrap(),
-            temporary_height: settings.get_int("image_height").unwrap(),
-            temporary_real: settings.get_str("real").unwrap(),
-            temporary_imag: settings.get_str("imag").unwrap(),
-            temporary_zoom_mantissa: temp[0].parse::<f64>().unwrap(),
-            temporary_zoom_exponent: temp[1].parse::<i64>().unwrap(),
-            temporary_zoom_string: zoom_string,
-            temporary_iterations: settings.get_int("iterations").unwrap(),
-            temporary_rotation: settings.get_float("rotate").unwrap(),
-            temporary_order: settings.get_int("approximation_order").unwrap(),
-            temporary_palette_source: "default".to_string(),
-            temporary_location_source: "default".to_string(),
-            temporary_iteration_division: settings.get_float("iteration_division").unwrap(),
-            temporary_iteration_offset: settings.get_float("palette_offset").unwrap(),
-            temporary_progress: 0.0,
-            temporary_stage: 1,
-            temporary_time: 0,
-            temporary_min_valid_iterations: 1,
-            temporary_max_valid_iterations: 1,
-            temporary_display_glitches: settings.get_bool("display_glitches").unwrap(),
-            temporary_glitch_tolerance: settings.get_float("glitch_tolerance").unwrap(),
-            temporary_glitch_percentage: settings.get_float("glitch_percentage").unwrap(),
-            temporary_iteration_interval: settings.get_int("data_storage_interval").unwrap(),
-            temporary_experimental: settings.get_bool("experimental").unwrap(),
-            temporary_probe_sampling: settings.get_int("probe_sampling").unwrap(),
-            temporary_jitter: settings.get_bool("jitter").unwrap(),
-            temporary_jitter_factor: settings.get_float("jitter_factor").unwrap(),
-            temporary_auto_adjust_iterations: settings.get_bool("auto_adjust_iterations").unwrap(),
-            temporary_remove_center: settings.get_bool("remove_centre").unwrap(),
+            image_width: settings.get_int("image_width").unwrap(),
+            image_height: settings.get_int("image_height").unwrap(),
+            real: settings.get_str("real").unwrap(),
+            imag: settings.get_str("imag").unwrap(),
+            zoom_mantissa: temp[0].parse::<f64>().unwrap(),
+            zoom_exponent: temp[1].parse::<i64>().unwrap(),
+            zoom: zoom_string,
+            maximum_iterations: settings.get_int("iterations").unwrap(),
+            rotation: settings.get_float("rotate").unwrap(),
+            order: settings.get_int("approximation_order").unwrap(),
+            palette_source: "default".to_string(),
+            location_source: "default".to_string(),
+            iteration_division: settings.get_float("iteration_division").unwrap(),
+            iteration_offset: settings.get_float("palette_offset").unwrap(),
+            progress: 0.0,
+            stage: 1,
+            time: 0,
+            min_valid_iterations: 1,
+            max_valid_iterations: 1,
+            min_iterations: 1,
+            max_iterations: 1,
+            display_glitches: settings.get_bool("display_glitches").unwrap(),
+            glitch_tolerance: settings.get_float("glitch_tolerance").unwrap(),
+            glitch_percentage: settings.get_float("glitch_percentage").unwrap(),
+            iteration_interval: settings.get_int("data_storage_interval").unwrap(),
+            experimental: settings.get_bool("experimental").unwrap(),
+            probe_sampling: settings.get_int("probe_sampling").unwrap(),
+            jitter: settings.get_bool("jitter").unwrap(),
+            jitter_factor: settings.get_float("jitter_factor").unwrap(),
+            auto_adjust_iterations: settings.get_bool("auto_adjust_iterations").unwrap(),
+            remove_centre: settings.get_bool("remove_centre").unwrap(),
             renderer: shared_renderer,
             settings: shared_settings,
             sender: Arc::new(Mutex::new(sender)),

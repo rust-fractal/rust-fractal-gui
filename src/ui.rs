@@ -7,7 +7,7 @@ use druid::text::format::ParseFormatter;
 
 use config::{Config, File};
 
-use crate::{FractalData, FractalWidget, custom::Either, custom::PaletteUpdateController, custom::{RenderTimer, SkippedLabel}};
+use crate::{FractalData, FractalWidget, custom::Either, custom::PaletteUpdateController, custom::{RenderTimer, SkippedLabel, IterationsLabel}};
 
 use crate::commands::*;
 
@@ -32,15 +32,15 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
 
     let button_set_image_size = Button::new("SET").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(SET_SIZE.with((data.temporary_width, data.temporary_height)));
+        ctx.submit_command(SET_SIZE.with((data.image_width, data.image_height)));
     }).expand_width().fix_height(36.0);
 
     let image_size_column = Flex::column()
         .with_child(create_label_textbox_row("WIDTH:", 80.0)
-            .lens(FractalData::temporary_width))
+            .lens(FractalData::image_width))
         .with_spacer(4.0)
         .with_child(create_label_textbox_row("HEIGHT:", 80.0)
-            .lens(FractalData::temporary_height));
+            .lens(FractalData::image_height));
 
     let row_2 = Flex::row()
         .with_flex_child(image_size_column, 0.75)
@@ -69,7 +69,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
 
     let file_location = Label::new(|data: &FractalData, _env: &_| {
-        data.temporary_location_source.clone()
+        data.location_source.clone()
     }).expand_width();
 
     let row_4 = Flex::row()
@@ -80,13 +80,13 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_formatter(ParseFormatter::new())
         .update_data_while_editing(true)
         .expand_width()
-        .lens(FractalData::temporary_zoom_mantissa);
+        .lens(FractalData::zoom_mantissa);
 
     let zoom_exponent = TextBox::new()
         .with_formatter(ParseFormatter::new())
         .update_data_while_editing(true)
         .expand_width()
-        .lens(FractalData::temporary_zoom_exponent);
+        .lens(FractalData::zoom_exponent);
 
     let button_zoom_in = Button::new("+").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(MULTIPLY_ZOOM.with(2.0));
@@ -109,15 +109,15 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(button_zoom_out, 0.15);
 
     let button_increase_iterations = Button::new("+").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(SET_ITERATIONS.with(2 * data.temporary_iterations));
+        ctx.submit_command(SET_ITERATIONS.with(2 * data.maximum_iterations));
     }).expand_width();
 
     let button_decrease_iterations = Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(SET_ITERATIONS.with(data.temporary_iterations / 2));
+        ctx.submit_command(SET_ITERATIONS.with(data.maximum_iterations / 2));
     }).expand_width();
 
     let iterations_section = create_label_textbox_row("ITER:", 60.0)
-        .lens(FractalData::temporary_iterations);
+        .lens(FractalData::max_iterations);
 
     let iterations_row = Flex::row()
         .with_flex_child(iterations_section, 0.7)
@@ -127,15 +127,15 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(button_decrease_iterations, 0.15);
 
     let button_increase_rotation = Button::new("+").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(SET_ROTATION.with(data.temporary_rotation - 15.0));
+        ctx.submit_command(SET_ROTATION.with(data.rotation - 15.0));
     }).expand_width();
 
     let button_decrease_rotation = Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
-        ctx.submit_command(SET_ROTATION.with(data.temporary_rotation + 15.0));
+        ctx.submit_command(SET_ROTATION.with(data.rotation + 15.0));
     }).expand_width();
 
     let rotation_section = create_label_textbox_row("ROTN:", 60.0)
-        .lens(FractalData::temporary_rotation);
+        .lens(FractalData::rotation);
 
     let rotation_row = Flex::row()
         .with_flex_child(rotation_section, 0.7)
@@ -194,7 +194,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     });
 
     let mut palette = Label::new(|data: &FractalData, _env: &_| {
-        data.temporary_palette_source.clone()
+        data.palette_source.clone()
     });
 
     colouring.set_text_size(12.0);
@@ -221,10 +221,10 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(button_set_palette, 0.4);
 
     let iteration_division_section = create_label_textbox_row("DIVISION:", 90.0)
-        .lens(FractalData::temporary_iteration_division);
+        .lens(FractalData::iteration_division);
 
     let iteration_offset_section = create_label_textbox_row("OFFSET:", 90.0)
-        .lens(FractalData::temporary_iteration_offset);
+        .lens(FractalData::iteration_offset);
 
     let set_iteration_offset = Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(SET_OFFSET_DIVISION);
@@ -293,12 +293,15 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(information_title.expand_width(), 1.0);
 
     let mut skipped_label = Label::<FractalData>::new("SKIPPED:");
+    let mut iterations_label = Label::<FractalData>::new("ITERATIONS:");
     let mut render_time_label = Label::<FractalData>::new("RENDER:");
 
     skipped_label.set_text_size(14.0);
+    iterations_label.set_text_size(14.0);
     render_time_label.set_text_size(14.0);
 
     let skipped = SkippedLabel::new().align_right();
+    let iterations = IterationsLabel::new().align_right();
     let render_timer = RenderTimer::new().align_right();
 
     let row_13 = Flex::row()
@@ -306,13 +309,17 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_flex_child(skipped, 1.0);
 
     let row_14 = Flex::row()
+        .with_child(iterations_label.fix_width(50.0))
+        .with_flex_child(iterations, 1.0);
+
+    let row_15 = Flex::row()
         .with_child(render_time_label.fix_width(50.0))
         .with_flex_child(render_timer, 1.0);
 
-    let render_progress = ProgressBar::new().lens(FractalData::temporary_progress).expand_width();
+    let render_progress = ProgressBar::new().lens(FractalData::progress).expand_width();
 
     let button_toggle_state = Button::new(|data: &FractalData, _env: &_| {
-        let text = match data.temporary_stage {
+        let text = match data.stage {
             0 => {
                 if data.zoom_out_enabled {
                     "CANCEL"
@@ -327,7 +334,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
 
         text.to_string()
     }).on_click(|ctx, data: &mut FractalData, _env| {
-        if data.temporary_stage == 0 && !data.zoom_out_enabled {
+        if data.stage == 0 && !data.zoom_out_enabled {
             // TODO maybe add a section here that checks if a zoom out sequence is ongoing
             ctx.submit_command(RESET_RENDERER_FAST);
         } else {
@@ -348,7 +355,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         *data = true;
     }).lens(FractalData::show_settings).expand_width();
 
-    let row_15 = Flex::row()
+    let row_16 = Flex::row()
         .with_flex_child(render_progress, 0.75)
         .with_spacer(4.0)
         .with_flex_child(button_toggle_state, 0.25);
@@ -385,6 +392,8 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(4.0)
         .with_child(row_15)
         .with_spacer(4.0)
+        .with_child(row_16)
+        .with_spacer(4.0)
         .with_child(button_start_zoom_out)
         .with_spacer(4.0)
         .with_child(button_start_zoom_out_optimised)
@@ -404,17 +413,17 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     advanced_options_label.set_text_size(20.0);
 
     let button_save_advanced_options = Button::new("SAVE & UPDATE").on_click(|ctx, data: &mut bool, _env| {
-        // println!("{}", data.temporary_display_glitches);
+        // println!("{}", data.display_glitches);
         *data = false;
         ctx.submit_command(SET_ADVANCED_OPTIONS);
         // ctx.submit_command(Command::new(Selector::new("start_zoom_out"), (), Target::Auto));
     }).lens(FractalData::show_settings).expand_width().fix_height(40.0);
 
-    let display_glitches = create_checkbox_row("Show glitched pixels").lens(FractalData::temporary_display_glitches);
-    let experimental = create_checkbox_row("Use experimental algorithm").lens(FractalData::temporary_experimental);
-    let jitter = create_checkbox_row("Jitter pixels").lens(FractalData::temporary_jitter);
-    let auto_adjust_iterations = create_checkbox_row("Automatically adjust iterations").lens(FractalData::temporary_auto_adjust_iterations);
-    let remove_centre = create_checkbox_row("Remove image centre").lens(FractalData::temporary_remove_center);
+    let display_glitches = create_checkbox_row("Show glitched pixels").lens(FractalData::display_glitches);
+    let experimental = create_checkbox_row("Use experimental algorithm").lens(FractalData::experimental);
+    let jitter = create_checkbox_row("Jitter pixels").lens(FractalData::jitter);
+    let auto_adjust_iterations = create_checkbox_row("Automatically adjust iterations").lens(FractalData::auto_adjust_iterations);
+    let remove_centre = create_checkbox_row("Remove image centre").lens(FractalData::remove_centre);
 
     let advanced_options_title = Flex::<FractalData>::row()
         .with_flex_child(advanced_options_label.expand_width(), 0.8)
@@ -433,22 +442,22 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_child(remove_centre);
 
     let order_section = create_label_slider_row("SERIES APPROXIMATION ORDER:", 280.0, 4.0, 128.0)
-        .lens(FractalData::temporary_order.map(|val| *val as f64, |val, new| *val = new as i64));
+        .lens(FractalData::order.map(|val| *val as f64, |val, new| *val = new as i64));
 
     let glitch_tolerance_section = create_label_textbox_row("GLITCH TOLERANCE:", 280.0)
-        .lens(FractalData::temporary_glitch_tolerance);
+        .lens(FractalData::glitch_tolerance);
 
     let glitch_percentage_section = create_label_textbox_row("GLITCH PERCENTAGE:", 280.0)
-        .lens(FractalData::temporary_glitch_percentage);
+        .lens(FractalData::glitch_percentage);
 
     let storage_interval_section = create_label_textbox_row("DATA STORAGE INTERVAL:", 280.0)
-        .lens(FractalData::temporary_iteration_interval);
+        .lens(FractalData::iteration_interval);
 
     let probe_sampling_section = create_label_textbox_row("PROBE SAMPLING:", 280.0)
-        .lens(FractalData::temporary_probe_sampling);
+        .lens(FractalData::probe_sampling);
 
     let jitter_factor_section = create_label_textbox_row("JITTER FACTOR:", 280.0)
-        .lens(FractalData::temporary_jitter_factor);
+        .lens(FractalData::jitter_factor);
 
     let values_section = Flex::column()
         .with_child(order_section)
@@ -474,7 +483,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     imag_label.set_text_size(14.0);
 
     let real = LensWrap::new(TextBox::multiline().with_text_size(10.0).expand_width(), lens::RealLens);
-    // let real = TextBox::multiline().with_text_size(10.0).expand_width().lens(FractalData::temporary_real);
+    // let real = TextBox::multiline().with_text_size(10.0).expand_width().lens(FractalData::real);
 
     let imag = LensWrap::new(TextBox::multiline().with_text_size(10.0).expand_width(), lens::ImagLens);
 

@@ -69,7 +69,7 @@ impl Widget<FractalData> for RenderTimer {
     fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &FractalData, env: &Env) -> Size {
         // println!("timer layout");
         let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
-        self.make_layout_if_needed(data.temporary_time, data.temporary_stage, &mut ctx.text(), env);
+        self.make_layout_if_needed(data.time, data.stage, &mut ctx.text(), env);
         bc.constrain((
             self.text.size().width + 2.0 * X_PADDING,
             font_size * LINE_HEIGHT_FACTOR,
@@ -78,7 +78,7 @@ impl Widget<FractalData> for RenderTimer {
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, env: &Env) {
         // println!("timer paint");
-        self.make_layout_if_needed(data.temporary_time, data.temporary_stage, &mut ctx.text(), env);
+        self.make_layout_if_needed(data.time, data.stage, &mut ctx.text(), env);
         let origin = Point::new(X_PADDING, 0.0);
         self.text.draw(ctx, origin);
     }
@@ -131,7 +131,7 @@ impl Widget<FractalData> for SkippedLabel {
     fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &FractalData, env: &Env) -> Size {
         // println!("timer layout");
         let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
-        self.make_layout_if_needed(data.temporary_min_valid_iterations, data.temporary_max_valid_iterations, &mut ctx.text(), env);
+        self.make_layout_if_needed(data.min_valid_iterations, data.max_valid_iterations, &mut ctx.text(), env);
         bc.constrain((
             self.text.size().width + 2.0 * X_PADDING,
             font_size * LINE_HEIGHT_FACTOR,
@@ -140,7 +140,69 @@ impl Widget<FractalData> for SkippedLabel {
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, env: &Env) {
         // println!("timer paint");
-        self.make_layout_if_needed(data.temporary_min_valid_iterations, data.temporary_max_valid_iterations, &mut ctx.text(), env);
+        self.make_layout_if_needed(data.min_valid_iterations, data.max_valid_iterations, &mut ctx.text(), env);
+        let origin = Point::new(X_PADDING, 0.0);
+        self.text.draw(ctx, origin);
+    }
+}
+
+pub struct IterationsLabel {
+    text: TextLayout<ArcStr>,
+    // Does the layout need to be changed?
+    needs_update: bool,
+}
+
+impl IterationsLabel {
+    pub fn new() -> IterationsLabel {
+        IterationsLabel {
+            text: TextLayout::new(),
+            needs_update: true,
+        }
+    }
+
+    fn make_layout_if_needed(&mut self, min_iterations: usize, max_iterations: usize, t: &mut PietText, env: &Env) {
+        if self.needs_update {
+            let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
+
+            let temp = format!("min. {} max. {}", min_iterations, max_iterations);
+
+            self.text
+                .set_text(format!("{:>30}", temp).into());
+            self.text
+                .set_font(FontDescriptor::new(FontFamily::MONOSPACE).with_size(font_size));
+            self.text.set_text_color(Color::WHITE);
+            self.text.rebuild_if_needed(t, env);
+
+            self.needs_update = false;
+        }
+    }
+}
+
+impl Widget<FractalData> for IterationsLabel {
+    fn event(&mut self, _: &mut EventCtx, _: &Event, _: &mut FractalData, _: &Env) {}
+
+    fn lifecycle(&mut self, _: &mut LifeCycleCtx, _: &LifeCycle, _: &FractalData, _: &Env) {}
+
+    fn update(&mut self, ctx: &mut UpdateCtx, _: &FractalData, _: &FractalData, _: &Env) {
+        // println!("timer update");
+        // TODO: update on env changes also
+        self.needs_update = true;
+        ctx.request_paint();
+    }
+
+    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &FractalData, env: &Env) -> Size {
+        // println!("timer layout");
+        let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
+        self.make_layout_if_needed(data.min_iterations, data.max_iterations, &mut ctx.text(), env);
+        bc.constrain((
+            self.text.size().width + 2.0 * X_PADDING,
+            font_size * LINE_HEIGHT_FACTOR,
+        ))
+    }
+
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, env: &Env) {
+        // println!("timer paint");
+        self.make_layout_if_needed(data.min_iterations, data.max_iterations, &mut ctx.text(), env);
         let origin = Point::new(X_PADDING, 0.0);
         self.text.draw(ctx, origin);
     }

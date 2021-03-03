@@ -52,11 +52,11 @@ pub struct RealLens;
 
 impl Lens<FractalData, String> for RealLens {
     fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
-        f(&data.temporary_real)
+        f(&data.real)
     }
     fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
-        let v = f(&mut data.temporary_real);
-        data.temporary_real.retain(|c| {
+        let v = f(&mut data.real);
+        data.real.retain(|c| {
             if c.is_digit(10) {
                 true
             } else {
@@ -67,7 +67,7 @@ impl Lens<FractalData, String> for RealLens {
             }
         });
 
-        data.temporary_real = data.temporary_real.to_uppercase();
+        data.real = data.real.to_uppercase();
 
         v
     }
@@ -77,11 +77,11 @@ pub struct ImagLens;
 
 impl Lens<FractalData, String> for ImagLens {
     fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
-        f(&data.temporary_imag)
+        f(&data.imag)
     }
     fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
-        let v = f(&mut data.temporary_imag);
-        data.temporary_imag.retain(|c| {
+        let v = f(&mut data.imag);
+        data.imag.retain(|c| {
             if c.is_digit(10) {
                 true
             } else {
@@ -92,7 +92,7 @@ impl Lens<FractalData, String> for ImagLens {
             }
         });
 
-        data.temporary_imag = data.temporary_imag.to_uppercase();
+        data.imag = data.imag.to_uppercase();
 
         v
     }
