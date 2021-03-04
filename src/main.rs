@@ -370,7 +370,7 @@ impl Widget<FractalData> for FractalWidget {
 
                 // Handles setting the advanced options
                 if command.is(SET_ADVANCED_OPTIONS) {
-                    println!("{} {} {}", data.remove_centre, renderer.remove_centre, renderer.data_export.lock().centre_removed);
+                    // println!("{} {} {}", data.remove_centre, renderer.remove_centre, renderer.data_export.lock().centre_removed);
 
                     // These options require the entire renderer to be refreshed
                     if renderer.center_reference.data_storage_interval != data.iteration_interval as usize ||
@@ -386,7 +386,7 @@ impl Widget<FractalData> for FractalWidget {
 
                         ctx.submit_command(RESET_RENDERER_FULL);
 
-                        println!("interval or glitch tolerance changed");
+                        // println!("interval or glitch tolerance changed");
                     } else if renderer.series_approximation.order != data.order as usize ||
                         renderer.series_approximation.probe_sampling != data.probe_sampling as usize ||
                         renderer.series_approximation.experimental != data.experimental {
@@ -410,7 +410,7 @@ impl Widget<FractalData> for FractalWidget {
 
                         ctx.submit_command(RESET_RENDERER_FAST);
 
-                        println!("order or probe sampling or experimental changed");
+                        // println!("order or probe sampling or experimental changed");
                     } else if renderer.glitch_percentage != data.glitch_percentage || 
                         renderer.jitter != data.jitter ||
                         renderer.remove_centre != data.remove_centre ||
@@ -438,17 +438,17 @@ impl Widget<FractalData> for FractalWidget {
 
                         ctx.submit_command(RESET_RENDERER_FAST);
 
-                        println!("glitch percentage or jitter or remove centre changed");
+                        // println!("glitch percentage or jitter or remove centre changed");
                     } else if renderer.data_export.lock().display_glitches != data.display_glitches {
                         renderer.data_export.lock().display_glitches = data.display_glitches;
                         renderer.data_export.lock().regenerate();
                         ctx.submit_command(REPAINT);
 
-                        println!("display glitches changed");
+                        // println!("display glitches changed");
                     } else if renderer.auto_adjust_iterations != data.auto_adjust_iterations {
-                        println!("auto adjust iterations changed");
+                        // println!("auto adjust iterations changed");
                     } else {
-                        println!("nothing changed");
+                        // println!("nothing changed");
                         return;
                     }
 
@@ -476,7 +476,7 @@ impl Widget<FractalData> for FractalWidget {
                     renderer.jitter = data.jitter;
                     renderer.jitter_factor = data.jitter_factor;
 
-                    println!("setting to {}", data.remove_centre);
+                    // println!("setting to {}", data.remove_centre);
                     renderer.remove_centre = data.remove_centre;
                     // renderer.data_export.lock().centre_removed = false;
 

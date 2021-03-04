@@ -99,11 +99,12 @@ pub fn testing_renderer(
                                 }
                             };
 
-                            index += 1;
-
-                            if index % 20 == 0 && stage > 2 {
-                                test.submit_command(REPAINT, (), Target::Auto).unwrap();
-                                index = 0;
+                            if stage > 2 {
+                                index += 1;
+                                if index % 20 == 0 {
+                                    test.submit_command(REPAINT, (), Target::Auto).unwrap();
+                                    index = 0;
+                                }
                             }
                             
                             thread::sleep(Duration::from_millis(10));
@@ -189,11 +190,13 @@ pub fn testing_renderer(
                                 }
                             };
 
-                            index += 1;
+                            if stage > 2 {
+                                index += 1;
 
-                            if index % 20 == 0 && stage > 2 {
-                                test.submit_command(REPAINT, (), Target::Auto).unwrap();
-                                index = 0;
+                                if index % 20 == 0 {
+                                    test.submit_command(REPAINT, (), Target::Auto).unwrap();
+                                    index = 0;
+                                }
                             }
         
                             thread::sleep(Duration::from_millis(10));
