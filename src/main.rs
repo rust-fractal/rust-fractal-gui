@@ -551,8 +551,8 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("real", data.real.clone()).unwrap();
                     settings.set("imag", data.imag.clone()).unwrap();
                     settings.set("zoom",  data.zoom.clone()).unwrap();
-                    settings.set("rotate", data.rotation.clone()).unwrap();
-                    settings.set("iterations", data.maximum_iterations.clone()).unwrap();
+                    settings.set("rotate", data.rotation).unwrap();
+                    settings.set("iterations", data.maximum_iterations).unwrap();
 
                     ctx.submit_command(RESET_RENDERER_FULL);
                     return;
@@ -760,149 +760,119 @@ impl Widget<FractalData> for FractalWidget {
                     let mut new_settings = Config::default();
                     new_settings.merge(File::with_name(file_info.path().to_str().unwrap())).unwrap();
 
-                    let file_name = file_info.path().file_name().unwrap().to_str().unwrap().split(".").next().unwrap();
+                    let file_name = file_info.path().file_name().unwrap().to_str().unwrap().split('.').next().unwrap();
 
                     let mut reset_renderer = false;
                     let mut quick_reset = false;
 
-                    match new_settings.get_str("real") {
-                        Ok(real) => {
-                            settings.set("real", real.clone()).unwrap();
-                            data.real = real;
-                            reset_renderer = true;
-                        }
-                        Err(_) => {}
+                    if let Ok(real) = new_settings.get_str("real") {
+                        settings.set("real", real.clone()).unwrap();
+                        data.real = real;
+                        reset_renderer = true;
                     }
 
-                    match new_settings.get_str("imag") {
-                        Ok(imag) => {
-                            settings.set("imag", imag.clone()).unwrap();
-                            data.imag = imag;
-                            reset_renderer = true;
-                        }
-                        Err(_) => {}
+                    if let Ok(imag) = new_settings.get_str("imag") {
+                        settings.set("imag", imag.clone()).unwrap();
+                        data.imag = imag;
+                        reset_renderer = true;
                     }
 
-                    match new_settings.get_str("zoom") {
-                        Ok(zoom) => {
-                            settings.set("zoom", zoom.clone()).unwrap();
-                            data.zoom = zoom.to_uppercase();
+                    if let Ok(zoom) = new_settings.get_str("zoom") {
+                        settings.set("zoom", zoom.clone()).unwrap();
+                        data.zoom = zoom.to_uppercase();
 
-                            let temp: Vec<&str> = data.zoom.split('E').collect();
-                            data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
-                            data.zoom_exponent = temp[1].parse::<i64>().unwrap();
+                        let temp: Vec<&str> = data.zoom.split('E').collect();
+                        data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
+                        data.zoom_exponent = temp[1].parse::<i64>().unwrap();
 
-                            reset_renderer = true;
-                        }
-                        Err(_) => {}
+                        reset_renderer = true;
                     }
 
-                    match new_settings.get_int("iterations") {
-                        Ok(iterations) => {
-                            settings.set("iterations", iterations.clone()).unwrap();
-                            data.maximum_iterations = iterations;
-                            reset_renderer = true;
-                        }
-                        Err(_) => {}
+                    if let Ok(iterations) = new_settings.get_int("iterations") {
+                        settings.set("iterations", iterations).unwrap();
+                        data.maximum_iterations = iterations;
+                        reset_renderer = true;
                     }
 
-                    match new_settings.get_float("rotate") {
-                        Ok(rotate) => {
-                            settings.set("rotate", rotate.clone()).unwrap();
-                            data.rotation = rotate;
-                            reset_renderer = true;
-                        }
-                        Err(_) => {
-                            settings.set("rotate", 0.0).unwrap();
-                            data.rotation = 0.0;
-                        }
+                    if let Ok(rotate) = new_settings.get_float("rotate") {
+                        settings.set("rotate", rotate).unwrap();
+                        data.rotation = rotate;
+                        reset_renderer = true;
+                    } else {
+                        settings.set("rotate", 0.0).unwrap();
+                        data.rotation = 0.0;
                     }
 
-                    match new_settings.get_int("image_width") {
-                        Ok(width) => {
-                            data.image_width = width;
-                            settings.set("image_width", width.clone()).unwrap();
-                            quick_reset = true;
-                        }
-                        Err(_) => {}
+                    if let Ok(width) = new_settings.get_int("image_width") {
+                        data.image_width = width;
+                        settings.set("image_width", width).unwrap();
+                        quick_reset = true;
                     }
 
-                    match new_settings.get_int("image_height") {
-                        Ok(height) => {
-                            data.image_height = height;
-                            settings.set("image_height", height.clone()).unwrap();
-                            quick_reset = true;
-                        }
-                        Err(_) => {}
+                    if let Ok(height) = new_settings.get_int("image_height") {
+                        data.image_height = height;
+                        settings.set("image_height", height).unwrap();
+                        quick_reset = true;
                     }
 
-                    match new_settings.get_int("approximation_order") {
-                        Ok(order) => {
-                            data.order = order;
-                            settings.set("approximation_order", order.clone()).unwrap();
-                            quick_reset = true;
-                        }
-                        Err(_) => {}
+                    if let Ok(order) = new_settings.get_int("approximation_order") {
+                        data.order = order;
+                        settings.set("approximation_order", order).unwrap();
+                        quick_reset = true;
                     }
 
-                    match new_settings.get_bool("analytic_derivative") {
-                        Ok(analytic_derivative) => {
-                            renderer.data_export.lock().analytic_derivative = analytic_derivative;
-                            settings.set("analytic_derivative", analytic_derivative.clone()).unwrap();
-                            quick_reset = true;
-                        }
-                        Err(_) => {}
+                    if let Ok(analytic_derivative) = new_settings.get_bool("analytic_derivative") {
+                        renderer.data_export.lock().analytic_derivative = analytic_derivative;
+                        settings.set("analytic_derivative", analytic_derivative).unwrap();
+                        quick_reset = true;
                     }
 
-                    match new_settings.get_array("palette") {
-                        Ok(colour_values) => {
-                            // Only reset these if the palette is defined
-                            match new_settings.get_float("iteration_division") {
-                                Ok(iteration_division) => {
-                                    settings.set("iteration_division", iteration_division).unwrap();
-                                    data.iteration_division = iteration_division;
-                                }
-                                Err(_) => {
-                                    settings.set("iteration_division", 1.0).unwrap();
-                                    data.iteration_division = 1.0;
-                                }
+                    if let Ok(colour_values) = new_settings.get_array("palette") {
+                        // Only reset these if the palette is defined
+                        match new_settings.get_float("iteration_division") {
+                            Ok(iteration_division) => {
+                                settings.set("iteration_division", iteration_division).unwrap();
+                                data.iteration_division = iteration_division;
                             }
-        
-                            match new_settings.get_float("palette_offset") {
-                                Ok(palette_offset) => {
-                                    settings.set("palette_offset", palette_offset).unwrap();
-                                    data.iteration_offset = palette_offset;
-                                }
-                                Err(_) => {
-                                    settings.set("palette_offset", 0.0).unwrap();
-                                    data.iteration_offset = 0.0;
-                                }
-                            }
-
-                            settings.set("palette", colour_values.clone()).unwrap();
-                            ctx.submit_command(UPDATE_PALETTE);
-
-                            let palette = colour_values.chunks_exact(3).map(|value| {
-                                // We assume the palette is in BGR rather than RGB
-                                (value[2].clone().into_int().unwrap() as u8, 
-                                    value[1].clone().into_int().unwrap() as u8, 
-                                    value[0].clone().into_int().unwrap() as u8)
-                            }).collect::<Vec<(u8, u8, u8)>>();
-
-                            renderer.data_export.lock().change_palette(
-                                Some(palette),
-                                settings.get_float("iteration_division").unwrap() as f32,
-                                settings.get_float("palette_offset").unwrap() as f32
-                            );
-
-                            data.palette_source = file_name.to_string();
-
-                            if !reset_renderer || !quick_reset {
-                                renderer.data_export.lock().regenerate();
-                                ctx.submit_command(REPAINT);
+                            Err(_) => {
+                                settings.set("iteration_division", 1.0).unwrap();
+                                data.iteration_division = 1.0;
                             }
                         }
-                        Err(_) => {}
+    
+                        match new_settings.get_float("palette_offset") {
+                            Ok(palette_offset) => {
+                                settings.set("palette_offset", palette_offset).unwrap();
+                                data.iteration_offset = palette_offset;
+                            }
+                            Err(_) => {
+                                settings.set("palette_offset", 0.0).unwrap();
+                                data.iteration_offset = 0.0;
+                            }
+                        }
+
+                        settings.set("palette", colour_values.clone()).unwrap();
+                        ctx.submit_command(UPDATE_PALETTE);
+
+                        let palette = colour_values.chunks_exact(3).map(|value| {
+                            // We assume the palette is in BGR rather than RGB
+                            (value[2].clone().into_int().unwrap() as u8, 
+                                value[1].clone().into_int().unwrap() as u8, 
+                                value[0].clone().into_int().unwrap() as u8)
+                        }).collect::<Vec<(u8, u8, u8)>>();
+
+                        renderer.data_export.lock().change_palette(
+                            Some(palette),
+                            settings.get_float("iteration_division").unwrap() as f32,
+                            settings.get_float("palette_offset").unwrap() as f32
+                        );
+
+                        data.palette_source = file_name.to_string();
+
+                        if !reset_renderer || !quick_reset {
+                            renderer.data_export.lock().regenerate();
+                            ctx.submit_command(REPAINT);
+                        }
                     }
 
                     settings.merge(new_settings).unwrap();
@@ -981,8 +951,6 @@ impl Widget<FractalData> for FractalWidget {
                         },
                         _ => {}
                     }
-
-                    return;
                 }
             },
             _ => {}
@@ -994,7 +962,6 @@ impl Widget<FractalData> for FractalWidget {
 
     fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &FractalData, _data: &FractalData, _env: &Env) {
         // println!("update called");
-        return;
     }
 
     fn layout(&mut self, _layout_ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &FractalData, _env: &Env) -> Size {
