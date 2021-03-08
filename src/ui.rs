@@ -117,7 +117,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
     }).expand_width();
 
     let iterations_section = create_label_textbox_row("ITER:", 60.0)
-        .lens(FractalData::max_iterations);
+        .lens(FractalData::maximum_iterations);
 
     let iterations_row = Flex::row()
         .with_flex_child(iterations_section, 0.7)
@@ -240,9 +240,7 @@ pub fn ui_builder() -> impl Widget<FractalData> {
         .with_spacer(4.0)
         .with_flex_child(set_iteration_offset, 0.3);
 
-    let raw_buffer = settings.get_array("palette").unwrap().chunks(3).map(|value| {
-        Vec::from([value[2].clone().into_int().unwrap() as u8, value[1].clone().into_int().unwrap() as u8, value[0].clone().into_int().unwrap() as u8])
-    }).flatten().collect::<Vec<u8>>();
+    let raw_buffer = vec![0u8, 0u8, 0u8];
 
     let test = ImageBuf::from_raw(raw_buffer.clone(), ImageFormat::Rgb, raw_buffer.len() / 3, 1);
 

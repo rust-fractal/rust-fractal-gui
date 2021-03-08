@@ -259,7 +259,7 @@ impl Widget<FractalData> for FractalWidget {
                     // TODO need to update image width and height
                     let buffer = data.buffer.lock();
 
-                    self.buffer = buffer.rgb.clone();
+                    self.buffer = buffer.buffer.clone();
 
                     if self.image_width != buffer.image_width || self.image_height != buffer.image_height {
                         self.image_width = buffer.image_width;
@@ -646,7 +646,7 @@ impl Widget<FractalData> for FractalWidget {
                     let current_offset = settings.get_float("palette_offset").unwrap();
 
                     let new_division = data.iteration_division;
-                    let new_offset = data.iteration_offset % renderer.data_export.lock().palette.len() as f64;
+                    let new_offset = data.iteration_offset;
 
                     // println!("{} {} {}", data.temporary_iteration_offset, new_offset, new_division);
 
@@ -856,9 +856,9 @@ impl Widget<FractalData> for FractalWidget {
 
                         let palette = colour_values.chunks_exact(3).map(|value| {
                             // We assume the palette is in BGR rather than RGB
-                            (value[2].clone().into_int().unwrap() as u8, 
+                            (value[0].clone().into_int().unwrap() as u8, 
                                 value[1].clone().into_int().unwrap() as u8, 
-                                value[0].clone().into_int().unwrap() as u8)
+                                value[2].clone().into_int().unwrap() as u8)
                         }).collect::<Vec<(u8, u8, u8)>>();
 
                         renderer.data_export.lock().change_palette(
@@ -918,9 +918,10 @@ impl Widget<FractalData> for FractalWidget {
                             let approximation_order = settings.get_int("approximation_order").unwrap();
                             let analytic_derivative = settings.get_bool("analytic_derivative").unwrap();
 
-                            let palette = renderer.data_export.lock().palette.clone().into_iter().flat_map(|seq| {
+                            let palette = renderer.data_export.lock().palette_buffer.clone().into_iter().flat_map(|seq| {
                                 // BGR format
-                                vec![seq.2, seq.1, seq.0]
+                                let (r, g, b, _) = seq.rgba_u8();
+                                vec![r, g, b]
                             }).collect::<Vec<u8>>();
                             let iteration_division = settings.get_float("iteration_division").unwrap();
                             let palette_offset = settings.get_float("palette_offset").unwrap();
