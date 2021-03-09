@@ -227,7 +227,7 @@ impl Controller<FractalData, Image> for PaletteUpdateController {
                     vec![r, g, b]
                 }).flatten().collect::<Vec<u8>>();
             
-                let test = ImageBuf::from_raw(raw_buffer.clone(), ImageFormat::Rgb, 100, 1);
+                let test = ImageBuf::from_raw(raw_buffer, ImageFormat::Rgb, 100, 1);
 
                 child.set_image_data(test)
             }
