@@ -1026,18 +1026,6 @@ pub fn main() {
     let zoom_string = settings.get_str("zoom").unwrap();
     let temp: Vec<&str> = zoom_string.split('E').collect();
 
-    let window_title = Box::leak(format!("rust-fractal {}", env!("CARGO_PKG_VERSION")).into_boxed_str());
-
-    let window = WindowDesc::new(ui::ui_builder()).title(
-        LocalizedString::new(window_title),
-    ).window_size((1388.0, 827.0)).resizable(true).menu(make_menu());
-
-    let launcher = AppLauncher::with_window(window);
-
-    let event_sink = launcher.get_external_handle();
-
-    let (sender, reciever) = mpsc::channel();
-
     let shared_settings = Arc::new(Mutex::new(settings.clone()));
     let shared_renderer = Arc::new(Mutex::new(FractalRenderer::new(settings.clone())));
     let shared_stop_flag = Arc::new(RelaxedCounter::new(0));
@@ -1049,6 +1037,18 @@ pub fn main() {
     let thread_repeat_flag = shared_repeat_flag.clone();
 
     let buffer = shared_renderer.lock().data_export.clone();
+
+    let window_title = Box::leak(format!("rust-fractal {}", env!("CARGO_PKG_VERSION")).into_boxed_str());
+
+    let window = WindowDesc::new(ui::ui_builder(shared_renderer.clone())).title(
+        LocalizedString::new(window_title),
+    ).window_size((1388.0, 827.0)).resizable(true).menu(make_menu());
+
+    let launcher = AppLauncher::with_window(window);
+
+    let event_sink = launcher.get_external_handle();
+
+    let (sender, reciever) = mpsc::channel();
 
     thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer, thread_stop_flag, thread_repeat_flag));
 
