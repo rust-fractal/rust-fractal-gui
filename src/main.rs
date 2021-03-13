@@ -115,69 +115,83 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                let mut settings = data.settings.lock();
-                let mut renderer = data.renderer.lock();
+                // Zoom in, use the mouse position
+                if e.button == MouseButton::Left {
+                    let mut settings = data.settings.lock();
+                    let mut renderer = data.renderer.lock();
 
-                // For a mousedown event we only check the left and right buttons
-                if e.button == MouseButton::Left || e.button == MouseButton::Right {
-                    // Zoom in, use the mouse position
-                    if e.button == MouseButton::Left {
-                        let size = ctx.size().to_rect();
+                    let size = ctx.size().to_rect();
 
-                        let i = e.pos.x * renderer.image_width as f64 / size.width();
-                        let j = e.pos.y * renderer.image_height as f64 / size.height();
-    
-                        let cos_rotate = renderer.rotate.cos();
-                        let sin_rotate = renderer.rotate.sin();
-    
-                        let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
-                        let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
-    
-                        let element = ComplexFixed::new(
-                            i * delta_pixel * cos_rotate - j * delta_pixel * sin_rotate + delta_top_left.re, 
-                            i * delta_pixel * sin_rotate + j * delta_pixel * cos_rotate + delta_top_left.im
-                        );
+                    let i = e.pos.x * renderer.image_width as f64 / size.width();
+                    let j = e.pos.y * renderer.image_height as f64 / size.height();
 
-                        let element = ComplexExtended::new(element, -renderer.zoom.exponent);
-                        let mut zoom = renderer.zoom;
-                    
-                        zoom.mantissa *= 2.0;
-                        zoom.reduce();
+                    let cos_rotate = renderer.rotate.cos();
+                    let sin_rotate = renderer.rotate.sin();
 
-                        let mut location = renderer.center_reference.c.clone();
-                        let precision = location.real().prec();
+                    let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
+                    let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
 
-                        let temp = FloatArbitrary::with_val(precision, element.exponent).exp2();
-                        let temp2 = FloatArbitrary::with_val(precision, element.mantissa.re);
-                        let temp3 = FloatArbitrary::with_val(precision, element.mantissa.im);
+                    let element = ComplexFixed::new(
+                        i * delta_pixel * cos_rotate - j * delta_pixel * sin_rotate + delta_top_left.re, 
+                        i * delta_pixel * sin_rotate + j * delta_pixel * cos_rotate + delta_top_left.im
+                    );
 
-                        *location.mut_real() += &temp2 * &temp;
-                        *location.mut_imag() += &temp3 * &temp;
+                    let element = ComplexExtended::new(element, -renderer.zoom.exponent);
+                    let mut zoom = renderer.zoom;
+                
+                    zoom.mantissa *= 2.0;
+                    zoom.reduce();
 
-                        data.zoom = extended_to_string_long(zoom);
+                    let mut location = renderer.center_reference.c.clone();
+                    let precision = location.real().prec();
 
-                        // Set the overrides for the current location
-                        settings.set("real", location.real().to_string()).unwrap();
-                        settings.set("imag", location.imag().to_string()).unwrap();
-                        settings.set("zoom", data.zoom.clone()).unwrap();
+                    let temp = FloatArbitrary::with_val(precision, element.exponent).exp2();
+                    let temp2 = FloatArbitrary::with_val(precision, element.mantissa.re);
+                    let temp3 = FloatArbitrary::with_val(precision, element.mantissa.im);
 
-                        data.real = settings.get_str("real").unwrap();
-                        data.imag = settings.get_str("imag").unwrap();
+                    *location.mut_real() += &temp2 * &temp;
+                    *location.mut_imag() += &temp3 * &temp;
 
-                        let temp: Vec<&str> = data.zoom.split('E').collect();
-                        data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
-                        data.zoom_exponent = temp[1].parse::<i64>().unwrap();
+                    data.zoom = extended_to_string_long(zoom);
 
-                        renderer.adjust_iterations();
+                    // Set the overrides for the current location
+                    settings.set("real", location.real().to_string()).unwrap();
+                    settings.set("imag", location.imag().to_string()).unwrap();
+                    settings.set("zoom", data.zoom.clone()).unwrap();
 
-                        settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
-                        data.maximum_iterations = renderer.maximum_iteration as i64;
+                    data.real = settings.get_str("real").unwrap();
+                    data.imag = settings.get_str("imag").unwrap();
 
-                        ctx.submit_command(RESET_RENDERER_FULL);
-                    } else {
-                        ctx.submit_command(MULTIPLY_ZOOM.with(0.5));
-                    }
+                    let temp: Vec<&str> = data.zoom.split('E').collect();
+                    data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
+                    data.zoom_exponent = temp[1].parse::<i64>().unwrap();
+
+                    renderer.adjust_iterations();
+
+                    settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
+                    data.maximum_iterations = renderer.maximum_iteration as i64;
+
+                    ctx.submit_command(RESET_RENDERER_FULL);
                 }
+
+                if e.button == MouseButton::Right {
+                    ctx.submit_command(MULTIPLY_ZOOM.with(0.5));
+                }
+
+                if e.button == MouseButton::Middle {
+                    let renderer = data.renderer.lock();
+                    let data_export = data.buffer.lock();
+
+                    let size = ctx.size().to_rect();
+
+                    let i = e.pos.x * renderer.image_width as f64 / size.width();
+                    let j = e.pos.y * renderer.image_height as f64 / size.height();
+
+                    let k = j as usize * renderer.image_width + i as usize;
+
+                    println!("{} {} {} {}", i, j, data_export.iterations[k], data_export.smooth[k]);
+                }
+                
             },
             Event::KeyUp(e) => {
                 // Shortcut keys
