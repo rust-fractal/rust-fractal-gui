@@ -282,11 +282,7 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
 
     let group_general_information = Flex::column()
         .with_child(Label::new(format!("rust-fractal-gui {}", env!("CARGO_PKG_VERSION"))))
-        .with_child(Label::new(format!("{} {} {}", {
-            let mut git_sha = env!("VERGEN_GIT_SHA").to_string();
-            git_sha.truncate(7);
-            git_sha
-        }, env!("VERGEN_BUILD_DATE"), env!("VERGEN_BUILD_TIME"))))
+        .with_child(Label::new(format!("{} {} {}", env!("VERGEN_GIT_SHA_SHORT"), env!("VERGEN_GIT_COMMIT_DATE"), env!("VERGEN_GIT_COMMIT_TIME"))))
         .with_child(Label::new(format!("{} {}", env!("VERGEN_RUSTC_SEMVER"), env!("VERGEN_RUSTC_HOST_TRIPLE"))));
     // TODO have a help and about menu
     let side_menu = Flex::row()
