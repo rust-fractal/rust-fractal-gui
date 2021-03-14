@@ -34,5 +34,8 @@ pub const UPDATE_PROGRESS: Selector<(usize, f64, usize, usize, usize)> = Selecto
 pub const ZOOM_OUT: Selector<()> = Selector::new("start_zoom_out");
 pub const ZOOM_OUT_OPTIMISED: Selector<()> = Selector::new("start_zoom_out_optimised");
 
+pub const CALCULATE_PERIOD: Selector<()> = Selector::new("calculate_period");
+
 pub const THREAD_RESET_RENDERER_FULL: usize = 1;
 pub const THREAD_RESET_RENDERER_FAST: usize = 2;
+

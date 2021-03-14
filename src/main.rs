@@ -115,18 +115,17 @@ impl Widget<FractalData> for FractalWidget {
             }
             Event::MouseMove(e) => {
                 if data.stage == 0 {
-                    let renderer = data.renderer.lock();
-                    let data_export = data.buffer.lock();
-
                     let size = ctx.size().to_rect();
 
-                    let i = e.pos.x * renderer.image_width as f64 / size.width();
-                    let j = e.pos.y * renderer.image_height as f64 / size.height();
+                    let i = e.pos.x * data.image_width as f64 / size.width();
+                    let j = e.pos.y * data.image_height as f64 / size.height();
 
-                    let k = j as usize * renderer.image_width + i as usize;
+                    let k = j as usize * data.image_width as usize + i as usize;
 
                     data.pixel_pos[0] = i as u32;
                     data.pixel_pos[1] = j as u32;
+
+                    let data_export = data.buffer.lock();
 
                     data.pixel_iterations = data_export.iterations[k];
                     data.pixel_smooth = if data_export.smooth[k] <= 1.0 {
@@ -135,13 +134,15 @@ impl Widget<FractalData> for FractalWidget {
                         0.0
                     };
 
+                    drop(data_export);
+
                     let mut pixel_buffer = data.pixel_rgb.lock();
 
-                    if i as usize > 15 && i as usize + 15 < renderer.image_width && j as usize > 15 && j as usize + 15 < renderer.image_height {
+                    if i as i64 > 15 && i as i64 + 15 < data.image_width && j as i64 > 15 && j as i64 + 15 < data.image_height {
                         let mut temp = 0;
                         for n in (j as usize - 7)..=(j as usize + 7) {
                             for m in (i as usize - 7)..=(i as usize + 7) {
-                                let o = 3 * (n * renderer.image_width + m);
+                                let o = 3 * (n * data.image_width as usize + m);
 
                                 pixel_buffer[temp] = self.buffer[o];
                                 pixel_buffer[temp + 1] = self.buffer[o + 1];
@@ -257,6 +258,10 @@ impl Widget<FractalData> for FractalWidget {
                     let new_rotate = (settings.get_float("rotate").unwrap() + 15.0) % 360.0;
 
                     ctx.submit_command(SET_ROTATION.with(new_rotate));
+                }
+
+                if e.key == KbKey::Character("P".to_string()) || e.key == KbKey::Character("p".to_string()) {
+                    ctx.submit_command(CALCULATE_PERIOD);
                 }
 
                 if e.mods.ctrl() && (e.key == KbKey::Character("S".to_string()) || e.key == KbKey::Character("s".to_string())) {
@@ -750,6 +755,16 @@ impl Widget<FractalData> for FractalWidget {
                     data.max_valid_iterations = 1;
                     data.min_iterations = 1;
                     data.max_iterations = 1;
+
+                    return;
+                }
+
+                if command.is(CALCULATE_PERIOD) {
+                    println!("calculating period");
+
+                    renderer.find_period();
+
+                    println!("period is: {}", renderer.box_period.period);
 
                     return;
                 }
