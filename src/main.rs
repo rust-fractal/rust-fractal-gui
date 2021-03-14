@@ -94,7 +94,7 @@ pub struct FractalData {
     pixel_pos: [u32; 2],
     pixel_iterations: u32,
     pixel_smooth: f32,
-    pixel_rgb: [u8; 3]
+    pixel_rgb: Arc<Mutex<Vec<u8>>>
 }
 
 impl Widget<FractalData> for FractalWidget {
@@ -135,9 +135,24 @@ impl Widget<FractalData> for FractalWidget {
                         0.0
                     };
 
-                    data.pixel_rgb[0] = self.buffer[3 * k];
-                    data.pixel_rgb[1] = self.buffer[3 * k + 1];
-                    data.pixel_rgb[2] = self.buffer[3 * k + 2];
+                    let mut pixel_buffer = data.pixel_rgb.lock();
+
+                    if i as usize > 10 && i as usize + 10 < renderer.image_width && j as usize > 10 && j as usize + 10 < renderer.image_height {
+                        let mut temp = 0;
+                        for n in (j as usize - 4)..=(j as usize + 4) {
+                            for m in (i as usize - 4)..=(i as usize + 4) {
+                                let o = 3 * (n * renderer.image_width + m);
+
+                                pixel_buffer[temp] = self.buffer[o];
+                                pixel_buffer[temp + 1] = self.buffer[o + 1];
+                                pixel_buffer[temp + 2] = self.buffer[o + 2];
+
+                                temp += 3;
+                            }
+                        }
+                    };
+
+                    drop(pixel_buffer);
 
                     ctx.submit_command(UPDATE_PIXEL_INFORMATION);
                 }
@@ -1128,7 +1143,7 @@ pub fn main() {
             pixel_pos: [0, 0],
             pixel_iterations: 1,
             pixel_smooth: 0.0,
-            pixel_rgb: [0, 0, 0]
+            pixel_rgb: Arc::new(Mutex::new(vec![0u8; 81 * 3]))
         })
         .expect("launch failed");
 }

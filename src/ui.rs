@@ -261,11 +261,11 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         .with_child(Flex::row()
             .with_flex_spacer(0.5)
             .with_child(
-                Image::new(ImageBuf::from_raw(vec![0, 0, 0], ImageFormat::Rgb, 1, 1))
+                Image::new(ImageBuf::from_raw(vec![0u8; 81 * 3], ImageFormat::Rgb, 9, 9))
                     .interpolation_mode(InterpolationMode::NearestNeighbor)
                     .fill_mode(FillStrat::Contain)
                     .controller(PixelInformationUpdateController)
-                    .fix_height(64.0))
+                    .fix_height(100.0))
             .with_spacer(4.0)
             .with_child(Flex::column()
                 .with_child(NoUpdateLabel::new().lens(FractalData::pixel_pos.map(|val| {
