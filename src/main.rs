@@ -137,10 +137,10 @@ impl Widget<FractalData> for FractalWidget {
 
                     let mut pixel_buffer = data.pixel_rgb.lock();
 
-                    if i as usize > 10 && i as usize + 10 < renderer.image_width && j as usize > 10 && j as usize + 10 < renderer.image_height {
+                    if i as usize > 15 && i as usize + 15 < renderer.image_width && j as usize > 15 && j as usize + 15 < renderer.image_height {
                         let mut temp = 0;
-                        for n in (j as usize - 4)..=(j as usize + 4) {
-                            for m in (i as usize - 4)..=(i as usize + 4) {
+                        for n in (j as usize - 7)..=(j as usize + 7) {
+                            for m in (i as usize - 7)..=(i as usize + 7) {
                                 let o = 3 * (n * renderer.image_width + m);
 
                                 pixel_buffer[temp] = self.buffer[o];
@@ -1143,7 +1143,7 @@ pub fn main() {
             pixel_pos: [0, 0],
             pixel_iterations: 1,
             pixel_smooth: 0.0,
-            pixel_rgb: Arc::new(Mutex::new(vec![0u8; 81 * 3]))
+            pixel_rgb: Arc::new(Mutex::new(vec![0u8; 225 * 3]))
         })
         .expect("launch failed");
 }
