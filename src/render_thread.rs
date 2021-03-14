@@ -101,13 +101,13 @@ pub fn testing_renderer(
 
                             if stage > 2 {
                                 index += 1;
-                                if index % 20 == 0 {
+                                if index % 10 == 0 {
                                     test.submit_command(REPAINT, (), Target::Auto).unwrap();
                                     index = 0;
                                 }
                             }
                             
-                            thread::sleep(Duration::from_millis(10));
+                            thread::sleep(Duration::from_millis(20));
                         };
                     });
                     
@@ -193,13 +193,13 @@ pub fn testing_renderer(
                             if stage > 2 {
                                 index += 1;
 
-                                if index % 20 == 0 {
+                                if index % 10 == 0 {
                                     test.submit_command(REPAINT, (), Target::Auto).unwrap();
                                     index = 0;
                                 }
                             }
         
-                            thread::sleep(Duration::from_millis(10));
+                            thread::sleep(Duration::from_millis(20));
                         };
                     });
 

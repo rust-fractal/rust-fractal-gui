@@ -1,5 +1,5 @@
 use std::{fmt::Display, str::FromStr};
-use druid::widget::{Align, Button, Checkbox, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, CrossAxisAlignment};
+use druid::widget::{Align, Button, Checkbox, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, CrossAxisAlignment, Either};
 use druid::{Widget, ImageBuf, Data, LensExt};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::text::format::ParseFormatter;
@@ -7,7 +7,10 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use rust_fractal::renderer::FractalRenderer;
 
-use crate::{FractalData, FractalWidget, custom::Either, custom::PaletteUpdateController, custom::{RenderTimer, SkippedLabel, IterationsLabel}};
+use crate::{FractalData, FractalWidget};
+use crate::custom::*;
+
+
 use crate::commands::*;
 use crate::lens;
 
@@ -144,7 +147,7 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
                     .interpolation_mode(InterpolationMode::Bilinear)
                     .fill_mode(FillStrat::Fill)
                     .controller(PaletteUpdateController)
-                    .fix_height(12.0)
+                    .fix_height(24.0)
                     .expand_width())
             .with_spacer(4.0)
             .with_child(Flex::row()
@@ -176,42 +179,71 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         .with_child(Label::<FractalData>::new("INFORMATION").with_text_size(20.0).expand_width())
         .with_spacer(4.0)
         .with_child(Flex::row()
-            .with_child(Label::<FractalData>::new("SKIPPED:").with_text_size(14.0).fix_width(50.0))
-            .with_flex_child(SkippedLabel::new().align_right(), 1.0))
+        .with_flex_child(Label::<FractalData>::new("SKIPPED:").with_text_size(14.0).expand_width(), 1.0)
+            .with_child(NoUpdateLabel::new().lens(FractalData::min_valid_iterations.map(|val| {
+                format!("min. {:>8}", val)
+            }, |_, _| {})))
+            .with_child(NoUpdateLabel::new().lens(FractalData::max_valid_iterations.map(|val| {
+                format!("max. {:>8}", val)
+            }, |_, _| {}))))
         .with_spacer(4.0)
         .with_child(Flex::row()
-            .with_child(Label::<FractalData>::new("ITERATIONS:").with_text_size(14.0).fix_width(50.0))
-            .with_flex_child(IterationsLabel::new().align_right(), 1.0))
+            .with_flex_child(Label::<FractalData>::new("ITERATIONS:").with_text_size(14.0).expand_width(), 1.0)
+            .with_child(NoUpdateLabel::new().lens(FractalData::min_iterations.map(|val| {
+                format!("min. {:>8}", val)
+            }, |_, _| {})))
+            .with_child(NoUpdateLabel::new().lens(FractalData::max_iterations.map(|val| {
+                format!("max. {:>8}", val)
+            }, |_, _| {}))))
         .with_spacer(4.0)
         .with_child(Flex::row()
-            .with_child(Label::<FractalData>::new("RENDER:").with_text_size(14.0).fix_width(50.0))
-            .with_flex_child(RenderTimer::new().align_right(), 1.0))
+            .with_flex_child(Label::<FractalData>::new("RENDER:").with_text_size(14.0).expand_width(), 1.0)
+            .with_child(NoUpdateLabel::new().lens(FractalData::stage.map(|val| {
+                let text = match val {
+                    1 => "REFERENCE",
+                    2 => "APPROXIMATION",
+                    3 => "ITERATION",
+                    4 => "CORRECTION",
+                    0 => "COMPLETE",
+                    _ => "DEFAULT"
+                };
+    
+                format!("{:>14}", text)
+            }, |_, _| {})))
+            .with_child(NoUpdateLabel::new().lens(FractalData::time.map(|val| {
+                let ms = val % 1000;
+                let s = val / 1000;
+                let m = s / 60;
+                let h = m / 60;
+    
+                format!("{}:{:0>2}:{:0>2}:{:0>3}", h, m % 60, s % 60, ms)
+            }, |_, _| {}))))
         .with_spacer(4.0)
         .with_child(Flex::row()
-        .with_flex_child(ProgressBar::new().lens(FractalData::progress).expand_width(), 0.75)
-        .with_spacer(4.0)
-        .with_flex_child(Button::new(|data: &FractalData, _env: &_| {
-            match data.stage {
-                0 => {
-                    if data.zoom_out_enabled {
+            .with_flex_child(ProgressBar::new().lens(FractalData::progress).expand_width(), 0.75)
+            .with_spacer(4.0)
+            .with_flex_child(Button::new(|data: &FractalData, _env: &_| {
+                match data.stage {
+                    0 => {
+                        if data.zoom_out_enabled {
+                            "CANCEL".to_string()
+                        } else {
+                            "RESET".to_string()
+                        }   
+                    },
+                    _ => {
                         "CANCEL".to_string()
-                    } else {
-                        "RESET".to_string()
-                    }   
-                },
-                _ => {
-                    "CANCEL".to_string()
+                    }
                 }
-            }
-        }).on_click(|ctx, data: &mut FractalData, _env| {
-            if data.stage == 0 && !data.zoom_out_enabled {
-                // TODO maybe add a section here that checks if a zoom out sequence is ongoing
-                ctx.submit_command(RESET_RENDERER_FAST);
-            } else {
-                // println!("stop called");
-                ctx.submit_command(STOP_RENDERING);
-            }
-        }).expand_width(), 0.25));
+            }).on_click(|ctx, data: &mut FractalData, _env| {
+                if data.stage == 0 && !data.zoom_out_enabled {
+                    // TODO maybe add a section here that checks if a zoom out sequence is ongoing
+                    ctx.submit_command(RESET_RENDERER_FAST);
+                } else {
+                    // println!("stop called");
+                    ctx.submit_command(STOP_RENDERING);
+                }
+            }).expand_width(), 0.25));
 
     let button_start_zoom_out = Button::new("START ZOOM OUT").on_click(|ctx, _data: &mut FractalData, _env| {
         ctx.submit_command(ZOOM_OUT);
@@ -225,6 +257,37 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         *data = true;
     }).lens(FractalData::show_settings).expand_width();
 
+    let group_pixel_information = Flex::column()
+        .with_child(Flex::row()
+            .with_flex_spacer(0.5)
+            .with_child(
+                Image::new(ImageBuf::from_raw(vec![0, 0, 0], ImageFormat::Rgb, 1, 1))
+                    .interpolation_mode(InterpolationMode::NearestNeighbor)
+                    .fill_mode(FillStrat::Contain)
+                    .controller(PixelInformationUpdateController)
+                    .fix_height(64.0))
+            .with_spacer(4.0)
+            .with_child(Flex::column()
+                .with_child(NoUpdateLabel::new().lens(FractalData::pixel_pos.map(|val| {
+                    format!("{:>13}", format!("({},{})", val[0], val[1]))
+                }, |_, _| {})))
+                .with_child(Flex::row()
+                    .with_child(NoUpdateLabel::new().lens(FractalData::pixel_iterations.map(|val| {
+                        format!("{:>8}", val)
+                    }, |_, _| {})))
+                    .with_child(NoUpdateLabel::new().lens(FractalData::pixel_smooth.map(|val| {
+                        format!("{:>.4}", val)
+                    }, |_, _| {})))))
+            .with_flex_spacer(0.5));
+
+    let group_general_information = Flex::column()
+        .with_child(Label::new(format!("rust-fractal-gui {}", env!("CARGO_PKG_VERSION"))))
+        .with_child(Label::new(format!("{} {} {}", {
+            let mut git_sha = env!("VERGEN_GIT_SHA").to_string();
+            git_sha.truncate(7);
+            git_sha
+        }, env!("VERGEN_BUILD_DATE"), env!("VERGEN_BUILD_TIME"))))
+        .with_child(Label::new(format!("{} {}", env!("VERGEN_RUSTC_SEMVER"), env!("VERGEN_RUSTC_HOST_TRIPLE"))));
     // TODO have a help and about menu
     let side_menu = Flex::row()
         .with_flex_spacer(0.05)
@@ -244,7 +307,12 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
             .with_spacer(4.0)
             .with_child(button_start_zoom_out_optimised)
             .with_spacer(4.0)
-            .with_child(button_toggle_menu), 0.9)
+            .with_child(button_toggle_menu)
+            .with_spacer(24.0)
+            .with_child(group_pixel_information)
+            .with_flex_spacer(1.0)
+            .with_child(group_general_information)
+            .with_spacer(8.0), 0.9)
         .with_flex_spacer(0.05)
         .cross_axis_alignment(CrossAxisAlignment::Start);
 

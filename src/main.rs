@@ -1,5 +1,5 @@
 use std::sync::Arc;
-// use std::time::Instant;
+use std::time::Instant;
 
 use parking_lot::Mutex;
 
@@ -90,7 +90,11 @@ pub struct FractalData {
     buffer: Arc<Mutex<DataExport>>,
     need_full_rerender: bool,
     zoom_out_enabled: bool,
-    show_settings: bool
+    show_settings: bool,
+    pixel_pos: [u32; 2],
+    pixel_iterations: u32,
+    pixel_smooth: f32,
+    pixel_rgb: [u8; 3]
 }
 
 impl Widget<FractalData> for FractalWidget {
@@ -108,6 +112,35 @@ impl Widget<FractalData> for FractalWidget {
                 let sender = data.sender.lock();
                 // sender.send(String::from("reset_renderer_full")).unwrap();
                 sender.send(THREAD_RESET_RENDERER_FULL).unwrap();
+            }
+            Event::MouseMove(e) => {
+                if data.stage == 0 {
+                    let renderer = data.renderer.lock();
+                    let data_export = data.buffer.lock();
+
+                    let size = ctx.size().to_rect();
+
+                    let i = e.pos.x * renderer.image_width as f64 / size.width();
+                    let j = e.pos.y * renderer.image_height as f64 / size.height();
+
+                    let k = j as usize * renderer.image_width + i as usize;
+
+                    data.pixel_pos[0] = i as u32;
+                    data.pixel_pos[1] = j as u32;
+
+                    data.pixel_iterations = data_export.iterations[k];
+                    data.pixel_smooth = if data_export.smooth[k] <= 1.0 {
+                        data_export.smooth[k]
+                    } else {
+                        0.0
+                    };
+
+                    data.pixel_rgb[0] = self.buffer[3 * k];
+                    data.pixel_rgb[1] = self.buffer[3 * k + 1];
+                    data.pixel_rgb[2] = self.buffer[3 * k + 2];
+
+                    ctx.submit_command(UPDATE_PIXEL_INFORMATION);
+                }
             }
             Event::MouseDown(e) => {
                 // If the rendering has not completed, stop
@@ -177,21 +210,6 @@ impl Widget<FractalData> for FractalWidget {
                 if e.button == MouseButton::Right {
                     ctx.submit_command(MULTIPLY_ZOOM.with(0.5));
                 }
-
-                if e.button == MouseButton::Middle {
-                    let renderer = data.renderer.lock();
-                    let data_export = data.buffer.lock();
-
-                    let size = ctx.size().to_rect();
-
-                    let i = e.pos.x * renderer.image_width as f64 / size.width();
-                    let j = e.pos.y * renderer.image_height as f64 / size.height();
-
-                    let k = j as usize * renderer.image_width + i as usize;
-
-                    println!("{} {} {} {}", i, j, data_export.iterations[k], data_export.smooth[k]);
-                }
-                
             },
             Event::KeyUp(e) => {
                 // Shortcut keys
@@ -1003,7 +1021,7 @@ impl Widget<FractalData> for FractalWidget {
 
     fn paint(&mut self, ctx: &mut PaintCtx, _data: &FractalData, _env: &Env) {
         if self.image_width * self.image_height > 0 {
-            // let start = Instant::now();
+            let start = Instant::now();
 
             let size = ctx.size().to_rect();
 
@@ -1017,9 +1035,9 @@ impl Widget<FractalData> for FractalWidget {
                 ctx.draw_image(&image, size, InterpolationMode::NearestNeighbor);
             };
 
-            // let time = start.elapsed().as_millis() as usize;
+            let time = start.elapsed().as_millis() as usize;
 
-            // println!("paint: {}ms", time);
+            println!("paint: {}ms", time);
         }
     }
 
@@ -1052,10 +1070,8 @@ pub fn main() {
 
     let buffer = shared_renderer.lock().data_export.clone();
 
-    let window_title = Box::leak(format!("rust-fractal {}", env!("CARGO_PKG_VERSION")).into_boxed_str());
-
     let window = WindowDesc::new(ui::ui_builder(shared_renderer.clone())).title(
-        LocalizedString::new(window_title),
+        LocalizedString::new("rust-fractal"),
     ).window_size((1388.0, 827.0)).resizable(true).menu(make_menu());
 
     let launcher = AppLauncher::with_window(window);
@@ -1109,6 +1125,10 @@ pub fn main() {
             need_full_rerender: false,
             zoom_out_enabled: false,
             show_settings: true,
+            pixel_pos: [0, 0],
+            pixel_iterations: 1,
+            pixel_smooth: 0.0,
+            pixel_rgb: [0, 0, 0]
         })
         .expect("launch failed");
 }

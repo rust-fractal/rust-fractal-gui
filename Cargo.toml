@@ -3,6 +3,7 @@ name = "rust_fractal_gui"
 version = "0.3.0"
 authors = ["jackyarndley <34801340+jackyarndley@users.noreply.github.com>"]
 edition = "2018"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -12,3 +13,6 @@ rust_fractal = {path = "../rust-fractal-core"}
 config = "^0.9"
 atomic-counter = "^1.0.1"
 parking_lot = { version = "0.11", features = ["nightly"] }
+
+[build-dependencies]
+vergen = "4.2.0"

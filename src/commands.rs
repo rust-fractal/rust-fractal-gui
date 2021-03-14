@@ -24,6 +24,7 @@ pub const SET_OFFSET_DIVISION: Selector<()> = Selector::new("set_offset_division
 pub const SET_ADVANCED_OPTIONS: Selector<()> = Selector::new("set_advanced_options");
 
 pub const UPDATE_PALETTE: Selector<()> = Selector::new("update_palette");
+pub const UPDATE_PIXEL_INFORMATION: Selector<()> = Selector::new("update_pixel_information");
 pub const STOP_RENDERING: Selector<()> = Selector::new("stop_rendering");
 
 pub const REPAINT: Selector<()> = Selector::new("repaint");

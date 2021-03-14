@@ -1,49 +1,33 @@
-use crate::{FractalData, commands::UPDATE_PALETTE};
+use crate::{FractalData, commands::{UPDATE_PALETTE, UPDATE_PIXEL_INFORMATION}};
 
 use druid::piet::{FontFamily, PietText, ImageFormat, ImageBuf};
 use druid::widget::prelude::*;
 use druid::{ArcStr, Color, FontDescriptor, Point, TextLayout};
 use druid::widget::{Controller, Image};
+use druid::{Data, WidgetPod};
 
 const LINE_HEIGHT_FACTOR: f64 = 1.2;
 const X_PADDING: f64 = 5.0;
-
-pub struct RenderTimer {
+pub struct NoUpdateLabel {
     text: TextLayout<ArcStr>,
     // Does the layout need to be changed?
     needs_update: bool,
 }
 
-impl RenderTimer {
-    pub fn new() -> RenderTimer {
-        RenderTimer {
+impl NoUpdateLabel {
+    pub fn new() -> NoUpdateLabel {
+        NoUpdateLabel {
             text: TextLayout::new(),
             needs_update: true,
         }
     }
 
-    fn make_layout_if_needed(&mut self, time: usize, stage: usize, t: &mut PietText, env: &Env) {
+    fn make_layout_if_needed(&mut self, value: &String, t: &mut PietText, env: &Env) {
         if self.needs_update {
             let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
 
-            let text = match stage {
-                1 => "REFERENCE",
-                2 => "APPROXIMATION",
-                3 => "ITERATION",
-                4 => "CORRECTION",
-                0 => "COMPLETE",
-                _ => "DEFAULT"
-            };
-
-            let ms = time % 1000;
-            let s = time / 1000;
-            let m = s / 60;
-            let h = m / 60;
-
-            let formatted_time = format!("{}:{:0>2}:{:0>2}:{:0>3}", h, m % 60, s % 60, ms);
-
             self.text
-                .set_text(format!("{:>14} {:>14}", text, formatted_time).into());
+                .set_text(value.clone().into());
             self.text
                 .set_font(FontDescriptor::new(FontFamily::MONOSPACE).with_size(font_size));
             self.text.set_text_color(Color::WHITE);
@@ -54,155 +38,31 @@ impl RenderTimer {
     }
 }
 
-impl Widget<FractalData> for RenderTimer {
-    fn event(&mut self, _: &mut EventCtx, _: &Event, _: &mut FractalData, _: &Env) {}
+impl Widget<String> for NoUpdateLabel {
+    fn event(&mut self, _: &mut EventCtx, _: &Event, _: &mut String, _: &Env) {}
 
-    fn lifecycle(&mut self, _: &mut LifeCycleCtx, _: &LifeCycle, _: &FractalData, _: &Env) {}
+    fn lifecycle(&mut self, _: &mut LifeCycleCtx, _: &LifeCycle, _: &String, _: &Env) {}
 
-    fn update(&mut self, ctx: &mut UpdateCtx, _: &FractalData, _: &FractalData, _: &Env) {
+    fn update(&mut self, ctx: &mut UpdateCtx, _: &String, _: &String, _: &Env) {
         // println!("timer update");
         // TODO: update on env changes also
         self.needs_update = true;
         ctx.request_paint();
     }
 
-    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &FractalData, env: &Env) -> Size {
+    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &String, env: &Env) -> Size {
         // println!("timer layout");
         let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
-        self.make_layout_if_needed(data.time, data.stage, &mut ctx.text(), env);
+        self.make_layout_if_needed(&data, &mut ctx.text(), env);
         bc.constrain((
             self.text.size().width + 2.0 * X_PADDING,
             font_size * LINE_HEIGHT_FACTOR,
         ))
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &String, env: &Env) {
         // println!("timer paint");
-        self.make_layout_if_needed(data.time, data.stage, &mut ctx.text(), env);
-        let origin = Point::new(X_PADDING, 0.0);
-        self.text.draw(ctx, origin);
-    }
-}
-
-pub struct SkippedLabel {
-    text: TextLayout<ArcStr>,
-    // Does the layout need to be changed?
-    needs_update: bool,
-}
-
-impl SkippedLabel {
-    pub fn new() -> SkippedLabel {
-        SkippedLabel {
-            text: TextLayout::new(),
-            needs_update: true,
-        }
-    }
-
-    fn make_layout_if_needed(&mut self, min_skipped_iterations: usize, max_skipped_iterations: usize, t: &mut PietText, env: &Env) {
-        if self.needs_update {
-            let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
-
-            let temp = format!("min. {} max. {}", min_skipped_iterations, max_skipped_iterations);
-
-            self.text
-                .set_text(format!("{:>30}", temp).into());
-            self.text
-                .set_font(FontDescriptor::new(FontFamily::MONOSPACE).with_size(font_size));
-            self.text.set_text_color(Color::WHITE);
-            self.text.rebuild_if_needed(t, env);
-
-            self.needs_update = false;
-        }
-    }
-}
-
-impl Widget<FractalData> for SkippedLabel {
-    fn event(&mut self, _: &mut EventCtx, _: &Event, _: &mut FractalData, _: &Env) {}
-
-    fn lifecycle(&mut self, _: &mut LifeCycleCtx, _: &LifeCycle, _: &FractalData, _: &Env) {}
-
-    fn update(&mut self, ctx: &mut UpdateCtx, _: &FractalData, _: &FractalData, _: &Env) {
-        // println!("timer update");
-        // TODO: update on env changes also
-        self.needs_update = true;
-        ctx.request_paint();
-    }
-
-    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &FractalData, env: &Env) -> Size {
-        // println!("timer layout");
-        let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
-        self.make_layout_if_needed(data.min_valid_iterations, data.max_valid_iterations, &mut ctx.text(), env);
-        bc.constrain((
-            self.text.size().width + 2.0 * X_PADDING,
-            font_size * LINE_HEIGHT_FACTOR,
-        ))
-    }
-
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, env: &Env) {
-        // println!("timer paint");
-        self.make_layout_if_needed(data.min_valid_iterations, data.max_valid_iterations, &mut ctx.text(), env);
-        let origin = Point::new(X_PADDING, 0.0);
-        self.text.draw(ctx, origin);
-    }
-}
-
-pub struct IterationsLabel {
-    text: TextLayout<ArcStr>,
-    // Does the layout need to be changed?
-    needs_update: bool,
-}
-
-impl IterationsLabel {
-    pub fn new() -> IterationsLabel {
-        IterationsLabel {
-            text: TextLayout::new(),
-            needs_update: true,
-        }
-    }
-
-    fn make_layout_if_needed(&mut self, min_iterations: usize, max_iterations: usize, t: &mut PietText, env: &Env) {
-        if self.needs_update {
-            let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
-
-            let temp = format!("min. {} max. {}", min_iterations, max_iterations);
-
-            self.text
-                .set_text(format!("{:>30}", temp).into());
-            self.text
-                .set_font(FontDescriptor::new(FontFamily::MONOSPACE).with_size(font_size));
-            self.text.set_text_color(Color::WHITE);
-            self.text.rebuild_if_needed(t, env);
-
-            self.needs_update = false;
-        }
-    }
-}
-
-impl Widget<FractalData> for IterationsLabel {
-    fn event(&mut self, _: &mut EventCtx, _: &Event, _: &mut FractalData, _: &Env) {}
-
-    fn lifecycle(&mut self, _: &mut LifeCycleCtx, _: &LifeCycle, _: &FractalData, _: &Env) {}
-
-    fn update(&mut self, ctx: &mut UpdateCtx, _: &FractalData, _: &FractalData, _: &Env) {
-        // println!("timer update");
-        // TODO: update on env changes also
-        self.needs_update = true;
-        ctx.request_paint();
-    }
-
-    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &FractalData, env: &Env) -> Size {
-        // println!("timer layout");
-        let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
-        self.make_layout_if_needed(data.min_iterations, data.max_iterations, &mut ctx.text(), env);
-        bc.constrain((
-            self.text.size().width + 2.0 * X_PADDING,
-            font_size * LINE_HEIGHT_FACTOR,
-        ))
-    }
-
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, env: &Env) {
-        // println!("timer paint");
-        self.make_layout_if_needed(data.min_iterations, data.max_iterations, &mut ctx.text(), env);
+        self.make_layout_if_needed(&data, &mut ctx.text(), env);
         let origin = Point::new(X_PADDING, 0.0);
         self.text.draw(ctx, origin);
     }
@@ -226,17 +86,34 @@ impl Controller<FractalData, Image> for PaletteUpdateController {
 
                     vec![r, g, b]
                 }).flatten().collect::<Vec<u8>>();
-            
-                let test = ImageBuf::from_raw(raw_buffer, ImageFormat::Rgb, 100, 1);
 
-                child.set_image_data(test)
+                child.set_image_data(ImageBuf::from_raw(raw_buffer, ImageFormat::Rgb, 100, 1))
             }
             other => child.event(ctx, other, data, env),
         }
     }
 }
 
-use druid::{Data, WidgetPod};
+pub struct PixelInformationUpdateController;
+
+impl Controller<FractalData, Image> for PixelInformationUpdateController {
+    fn event(
+        &mut self,
+        child: &mut Image,
+        ctx: &mut EventCtx,
+        event: &Event,
+        data: &mut FractalData,
+        env: &Env,
+    ) {
+        match event {
+            Event::Command(command) if command.is(UPDATE_PIXEL_INFORMATION) => {
+                child.set_image_data(ImageBuf::from_raw(Vec::from(data.pixel_rgb), ImageFormat::Rgb, 1, 1));
+                ctx.request_paint();
+            }
+            other => child.event(ctx, other, data, env),
+        }
+    }
+}
 
 /// A widget that switches between two possible child views.
 pub struct Either<T> {
