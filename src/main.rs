@@ -109,55 +109,54 @@ impl Widget<FractalData> for FractalWidget {
                 data.image_width = settings.get_int("image_width").unwrap();
                 data.image_height = settings.get_int("image_height").unwrap();
 
-                let sender = data.sender.lock();
-                // sender.send(String::from("reset_renderer_full")).unwrap();
-                sender.send(THREAD_RESET_RENDERER_FULL).unwrap();
+                data.sender.lock().send(THREAD_RESET_RENDERER_FULL).unwrap();
             }
-            Event::MouseMove(e) => {
-                // if data.stage == 0 {
-                //     let size = ctx.size().to_rect();
+            // TODO this section sometimes blocks. Needs to be fixed
+            // Event::MouseMove(e) => {
+            //     if data.stage == 0 {
+            //         let size = ctx.size().to_rect();
 
-                //     let i = e.pos.x * data.image_width as f64 / size.width();
-                //     let j = e.pos.y * data.image_height as f64 / size.height();
+            //         let i = e.pos.x * data.image_width as f64 / size.width();
+            //         let j = e.pos.y * data.image_height as f64 / size.height();
 
-                //     let k = j as usize * data.image_width as usize + i as usize;
+            //         let k = j as usize * data.image_width as usize + i as usize;
 
-                //     data.pixel_pos[0] = i as u32;
-                //     data.pixel_pos[1] = j as u32;
+            //         data.pixel_pos[0] = i as u32;
+            //         data.pixel_pos[1] = j as u32;
 
-                //     let data_export = data.buffer.lock();
+            //         let data_export = data.buffer.lock();
 
-                //     data.pixel_iterations = data_export.iterations[k];
-                //     data.pixel_smooth = if data_export.smooth[k] <= 1.0 {
-                //         data_export.smooth[k]
-                //     } else {
-                //         0.0
-                //     };
+            //         data.pixel_iterations = data_export.iterations[k];
+            //         data.pixel_smooth = if data_export.smooth[k] <= 1.0 {
+            //             data_export.smooth[k]
+            //         } else {
+            //             0.0
+            //         };
 
-                //     drop(data_export);
+            //         drop(data_export);
 
-                //     let mut pixel_buffer = data.pixel_rgb.lock();
+            //         let mut pixel_buffer = data.pixel_rgb.lock();
 
-                //     if i as i64 > 15 && i as i64 + 15 < data.image_width && j as i64 > 15 && j as i64 + 15 < data.image_height {
-                //         let mut temp = 0;
-                //         for n in (j as usize - 7)..=(j as usize + 7) {
-                //             for m in (i as usize - 7)..=(i as usize + 7) {
-                //                 let o = 3 * (n * data.image_width as usize + m);
+            //         if i as i64 > 15 && i as i64 + 15 < data.image_width && j as i64 > 15 && j as i64 + 15 < data.image_height {
+            //             let mut temp = 0;
+            //             for n in (j as usize - 7)..=(j as usize + 7) {
+            //                 for m in (i as usize - 7)..=(i as usize + 7) {
+            //                     let o = 3 * (n * data.image_width as usize + m);
 
-                //                 pixel_buffer[temp] = self.buffer[o];
-                //                 pixel_buffer[temp + 1] = self.buffer[o + 1];
-                //                 pixel_buffer[temp + 2] = self.buffer[o + 2];
+            //                     pixel_buffer[temp] = self.buffer[o];
+            //                     pixel_buffer[temp + 1] = self.buffer[o + 1];
+            //                     pixel_buffer[temp + 2] = self.buffer[o + 2];
 
-                //                 temp += 3;
-                //             }
-                //         }
-                //     };
+            //                     temp += 3;
+            //                 }
+            //             }
+            //         };
 
-                //     drop(pixel_buffer);
+            //         drop(pixel_buffer);
 
-                //     ctx.submit_command(UPDATE_PIXEL_INFORMATION);
-                // }
-            }
+            //         ctx.submit_command(UPDATE_PIXEL_INFORMATION);
+            //     }
+            // }
             Event::MouseDown(e) => {
                 // If the rendering has not completed, stop
                 if data.stage != 0 {
@@ -763,9 +762,6 @@ impl Widget<FractalData> for FractalWidget {
                     println!("calculating period");
 
                     renderer.find_period();
-
-                    println!("box method period is: {}", renderer.box_period.period);
-                    println!("ball method period is: {}", renderer.ball_method.period);
 
                     drop(renderer);
 
