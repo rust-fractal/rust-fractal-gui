@@ -17,7 +17,8 @@ use druid::commands::{
 };
 
 use rust_fractal::{renderer::FractalRenderer, util::data_export::DataExport};
-use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended};
+use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom};
+use rust_fractal::math::{get_nucleus, get_nucleus_position};
 
 use config::{Config, File};
 
@@ -763,7 +764,35 @@ impl Widget<FractalData> for FractalWidget {
 
                     renderer.find_period();
 
+                    println!("calculating nucleus");
+
+                    let temp = get_nucleus(renderer.center_reference.c.clone(), renderer.ball_method.period);
+
+                    println!("nucleus: {}", temp);
+
+                    let temp2 = get_nucleus_position(temp.clone(), renderer.ball_method.period);
+                    
+                    let test_zoom_scale = linear_interpolation_between_zoom(renderer.zoom, temp2.0, 0.5);
+
+                    println!("zoom: {}", temp2.0);
+                    println!("interpolated zoom: {}", test_zoom_scale);
+                    println!("orientation: {}", temp2.1);
+
+                    settings.set("real", temp.real().to_string()).unwrap();
+                    settings.set("imag", temp.imag().to_string()).unwrap();
+                    settings.set("zoom", extended_to_string_long(test_zoom_scale)).unwrap();
+
+                    data.real = settings.get_str("real").unwrap();
+                    data.imag = settings.get_str("imag").unwrap();
+                    data.zoom = settings.get_str("zoom").unwrap();
+
+                    let temp: Vec<&str> = data.zoom.split('E').collect();
+                    data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
+                    data.zoom_exponent = temp[1].parse::<i64>().unwrap();
+
                     drop(renderer);
+
+                    ctx.submit_command(RESET_RENDERER_FULL);
 
                     return;
                 }
