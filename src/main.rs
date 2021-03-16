@@ -786,7 +786,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     let temp2 = get_nucleus_position(temp.clone(), renderer.ball_method.period);
                     
-                    let test_zoom_scale = linear_interpolation_between_zoom(renderer.zoom, temp2.0, -1.0);
+                    let test_zoom_scale = linear_interpolation_between_zoom(renderer.zoom, temp2.0, 0.5);
 
                     println!("zoom: {}", temp2.0);
                     println!("interpolated zoom: {}", test_zoom_scale);
