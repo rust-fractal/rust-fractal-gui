@@ -5,7 +5,7 @@ use parking_lot::Mutex;
 
 use druid::{widget::prelude::*};
 
-use druid::{AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Data, Lens, MenuDesc};
+use druid::{AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Data, Lens};
 use druid::piet::{ImageFormat, InterpolationMode};
 
 
@@ -16,8 +16,8 @@ use druid::commands::{
     SHOW_SAVE_PANEL
 };
 
-use rust_fractal::{renderer::FractalRenderer, util::data_export::DataExport};
-use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom};
+use rust_fractal::{renderer::FractalRenderer};
+use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom, data_export::DataExport, data_export::ColoringType};
 use rust_fractal::math::{get_nucleus, get_nucleus_position};
 
 use config::{Config, File};
@@ -63,9 +63,10 @@ pub struct FractalData {
     rotation: f64,
     order: i64,
     palette_source: String,
-    location_source: String,
-    iteration_division: f64,
+    iteration_span: f64,
     iteration_offset: f64,
+    #[data(same_fn = "PartialEq::eq")]
+    coloring_type: ColoringType,
     progress: f64,
     stage: usize,
     time: usize,
@@ -229,10 +230,6 @@ impl Widget<FractalData> for FractalWidget {
             },
             Event::KeyUp(e) => {
                 // Shortcut keys
-                if e.key == KbKey::Character("D".to_string()) || e.key == KbKey::Character("d".to_string()) {
-                    ctx.submit_command(TOGGLE_DERIVATIVE);
-                }
-
                 if e.key == KbKey::Character("Z".to_string()) || e.key == KbKey::Character("z".to_string()) {
                     ctx.submit_command(MULTIPLY_ZOOM.with(2.0));
                 }
@@ -364,10 +361,8 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if command.is(NATIVE_SIZE) {
-                    let window_width = settings.get_float("window_width").unwrap();
-                    let window_height = settings.get_float("window_height").unwrap();
-
-                    ctx.submit_command(SET_SIZE.with((window_width as i64, window_height as i64)));
+                    data.image_width = settings.get_float("window_width").unwrap() as i64;
+                    data.image_height = settings.get_float("window_height").unwrap() as i64;
                     return;
                 }
 
@@ -662,21 +657,40 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                if command.is(TOGGLE_DERIVATIVE) {
-                    let current_derivative = settings.get_bool("analytic_derivative").unwrap();
-                    settings.set("analytic_derivative", !current_derivative).unwrap();
+                if let Some(coloring_method) = command.get(SET_COLORING_METHOD) {
+                    if coloring_method != &data.coloring_type {
+                        renderer.data_export.lock().coloring_type = *coloring_method;
 
-                    renderer.data_export.lock().analytic_derivative = !current_derivative;
+                        match coloring_method {
+                            ColoringType::SmoothIteration => {
+                                settings.set("analytic_derivative", false).unwrap();
+                                settings.set("step_iteration", false).unwrap();
 
-                    // We have already computed the iterations and analytic derivatives
-                    if renderer.analytic_derivative {
-                        renderer.data_export.lock().regenerate();
-                        ctx.submit_command(REPAINT);
-                    } else {
-                        renderer.analytic_derivative = true;
-                        ctx.submit_command(RESET_RENDERER_FAST);
-                    };
+                                renderer.data_export.lock().regenerate();
+                                ctx.submit_command(REPAINT);
+                            }
+                            ColoringType::StepIteration => {
+                                settings.set("analytic_derivative", false).unwrap();
+                                settings.set("step_iteration", true).unwrap();
 
+                                renderer.data_export.lock().regenerate();
+                                ctx.submit_command(REPAINT);
+                            }
+                            ColoringType::Distance => {
+                                settings.set("analytic_derivative", true).unwrap();
+
+                                if renderer.analytic_derivative {
+                                    renderer.data_export.lock().regenerate();
+                                    ctx.submit_command(REPAINT);
+                                } else {
+                                    renderer.analytic_derivative = true;
+                                    ctx.submit_command(RESET_RENDERER_FAST);
+                                };
+                            }
+                        }
+                    }
+
+                    data.coloring_type = *coloring_method;
                     return;
                 }
 
@@ -693,11 +707,11 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
-                if command.is(SET_OFFSET_DIVISION) {
+                if command.is(SET_OFFSET_SPAN) {
                     let current_division = settings.get_float("iteration_division").unwrap();
                     let current_offset = settings.get_float("palette_offset").unwrap();
 
-                    let new_division = data.iteration_division;
+                    let new_division = data.iteration_span;
                     let new_offset = data.iteration_offset;
 
                     // println!("{} {} {}", data.temporary_iteration_offset, new_offset, new_division);
@@ -706,7 +720,7 @@ impl Widget<FractalData> for FractalWidget {
                         return;
                     }
 
-                    data.iteration_division = new_division;
+                    data.iteration_span = new_division;
                     data.iteration_offset = new_offset;
 
                     settings.set("iteration_division", new_division).unwrap();
@@ -772,7 +786,7 @@ impl Widget<FractalData> for FractalWidget {
 
                     let temp2 = get_nucleus_position(temp.clone(), renderer.ball_method.period);
                     
-                    let test_zoom_scale = linear_interpolation_between_zoom(renderer.zoom, temp2.0, 0.5);
+                    let test_zoom_scale = linear_interpolation_between_zoom(renderer.zoom, temp2.0, -1.0);
 
                     println!("zoom: {}", temp2.0);
                     println!("interpolated zoom: {}", test_zoom_scale);
@@ -844,6 +858,26 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
+                if command.is(RESET_DEFAULT_LOCATION) {
+                    settings.set("real", "-0.75").unwrap();
+                    settings.set("imag", "0.0").unwrap();
+                    settings.set("zoom", "1E0").unwrap();
+                    settings.set("iterations", 1000).unwrap();
+                    settings.set("rotate", 0.0).unwrap();
+
+                    let temp: Vec<&str> = data.zoom.split('E').collect();
+                    data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
+                    data.zoom_exponent = temp[1].parse::<i64>().unwrap();
+
+                    data.real = "-0.75".to_string();
+                    data.imag = "0.0".to_string();
+                    data.zoom = "1E1".to_string();
+                    data.maximum_iterations = 1000;
+                    data.rotation = 0.0;
+
+                    ctx.submit_command(RESET_RENDERER_FULL);
+                }
+
                 if let Some(file_info) = command.get(OPEN_FILE) {
                     settings.set("export", "gui").unwrap();
 
@@ -912,7 +946,12 @@ impl Widget<FractalData> for FractalWidget {
                     }
 
                     if let Ok(analytic_derivative) = new_settings.get_bool("analytic_derivative") {
-                        renderer.data_export.lock().analytic_derivative = analytic_derivative;
+                        renderer.data_export.lock().coloring_type = if analytic_derivative {
+                            ColoringType::Distance
+                        } else {
+                            data.coloring_type
+                        };
+
                         settings.set("analytic_derivative", analytic_derivative).unwrap();
                         quick_reset = true;
                     }
@@ -922,11 +961,11 @@ impl Widget<FractalData> for FractalWidget {
                         match new_settings.get_float("iteration_division") {
                             Ok(iteration_division) => {
                                 settings.set("iteration_division", iteration_division).unwrap();
-                                data.iteration_division = iteration_division;
+                                data.iteration_span = iteration_division;
                             }
                             Err(_) => {
                                 settings.set("iteration_division", 1.0).unwrap();
-                                data.iteration_division = 1.0;
+                                data.iteration_span = 1.0;
                             }
                         }
     
@@ -968,12 +1007,8 @@ impl Widget<FractalData> for FractalWidget {
                     settings.merge(new_settings).unwrap();
 
                     if reset_renderer {
-                        data.location_source = file_name.to_string();
-                        // println!("calling full reset");
                         ctx.submit_command(RESET_RENDERER_FULL);
                     } else if quick_reset {
-                        data.location_source = file_name.to_string();
-                        // println!("calling full reset");
                         ctx.submit_command(RESET_RENDERER_FAST);
                     }
 
@@ -1130,7 +1165,7 @@ pub fn main() {
 
     let window = WindowDesc::new(ui::ui_builder(shared_renderer.clone())).title(
         LocalizedString::new("rust-fractal"),
-    ).window_size((1388.0, 827.0)).resizable(true).menu(make_menu());
+    ).window_size((1388.0, 827.0)).resizable(true).menu(ui::make_menu());
 
     let launcher = AppLauncher::with_window(window);
 
@@ -1154,8 +1189,7 @@ pub fn main() {
             rotation: settings.get_float("rotate").unwrap(),
             order: settings.get_int("approximation_order").unwrap(),
             palette_source: "default".to_string(),
-            location_source: "default".to_string(),
-            iteration_division: settings.get_float("iteration_division").unwrap(),
+            iteration_span: settings.get_float("iteration_division").unwrap(),
             iteration_offset: settings.get_float("palette_offset").unwrap(),
             progress: 0.0,
             stage: 1,
@@ -1186,26 +1220,8 @@ pub fn main() {
             pixel_pos: [0, 0],
             pixel_iterations: 1,
             pixel_smooth: 0.0,
-            pixel_rgb: Arc::new(Mutex::new(vec![0u8; 225 * 3]))
+            pixel_rgb: Arc::new(Mutex::new(vec![0u8; 225 * 3])),
+            coloring_type: ColoringType::SmoothIteration,
         })
         .expect("launch failed");
-}
-
-#[allow(unused_assignments, unused_mut)]
-fn make_menu<T: Data>() -> MenuDesc<T> {
-    let mut base = MenuDesc::empty();
-    // #[cfg(target_os = "macos")]
-    // {
-    //     base = base.append(druid::platform_menus::mac::application::default())
-    // }
-    // #[cfg(any(target_os = "windows", target_os = "linux"))]
-    // {
-    //     base = base.append(druid::platform_menus::win::file::default());
-    // }
-    base.append(
-        MenuDesc::new(LocalizedString::new("common-menu-edit-menu"))
-            .append(druid::platform_menus::common::cut())
-            .append(druid::platform_menus::common::copy())
-            .append(druid::platform_menus::common::paste()),
-    )
 }

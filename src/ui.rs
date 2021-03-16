@@ -1,13 +1,15 @@
 use std::{fmt::Display, str::FromStr};
 use druid::widget::{Align, Button, Checkbox, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, CrossAxisAlignment, Either};
-use druid::{Widget, ImageBuf, Data, LensExt};
+use druid::{Widget, ImageBuf, Data, LensExt, MenuDesc, LocalizedString, Command, Target, MenuItem, SysMods};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::text::format::ParseFormatter;
+use druid::commands::CLOSE_ALL_WINDOWS;
+
 use parking_lot::Mutex;
 use std::sync::Arc;
 use rust_fractal::renderer::FractalRenderer;
 
-use crate::{FractalData, FractalWidget};
+use crate::{FractalData, FractalWidget, ColoringType};
 use crate::custom::*;
 
 
@@ -27,35 +29,34 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         .with_spacer(4.0)
         .with_child(Flex::row()
             .with_flex_child(Flex::column()
-                .with_child(create_label_textbox_row("WIDTH:", 80.0)
+                .with_child(create_label_textbox_row("WIDTH:", 75.0)
                     .lens(FractalData::image_width))
                 .with_spacer(4.0)
-                .with_child(create_label_textbox_row("HEIGHT:", 80.0)
-                    .lens(FractalData::image_height)), 0.75)
+                .with_child(create_label_textbox_row("HEIGHT:", 75.0)
+                    .lens(FractalData::image_height)), 0.5)
             .with_spacer(4.0)
-            .with_flex_child(Button::new("SET").on_click(|ctx, data: &mut FractalData, _env| {
-                ctx.submit_command(SET_SIZE.with((data.image_width, data.image_height)));
-            }).expand_width().fix_height(36.0), 0.25))
-        .with_spacer(6.0)
-        .with_child(Flex::row()
-            .with_flex_child(Button::new("HALF").on_click(|ctx, _data: &mut FractalData, _env| {
-                ctx.submit_command(MULTIPLY_SIZE.with(0.5));
-            }).expand_width(), 1.0)
-            .with_spacer(2.0)
-            .with_flex_child(Button::new("DOUBLE").on_click(|ctx, _data: &mut FractalData, _env| {
-                ctx.submit_command(MULTIPLY_SIZE.with(2.0));
-            }).expand_width(), 1.0)
-            .with_spacer(2.0)
-            .with_flex_child(Button::new("NATIVE").on_click(|ctx, _data: &mut FractalData, _env| {
-                ctx.submit_command(NATIVE_SIZE);
-            }).expand_width(), 1.0));
+            .with_flex_child(Flex::column()
+                .with_child(Button::new("HALF").on_click(|_ctx, data: &mut FractalData, _env| {
+                    data.image_width /= 2;
+                    data.image_height /= 2;
+                }).expand_width())
+                .with_spacer(4.0)
+                .with_child(Button::new("DOUBLE").on_click(|_ctx, data: &mut FractalData, _env| {
+                    data.image_width *= 2;
+                    data.image_height *= 2;
+                }).expand_width()), 0.25)
+            .with_spacer(4.0)
+            .with_flex_child(Flex::column()
+                .with_child(Button::new("NATIVE").on_click(|ctx, _data: &mut FractalData, _env| {
+                    ctx.submit_command(NATIVE_SIZE);
+                }).expand_width())
+                .with_spacer(4.0)
+                .with_child(Button::new("SET").on_click(|ctx, data: &mut FractalData, _env| {
+                    ctx.submit_command(SET_SIZE.with((data.image_width, data.image_height)));
+                }).expand_width()), 0.25));
 
     let group_location = Flex::column()
-        .with_child(Flex::row()
-            .with_flex_child(Label::<FractalData>::new("LOCATION").with_text_size(20.0).expand_width(), 0.5)
-            .with_flex_child(Label::new(|data: &FractalData, _env: &_| {
-                data.location_source.clone()
-            }).expand_width(), 0.5))
+        .with_child(Label::<FractalData>::new("LOCATION").with_text_size(20.0).expand_width())
         .with_spacer(4.0)
         .with_child(Flex::column()
             .with_child(Flex::row()
@@ -98,47 +99,18 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
                     ctx.submit_command(SET_ROTATION.with(data.rotation + 15.0));
                 }).expand_width(), 0.15)))
         .with_spacer(6.0)
-        .with_child(Flex::row()
-            .with_flex_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
-                ctx.submit_command(SET_LOCATION);
-            }).expand_width(), 1.0)
-            .with_spacer(2.0)
-            .with_flex_child(Button::new("LOAD").on_click(|ctx, _data: &mut FractalData, _env| {
-                ctx.submit_command(OPEN_LOCATION);
-            }).expand_width(), 1.0)
-            .with_spacer(2.0)
-            .with_flex_child(Button::new("SAVE").on_click(|ctx, _data: &mut FractalData, _env| {
-                ctx.submit_command(SAVE_LOCATION);
-            }).expand_width(), 1.0));
+        .with_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
+            ctx.submit_command(SET_LOCATION);
+        }).expand_width());
 
     let group_palette = Flex::column()
-        .with_child(Label::<FractalData>::new("COLOURING").with_text_size(20.0).expand_width())
+        .with_child(Flex::row()
+            .with_flex_child(Label::<FractalData>::new("COLOURING").with_text_size(20.0).expand_width(), 0.5)
+            .with_flex_child(Label::new(|data: &FractalData, _env: &_| {
+                data.palette_source.clone()
+            }).align_right().expand_width(), 0.5))
         .with_spacer(4.0)
         .with_child(Flex::column()
-            .with_child(Flex::row()
-                .with_child(Label::<FractalData>::new("METHOD:").with_text_size(14.0).fix_width(90.0))
-                .with_flex_child(Label::new(|data: &FractalData, _env: &_| {
-                    if data.settings.lock().get_bool("analytic_derivative").unwrap() {
-                        "distance".to_string()
-                    } else {
-                        "iteration".to_string()
-                    }
-                }).with_text_size(12.0).expand_width(), 0.6)
-                .with_spacer(2.0)
-                .with_flex_child(Button::new("TOGGLE").on_click(|ctx, _data: &mut FractalData, _env| {
-                    ctx.submit_command(TOGGLE_DERIVATIVE);
-                }).expand_width(), 0.4))
-            .with_spacer(4.0)
-            .with_child(Flex::row()
-                .with_child(Label::<FractalData>::new("PALETTE:").with_text_size(14.0).fix_width(90.0))
-                .with_flex_child(Label::new(|data: &FractalData, _env: &_| {
-                    data.palette_source.clone()
-                }).with_text_size(8.0).expand_width(), 0.6)
-                .with_spacer(2.0)
-                .with_flex_child(Button::new("LOAD").on_click(|ctx, _data: &mut FractalData, _env| {
-                    ctx.submit_command(OPEN_LOCATION);
-                }).expand_width(), 0.4))
-            .with_spacer(4.0)
             .with_child(
                 Image::new(ImageBuf::from_raw(renderer.lock().data_export.lock().palette_generator.colors(100).iter().map(|value| {
                     let (r, g, b, _) = value.rgba_u8();
@@ -152,28 +124,15 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
             .with_spacer(4.0)
             .with_child(Flex::row()
                 .with_flex_child(Flex::column()
-                    .with_child(create_label_textbox_row("DIVISION:", 90.0)
-                        .lens(FractalData::iteration_division))
+                    .with_child(create_label_textbox_row("SPAN:", 90.0)
+                        .lens(FractalData::iteration_span))
                     .with_spacer(4.0)
                     .with_child(create_label_textbox_row("OFFSET:", 90.0)
                         .lens(FractalData::iteration_offset)), 0.7)
                 .with_spacer(4.0)
                 .with_flex_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
-                    ctx.submit_command(SET_OFFSET_DIVISION);
+                    ctx.submit_command(SET_OFFSET_SPAN);
                 }).expand_width().fix_height(36.0), 0.3)));
-
-    let group_options = Flex::column()
-        .with_child(Label::<FractalData>::new("OPTIONS").with_text_size(20.0).expand_width())
-        .with_spacer(4.0)
-        .with_child(Flex::row()
-            .with_child(Label::<FractalData>::new("EXPORT:").with_text_size(14.0).fix_width(90.0))
-            .with_flex_child(Button::new("IMAGE").on_click(|ctx, _data: &mut FractalData, _env| {
-                ctx.submit_command(SAVE_IMAGE);
-            }).expand_width(), 1.0)
-        .with_spacer(2.0)
-        .with_flex_child(Button::new("SETTINGS").on_click(|ctx, _data: &mut FractalData, _env| {
-            ctx.submit_command(SAVE_ALL);
-        }).expand_width(), 1.0));
 
     let group_information = Flex::column()
         .with_child(Label::<FractalData>::new("INFORMATION").with_text_size(20.0).expand_width())
@@ -294,8 +253,6 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
             .with_child(group_location)
             .with_spacer(8.0)
             .with_child(group_palette)
-            .with_spacer(8.0)
-            .with_child(group_options)
             .with_spacer(8.0)
             .with_child(group_information)
             .with_spacer(4.0)
@@ -429,4 +386,32 @@ fn create_checkbox_row(label: &str) -> impl Widget<bool> {
         .with_flex_child(label, 1.0)
         .with_spacer(4.0)
         .with_child(check_box)
+}
+
+#[allow(unused_assignments, unused_mut)]
+pub fn make_menu<T: Data>() -> MenuDesc<T> {
+    let mut base = MenuDesc::empty();
+
+    base = base.append(MenuDesc::new(LocalizedString::new("File"))
+        .append(MenuItem::new(LocalizedString::new("Open"), Command::new(OPEN_LOCATION, (), Target::Auto)).hotkey(SysMods::Cmd, "o"))
+        .append(MenuItem::new(LocalizedString::new("Save Location"), Command::new(SAVE_LOCATION, (), Target::Auto)))
+        .append(MenuItem::new(LocalizedString::new("Save Image"), Command::new(SAVE_IMAGE, (), Target::Auto)).hotkey(SysMods::Cmd, "s"))
+        .append(MenuItem::new(LocalizedString::new("Save Configuration"), Command::new(SAVE_ALL, (), Target::Auto)))
+        .append(MenuItem::new(LocalizedString::new("Zoom Out Default"), Command::new(ZOOM_OUT, (), Target::Auto)))
+        .append(MenuItem::new(LocalizedString::new("Zoom Out Removed"), Command::new(ZOOM_OUT_OPTIMISED, (), Target::Auto)))
+        .append(MenuItem::new(LocalizedString::new("Exit"), Command::new(CLOSE_ALL_WINDOWS, (), Target::Auto)))
+    );
+
+    base = base.append(MenuDesc::new(LocalizedString::new("common-menu-edit-menu"))
+        .append(MenuItem::new(LocalizedString::new("Reset"), Command::new(RESET_DEFAULT_LOCATION, (), Target::Auto)).hotkey(SysMods::Cmd, "r"))
+        .append(druid::platform_menus::common::cut())
+        .append(druid::platform_menus::common::copy())
+        .append(druid::platform_menus::common::paste()),
+    );
+
+    base.append(MenuDesc::new(LocalizedString::new("Colouring"))
+        .append(MenuItem::new(LocalizedString::new("Smooth Iteration"), Command::new(SET_COLORING_METHOD, ColoringType::SmoothIteration, Target::Auto)))
+        .append(MenuItem::new(LocalizedString::new("Step Iteration"), Command::new(SET_COLORING_METHOD, ColoringType::StepIteration, Target::Auto)))
+        .append(MenuItem::new(LocalizedString::new("Distance"), Command::new(SET_COLORING_METHOD, ColoringType::Distance, Target::Auto)))
+    )
 }

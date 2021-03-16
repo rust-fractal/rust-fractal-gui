@@ -1,10 +1,12 @@
 use druid::Selector;
 
+use crate::ColoringType;
+
 pub const RESET_RENDERER_FAST: Selector<()> = Selector::new("reset_renderer_fast");
 pub const RESET_RENDERER_FULL: Selector<()> = Selector::new("reset_renderer_full");
 
 pub const MULTIPLY_ZOOM: Selector<f64> = Selector::new("multiply_zoom_level");
-pub const TOGGLE_DERIVATIVE: Selector<()> = Selector::new("toggle_derivative");
+pub const SET_COLORING_METHOD: Selector<ColoringType> = Selector::new("set_coloring_method");
 
 pub const OPEN_LOCATION: Selector<()> = Selector::new("open_location");
 pub const SAVE_LOCATION: Selector<()> = Selector::new("save_location");
@@ -19,7 +21,7 @@ pub const SET_ROTATION: Selector<f64> = Selector::new("set_rotation");
 pub const SET_ITERATIONS: Selector<i64> = Selector::new("set_iterations");
 pub const SET_LOCATION: Selector<()> = Selector::new("set_location");
 
-pub const SET_OFFSET_DIVISION: Selector<()> = Selector::new("set_offset_division");
+pub const SET_OFFSET_SPAN: Selector<()> = Selector::new("set_offset_division");
 
 pub const SET_ADVANCED_OPTIONS: Selector<()> = Selector::new("set_advanced_options");
 
@@ -28,6 +30,7 @@ pub const UPDATE_PIXEL_INFORMATION: Selector<()> = Selector::new("update_pixel_i
 pub const STOP_RENDERING: Selector<()> = Selector::new("stop_rendering");
 
 pub const REPAINT: Selector<()> = Selector::new("repaint");
+pub const RESET_DEFAULT_LOCATION: Selector<()> = Selector::new("reset_default_location");
 
 pub const UPDATE_PROGRESS: Selector<(usize, f64, usize, usize, usize)> = Selector::new("update_progress");
 
