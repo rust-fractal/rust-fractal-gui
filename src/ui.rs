@@ -1,6 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 use druid::widget::{Align, Button, Checkbox, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, CrossAxisAlignment, Either};
-use druid::{Widget, ImageBuf, Data, LensExt, MenuDesc, LocalizedString, Command, Target, MenuItem, SysMods};
+use druid::{Widget, ImageBuf, Data, LensExt, MenuDesc, LocalizedString, MenuItem, SysMods};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::text::format::ParseFormatter;
 use druid::commands::CLOSE_ALL_WINDOWS;
@@ -56,7 +56,16 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
                 }).expand_width()), 0.25));
 
     let group_location = Flex::column()
-        .with_child(Label::<FractalData>::new("LOCATION").with_text_size(20.0).expand_width())
+        .with_child(Flex::row()
+            .with_child(Label::<FractalData>::new("LOCATION").with_text_size(20.0))
+            .with_flex_spacer(0.2)
+            .with_flex_child(Button::new("LOAD").on_click(|ctx, _data: &mut FractalData, _env| {
+                ctx.submit_command(OPEN_LOCATION);
+            }).expand_width(), 0.4)
+            .with_spacer(4.0)
+            .with_flex_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
+                ctx.submit_command(SET_LOCATION);
+            }).expand_width(), 0.4))
         .with_spacer(4.0)
         .with_child(Flex::column()
             .with_child(Flex::row()
@@ -97,11 +106,7 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
                 .with_spacer(2.0)
                 .with_flex_child(Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
                     ctx.submit_command(SET_ROTATION.with(data.rotation + 15.0));
-                }).expand_width(), 0.15)))
-        .with_spacer(6.0)
-        .with_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
-            ctx.submit_command(SET_LOCATION);
-        }).expand_width());
+                }).expand_width(), 0.15)));
 
     let group_palette = Flex::column()
         .with_child(Flex::row()
@@ -393,25 +398,25 @@ pub fn make_menu<T: Data>() -> MenuDesc<T> {
     let mut base = MenuDesc::empty();
 
     base = base.append(MenuDesc::new(LocalizedString::new("File"))
-        .append(MenuItem::new(LocalizedString::new("Open"), Command::new(OPEN_LOCATION, (), Target::Auto)).hotkey(SysMods::Cmd, "o"))
-        .append(MenuItem::new(LocalizedString::new("Save Location"), Command::new(SAVE_LOCATION, (), Target::Auto)))
-        .append(MenuItem::new(LocalizedString::new("Save Image"), Command::new(SAVE_IMAGE, (), Target::Auto)).hotkey(SysMods::Cmd, "s"))
-        .append(MenuItem::new(LocalizedString::new("Save Configuration"), Command::new(SAVE_ALL, (), Target::Auto)))
-        .append(MenuItem::new(LocalizedString::new("Zoom Out Default"), Command::new(ZOOM_OUT, (), Target::Auto)))
-        .append(MenuItem::new(LocalizedString::new("Zoom Out Removed"), Command::new(ZOOM_OUT_OPTIMISED, (), Target::Auto)))
-        .append(MenuItem::new(LocalizedString::new("Exit"), Command::new(CLOSE_ALL_WINDOWS, (), Target::Auto)))
+        .append(MenuItem::new(LocalizedString::new("Open"), OPEN_LOCATION).hotkey(SysMods::Cmd, "o"))
+        .append(MenuItem::new(LocalizedString::new("Save Location"), SAVE_LOCATION))
+        .append(MenuItem::new(LocalizedString::new("Save Image"), SAVE_IMAGE).hotkey(SysMods::Cmd, "s"))
+        .append(MenuItem::new(LocalizedString::new("Save Configuration"), SAVE_ALL))
+        .append(MenuItem::new(LocalizedString::new("Zoom Out Default"), ZOOM_OUT))
+        .append(MenuItem::new(LocalizedString::new("Zoom Out Removed"), ZOOM_OUT_OPTIMISED))
+        .append(MenuItem::new(LocalizedString::new("Exit"), CLOSE_ALL_WINDOWS))
     );
 
     base = base.append(MenuDesc::new(LocalizedString::new("common-menu-edit-menu"))
-        .append(MenuItem::new(LocalizedString::new("Reset"), Command::new(RESET_DEFAULT_LOCATION, (), Target::Auto)).hotkey(SysMods::Cmd, "r"))
+        .append(MenuItem::new(LocalizedString::new("Reset"), RESET_DEFAULT_LOCATION).hotkey(SysMods::Cmd, "r"))
         .append(druid::platform_menus::common::cut())
         .append(druid::platform_menus::common::copy())
         .append(druid::platform_menus::common::paste()),
     );
 
     base.append(MenuDesc::new(LocalizedString::new("Colouring"))
-        .append(MenuItem::new(LocalizedString::new("Smooth Iteration"), Command::new(SET_COLORING_METHOD, ColoringType::SmoothIteration, Target::Auto)))
-        .append(MenuItem::new(LocalizedString::new("Step Iteration"), Command::new(SET_COLORING_METHOD, ColoringType::StepIteration, Target::Auto)))
-        .append(MenuItem::new(LocalizedString::new("Distance"), Command::new(SET_COLORING_METHOD, ColoringType::Distance, Target::Auto)))
+        .append(MenuItem::new(LocalizedString::new("Smooth Iteration"), SET_COLORING_METHOD.with(ColoringType::SmoothIteration)))
+        .append(MenuItem::new(LocalizedString::new("Step Iteration"), SET_COLORING_METHOD.with(ColoringType::StepIteration)))
+        .append(MenuItem::new(LocalizedString::new("Distance"), SET_COLORING_METHOD.with(ColoringType::Distance)))
     )
 }

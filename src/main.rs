@@ -1129,6 +1129,10 @@ pub fn main() {
     let mut settings = Config::default();
     settings.merge(File::with_name("start.toml")).unwrap();
 
+    if settings.get_bool("show_output").unwrap() {
+        println!("{:<6}| {:<15}| {:<15}| {:<15}| {:<6}| {:<15}| {:<15}| {:<15}| {:<15}| {:<6}| {:<15}| {:<15}| {:<15}", "Frame", "Zoom", "Approx [ms]", "Skipped [it]", "Order", "Maximum [it]", "Packing [ms]", "Iteration [ms]", "Correct [ms]", "Ref", "Saving [ms]", "Frame [ms]", "TOTAL [ms]");
+    };
+
     let zoom_string = settings.get_str("zoom").unwrap();
     let temp: Vec<&str> = zoom_string.split('E').collect();
 
