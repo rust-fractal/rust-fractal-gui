@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::time::Instant;
+// use std::time::Instant;
 
 use parking_lot::Mutex;
 
@@ -24,10 +24,8 @@ use config::{Config, File};
 
 use std::thread;
 use std::sync::mpsc;
-
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::cmp::min;
-
-use atomic_counter::{AtomicCounter, RelaxedCounter};
 
 mod ui;
 pub mod lens;
@@ -87,8 +85,8 @@ pub struct FractalData {
     renderer: Arc<Mutex<FractalRenderer>>,
     settings: Arc<Mutex<Config>>,
     sender: Arc<Mutex<mpsc::Sender<usize>>>,
-    stop_flag: Arc<RelaxedCounter>,
-    repeat_flag: Arc<RelaxedCounter>,
+    stop_flag: Arc<AtomicBool>,
+    repeat_flag: Arc<AtomicBool>,
     buffer: Arc<Mutex<DataExport>>,
     need_full_rerender: bool,
     zoom_out_enabled: bool,
@@ -274,19 +272,15 @@ impl Widget<FractalData> for FractalWidget {
 
                 if command.is(STOP_RENDERING) {
                     if data.stage != 0 || data.zoom_out_enabled {
-                        data.stop_flag.inc();
+                        data.stop_flag.store(true, Ordering::SeqCst);
                     }
 
                     // if the renderer was stopped during SA / reference
-                    if data.stage == 1 || data.stage == 2 {
-                        data.stop_flag.inc();
-                    }
+                    data.need_full_rerender = data.stage == 1 || data.stage == 2;
 
                     if data.zoom_out_enabled {
-                        data.repeat_flag.inc();
+                        data.repeat_flag.store(false, Ordering::SeqCst);
                     }
-
-                    // println!("stop {} {}", data.zoom_out_enabled, data.repeat_flag.get());
 
                     data.zoom_out_enabled = false;
 
@@ -294,18 +288,6 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if command.is(REPAINT) {
-                    if data.stop_flag.get() >= 2 {
-                        // use wrapping to reset to zero
-                        data.need_full_rerender = true;
-                    } else {
-                        data.need_full_rerender = false;
-                    }
-
-                    data.stop_flag.add(usize::max_value() - data.stop_flag.get() + 1);
-
-                    // let start = Instant::now();
-
-                    // TODO need to update image width and height
                     let buffer = data.buffer.lock();
 
                     self.buffer = buffer.buffer.clone();
@@ -315,10 +297,6 @@ impl Widget<FractalData> for FractalWidget {
                         self.image_height = buffer.image_height;
                         ctx.request_layout();
                     }
-
-                    // let time = start.elapsed().as_millis() as usize;
-
-                    // println!("buffer copy: {}ms", time);
 
                     ctx.request_paint();
 
@@ -337,7 +315,14 @@ impl Widget<FractalData> for FractalWidget {
                     }
 
                     if *stage == 0 {
-                        data.min_iterations = *data.buffer.lock().iterations.iter().min().unwrap() as usize;
+                        let temp = *data.buffer.lock().iterations.iter().min().unwrap() as usize;
+
+                        data.min_iterations = if temp != 0xFFFFFFFF {
+                            temp
+                        } else {
+                            1
+                        };
+
                         data.max_iterations = min(*data.buffer.lock().iterations.iter().max().unwrap() as usize, data.maximum_iterations as usize);
                     }
                     
@@ -628,12 +613,8 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if command.is(ZOOM_OUT) {
-                    // renderer.remaining_frames = 2;
-
                     data.zoom_out_enabled = true;
-                    data.repeat_flag.add(usize::max_value() - data.repeat_flag.get() + 1);
-
-                    // println!("start zoom out: {}", data.repeat_flag.get());
+                    data.repeat_flag.store(true, Ordering::SeqCst);
 
                     ctx.submit_command(MULTIPLY_ZOOM.with(0.5));
 
@@ -651,7 +632,7 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("remove_centre", true).unwrap();
 
                     data.zoom_out_enabled = true;
-                    data.repeat_flag.add(usize::max_value() - data.repeat_flag.get() + 1);
+                    data.repeat_flag.store(true, Ordering::SeqCst);
 
                     ctx.submit_command(MULTIPLY_ZOOM.with(0.5));
                     return;
@@ -1114,7 +1095,7 @@ impl Widget<FractalData> for FractalWidget {
 
     fn paint(&mut self, ctx: &mut PaintCtx, _data: &FractalData, _env: &Env) {
         if self.image_width * self.image_height > 0 {
-            let start = Instant::now();
+            // let start = Instant::now();
 
             let size = ctx.size().to_rect();
 
@@ -1128,9 +1109,9 @@ impl Widget<FractalData> for FractalWidget {
                 ctx.draw_image(&image, size, InterpolationMode::NearestNeighbor);
             };
 
-            let time = start.elapsed().as_millis() as usize;
+            // let time = start.elapsed().as_millis() as usize;
 
-            println!("paint: {}ms", time);
+            // println!("paint: {}ms", time);
         }
     }
 
@@ -1153,8 +1134,8 @@ pub fn main() {
 
     let shared_settings = Arc::new(Mutex::new(settings.clone()));
     let shared_renderer = Arc::new(Mutex::new(FractalRenderer::new(settings.clone())));
-    let shared_stop_flag = Arc::new(RelaxedCounter::new(0));
-    let shared_repeat_flag = Arc::new(RelaxedCounter::new(1));
+    let shared_stop_flag = Arc::new(AtomicBool::new(false));
+    let shared_repeat_flag = Arc::new(AtomicBool::new(false));
 
     let thread_settings = shared_settings.clone();
     let thread_renderer = shared_renderer.clone();
