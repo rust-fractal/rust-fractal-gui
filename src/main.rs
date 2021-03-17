@@ -309,7 +309,7 @@ impl Widget<FractalData> for FractalWidget {
                     data.stage = *stage;
                     data.time = *time;
 
-                    if *stage >= 2 || *stage == 0 {
+                    if *stage >= 3 || *stage == 0 {
                         data.min_valid_iterations = *min_valid_iterations;
                         data.max_valid_iterations = *max_valid_iterations;
                     }

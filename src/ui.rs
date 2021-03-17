@@ -160,9 +160,9 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
             .with_child(NoUpdateLabel::new().lens(FractalData::stage.map(|val| {
                 let text = match val {
                     1 => "REFERENCE",
-                    2 => "APPROXIMATION",
-                    3 => "ITERATION",
-                    4 => "CORRECTION",
+                    2 | 3 => "APPROXIMATION",
+                    4 => "ITERATION",
+                    5 => "CORRECTION",
                     0 => "COMPLETE",
                     _ => "DEFAULT"
                 };

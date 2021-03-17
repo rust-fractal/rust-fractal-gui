@@ -72,7 +72,11 @@ pub fn testing_renderer(
                                         if series_approximation_amount == 0 {
                                             progress = reference_progress / reference_maximum
                                         } else {
-                                            stage = 2;
+                                            stage = if series_approximation_progress / reference_maximum >= 1.0 {
+                                                3
+                                            } else {
+                                                2
+                                            };
 
                                             progress += 0.9 * series_approximation_progress / reference_maximum;
                                             progress += 0.1 * series_validation_progress as f64 / 2.0;
@@ -83,10 +87,10 @@ pub fn testing_renderer(
                                         if glitched_amount != 0 {
                                             let complete_amount = total_pixels as f64 - glitched_amount as f64;
 
-                                            stage = 4;
+                                            stage = 5;
                                             progress = (thread_counter_5.load(Ordering::Relaxed) as f64 - complete_amount) / glitched_amount as f64
                                         } else {
-                                            stage = 3;
+                                            stage = 4;
                                             progress = thread_counter_5.load(Ordering::Relaxed) as f64 / total_pixels
                                         }
                                     };
@@ -99,7 +103,7 @@ pub fn testing_renderer(
                                 }
                             };
 
-                            if stage > 2 {
+                            if stage > 3 {
                                 index += 1;
                                 if index % 10 == 0 {
                                     test.submit_command(REPAINT, (), Target::Auto).unwrap();
@@ -163,7 +167,11 @@ pub fn testing_renderer(
                                         if series_approximation_amount == 0 {
                                             progress = reference_progress / reference_maximum
                                         } else {
-                                            stage = 2;
+                                            stage = if series_approximation_progress / reference_maximum >= 1.0 {
+                                                3
+                                            } else {
+                                                2
+                                            };
 
                                             progress += 0.9 * series_approximation_progress / reference_maximum;
                                             progress += 0.1 * series_validation_progress as f64 / 2.0;
@@ -174,10 +182,10 @@ pub fn testing_renderer(
                                         if glitched_amount != 0 {
                                             let complete_amount = total_pixels as f64 - glitched_amount as f64;
 
-                                            stage = 4;
+                                            stage = 5;
                                             progress = (thread_counter_5.load(Ordering::Relaxed) as f64 - complete_amount) / glitched_amount as f64
                                         } else {
-                                            stage = 3;
+                                            stage = 4;
                                             progress = thread_counter_5.load(Ordering::Relaxed) as f64 / total_pixels
                                         }
                                     };
@@ -190,7 +198,7 @@ pub fn testing_renderer(
                                 }
                             };
 
-                            if stage > 2 {
+                            if stage > 3 {
                                 index += 1;
 
                                 if index % 10 == 0 {
