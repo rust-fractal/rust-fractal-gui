@@ -808,7 +808,6 @@ impl Widget<FractalData> for FractalWidget {
                     ), -renderer.zoom.exponent);
 
                     println!("calculating period");
-                    println!("{} {} {} {}", element1, element2, element3, element4);
 
                     renderer.find_period([element1, element2, element3, element4]);
 
@@ -819,6 +818,20 @@ impl Widget<FractalData> for FractalWidget {
                         0.5 * (i1 + i2) * delta_pixel * cos_rotate - 0.5 * (j1 + j2) * delta_pixel * sin_rotate + delta_top_left.re, 
                         0.5 * (i1 + i2) * delta_pixel * sin_rotate + 0.5 * (j1 + j2) * delta_pixel * cos_rotate + delta_top_left.im
                     ), -renderer.zoom.exponent);
+
+                    // let mut point_z_min = renderer.box_method.points_z[0];
+                    // let mut point_c_min = renderer.box_method.points_c[0];
+
+                    // for (i, point) in renderer.box_method.points_z.iter().enumerate().skip(1) {
+                    //     if point_z_min.norm_square() > point.norm_square() {
+                    //         point_z_min = *point;
+                    //         point_c_min = renderer.box_method.points_c[i];
+                    //     }
+                    // };
+
+                    // let box_center = point_c_min;
+                    // println!("box center: {}", box_center);
+                    // println!("box center: {}", point_z_min);
             
                     let mut box_center_arbitrary = renderer.center_reference.c.clone();
                     let temp = FloatArbitrary::with_val(precision, box_center.exponent).exp2();
@@ -833,6 +846,11 @@ impl Widget<FractalData> for FractalWidget {
                     let temp = get_nucleus(box_center_arbitrary, renderer.box_method.period);
 
                     println!("nucleus: {}", temp);
+
+                    if temp.real().is_nan() {
+                        println!("error in nr");
+                        return;
+                    }
 
                     let temp2 = get_nucleus_position(temp.clone(), renderer.box_method.period);
                     
