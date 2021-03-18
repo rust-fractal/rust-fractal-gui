@@ -22,6 +22,8 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         image_width: 0,
         image_height: 0,
         save_type: 0,
+        newton_pos1: (0.0, 0.0),
+        newton_pos2: (0.0, 0.0),
     });
 
     let group_image_size = Flex::column()
@@ -217,6 +219,14 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         ctx.submit_command(ZOOM_OUT_OPTIMISED);
     }).expand_width();
 
+    let button_toggle_mouse_mode = Button::new("MOUSE MODE").on_click(|_ctx, data: &mut usize, _env| {
+        *data = if *data == 0 {
+            1
+        } else {
+            0
+        };
+    }).lens(FractalData::mouse_mode).expand_width();
+
     let button_toggle_menu = Button::new("ADVANCED OPTIONS").on_click(|_ctx, data: &mut bool, _env| {
         *data = true;
     }).lens(FractalData::show_settings).expand_width();
@@ -266,6 +276,8 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
             .with_child(button_start_zoom_out_optimised)
             .with_spacer(4.0)
             .with_child(button_toggle_menu)
+            .with_spacer(4.0)
+            .with_child(button_toggle_mouse_mode)
             .with_spacer(24.0)
             .with_child(group_pixel_information)
             .with_flex_spacer(1.0)

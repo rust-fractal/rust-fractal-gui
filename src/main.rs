@@ -45,7 +45,9 @@ struct FractalWidget {
     buffer: Vec<u8>,
     image_width: usize,
     image_height: usize,
-    save_type: usize
+    save_type: usize,
+    newton_pos1: (f64, f64),
+    newton_pos2: (f64, f64)
 }
 
 #[derive(Clone, Data, Lens)]
@@ -94,7 +96,8 @@ pub struct FractalData {
     pixel_pos: [u32; 2],
     pixel_iterations: u32,
     pixel_smooth: f32,
-    pixel_rgb: Arc<Mutex<Vec<u8>>>
+    pixel_rgb: Arc<Mutex<Vec<u8>>>,
+    mouse_mode: usize,
 }
 
 impl Widget<FractalData> for FractalWidget {
@@ -165,67 +168,82 @@ impl Widget<FractalData> for FractalWidget {
 
                 // Zoom in, use the mouse position
                 if e.button == MouseButton::Left {
-                    let mut settings = data.settings.lock();
-                    let mut renderer = data.renderer.lock();
-
-                    let size = ctx.size().to_rect();
-
-                    let i = e.pos.x * renderer.image_width as f64 / size.width();
-                    let j = e.pos.y * renderer.image_height as f64 / size.height();
-
-                    let cos_rotate = renderer.rotate.cos();
-                    let sin_rotate = renderer.rotate.sin();
-
-                    let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
-                    let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
-
-                    let element = ComplexFixed::new(
-                        i * delta_pixel * cos_rotate - j * delta_pixel * sin_rotate + delta_top_left.re, 
-                        i * delta_pixel * sin_rotate + j * delta_pixel * cos_rotate + delta_top_left.im
-                    );
-
-                    let element = ComplexExtended::new(element, -renderer.zoom.exponent);
-                    let mut zoom = renderer.zoom;
-                
-                    zoom.mantissa *= 2.0;
-                    zoom.reduce();
-
-                    let mut location = renderer.center_reference.c.clone();
-                    let precision = location.real().prec();
-
-                    let temp = FloatArbitrary::with_val(precision, element.exponent).exp2();
-                    let temp2 = FloatArbitrary::with_val(precision, element.mantissa.re);
-                    let temp3 = FloatArbitrary::with_val(precision, element.mantissa.im);
-
-                    *location.mut_real() += &temp2 * &temp;
-                    *location.mut_imag() += &temp3 * &temp;
-
-                    data.zoom = extended_to_string_long(zoom);
-
-                    // Set the overrides for the current location
-                    settings.set("real", location.real().to_string()).unwrap();
-                    settings.set("imag", location.imag().to_string()).unwrap();
-                    settings.set("zoom", data.zoom.clone()).unwrap();
-
-                    data.real = settings.get_str("real").unwrap();
-                    data.imag = settings.get_str("imag").unwrap();
-
-                    let temp: Vec<&str> = data.zoom.split('E').collect();
-                    data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
-                    data.zoom_exponent = temp[1].parse::<i64>().unwrap();
-
-                    renderer.adjust_iterations();
-
-                    settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
-                    data.maximum_iterations = renderer.maximum_iteration as i64;
-
-                    ctx.submit_command(RESET_RENDERER_FULL);
+                    if data.mouse_mode == 0 {
+                        let mut settings = data.settings.lock();
+                        let mut renderer = data.renderer.lock();
+    
+                        let size = ctx.size().to_rect();
+    
+                        let i = e.pos.x * renderer.image_width as f64 / size.width();
+                        let j = e.pos.y * renderer.image_height as f64 / size.height();
+    
+                        let cos_rotate = renderer.rotate.cos();
+                        let sin_rotate = renderer.rotate.sin();
+    
+                        let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
+                        let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
+    
+                        let element = ComplexFixed::new(
+                            i * delta_pixel * cos_rotate - j * delta_pixel * sin_rotate + delta_top_left.re, 
+                            i * delta_pixel * sin_rotate + j * delta_pixel * cos_rotate + delta_top_left.im
+                        );
+    
+                        let element = ComplexExtended::new(element, -renderer.zoom.exponent);
+                        let mut zoom = renderer.zoom;
+                    
+                        zoom.mantissa *= 2.0;
+                        zoom.reduce();
+    
+                        let mut location = renderer.center_reference.c.clone();
+                        let precision = location.real().prec();
+    
+                        let temp = FloatArbitrary::with_val(precision, element.exponent).exp2();
+                        let temp2 = FloatArbitrary::with_val(precision, element.mantissa.re);
+                        let temp3 = FloatArbitrary::with_val(precision, element.mantissa.im);
+    
+                        *location.mut_real() += &temp2 * &temp;
+                        *location.mut_imag() += &temp3 * &temp;
+    
+                        data.zoom = extended_to_string_long(zoom);
+    
+                        // Set the overrides for the current location
+                        settings.set("real", location.real().to_string()).unwrap();
+                        settings.set("imag", location.imag().to_string()).unwrap();
+                        settings.set("zoom", data.zoom.clone()).unwrap();
+    
+                        data.real = settings.get_str("real").unwrap();
+                        data.imag = settings.get_str("imag").unwrap();
+    
+                        let temp: Vec<&str> = data.zoom.split('E').collect();
+                        data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
+                        data.zoom_exponent = temp[1].parse::<i64>().unwrap();
+    
+                        renderer.adjust_iterations();
+    
+                        settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
+                        data.maximum_iterations = renderer.maximum_iteration as i64;
+    
+                        ctx.submit_command(RESET_RENDERER_FULL);
+                    } else {
+                        println!("newton selection");
+                        self.newton_pos1 = (e.pos.x, e.pos.y);
+                    }
                 }
 
                 if e.button == MouseButton::Right {
                     ctx.submit_command(MULTIPLY_ZOOM.with(0.5));
                 }
             },
+            Event::MouseUp(e) => {
+                if e.button == MouseButton::Left && data.mouse_mode != 0 {
+                    println!("end newton selction");
+                    self.newton_pos2 = (e.pos.x, e.pos.y);
+
+                    ctx.submit_command(CALCULATE_PERIOD);
+
+                    // call newton on point
+                }
+            }
             Event::KeyUp(e) => {
                 // Shortcut keys
                 if e.key == KbKey::Character("Z".to_string()) || e.key == KbKey::Character("z".to_string()) {
@@ -253,10 +271,6 @@ impl Widget<FractalData> for FractalWidget {
                     let new_rotate = (settings.get_float("rotate").unwrap() + 15.0) % 360.0;
 
                     ctx.submit_command(SET_ROTATION.with(new_rotate));
-                }
-
-                if e.key == KbKey::Character("P".to_string()) || e.key == KbKey::Character("p".to_string()) {
-                    ctx.submit_command(CALCULATE_PERIOD);
                 }
 
                 if e.mods.ctrl() && (e.key == KbKey::Character("S".to_string()) || e.key == KbKey::Character("s".to_string())) {
@@ -755,17 +769,72 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if command.is(CALCULATE_PERIOD) {
-                    println!("calculating period");
+                    let size = ctx.size().to_rect();
 
-                    renderer.find_period();
+                    let top_left = (self.newton_pos1.0.min(self.newton_pos2.0), self.newton_pos1.1.min(self.newton_pos2.1));
+                    let bottom_right = (self.newton_pos1.0.max(self.newton_pos2.0), self.newton_pos1.1.max(self.newton_pos2.1));
+    
+                    let i1 = top_left.0 * renderer.image_width as f64 / size.width();
+                    let j1 = top_left.1 * renderer.image_height as f64 / size.height();
+
+                    let i2 = bottom_right.0 * renderer.image_width as f64 / size.width();
+                    let j2 = bottom_right.1 * renderer.image_height as f64 / size.height();
+
+                    let cos_rotate = renderer.rotate.cos();
+                    let sin_rotate = renderer.rotate.sin();
+
+                    let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
+                    let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
+
+                    // NOTE this may not work with rotation
+                    let element1 = ComplexExtended::new(ComplexFixed::new(
+                        i1 * delta_pixel * cos_rotate - j1 * delta_pixel * sin_rotate + delta_top_left.re, 
+                        i1 * delta_pixel * sin_rotate + j1 * delta_pixel * cos_rotate + delta_top_left.im
+                    ), -renderer.zoom.exponent);
+
+                    let element2 = ComplexExtended::new(ComplexFixed::new(
+                        i2 * delta_pixel * cos_rotate - j1 * delta_pixel * sin_rotate + delta_top_left.re, 
+                        i2 * delta_pixel * sin_rotate + j1 * delta_pixel * cos_rotate + delta_top_left.im
+                    ), -renderer.zoom.exponent);
+
+                    let element3 = ComplexExtended::new(ComplexFixed::new(
+                        i2 * delta_pixel * cos_rotate - j2 * delta_pixel * sin_rotate + delta_top_left.re, 
+                        i2 * delta_pixel * sin_rotate + j2 * delta_pixel * cos_rotate + delta_top_left.im
+                    ), -renderer.zoom.exponent);
+
+                    let element4 = ComplexExtended::new(ComplexFixed::new(
+                        i1 * delta_pixel * cos_rotate - j2 * delta_pixel * sin_rotate + delta_top_left.re, 
+                        i1 * delta_pixel * sin_rotate + j2 * delta_pixel * cos_rotate + delta_top_left.im
+                    ), -renderer.zoom.exponent);
+
+                    println!("calculating period");
+                    println!("{} {} {} {}", element1, element2, element3, element4);
+
+                    renderer.find_period([element1, element2, element3, element4]);
+
+                    let precision = renderer.center_reference.c.real().prec();
+                    // let iteration_reference = self.data_storage_interval * ((self.min_valid_iteration - 1) / self.data_storage_interval) + 1;
+
+                    let box_center = ComplexExtended::new(ComplexFixed::new(
+                        0.5 * (i1 + i2) * delta_pixel * cos_rotate - 0.5 * (j1 + j2) * delta_pixel * sin_rotate + delta_top_left.re, 
+                        0.5 * (i1 + i2) * delta_pixel * sin_rotate + 0.5 * (j1 + j2) * delta_pixel * cos_rotate + delta_top_left.im
+                    ), -renderer.zoom.exponent);
+            
+                    let mut box_center_arbitrary = renderer.center_reference.c.clone();
+                    let temp = FloatArbitrary::with_val(precision, box_center.exponent).exp2();
+                    let temp2 = FloatArbitrary::with_val(precision, box_center.mantissa.re);
+                    let temp3 = FloatArbitrary::with_val(precision, box_center.mantissa.im);
+            
+                    *box_center_arbitrary.mut_real() += &temp2 * &temp;
+                    *box_center_arbitrary.mut_imag() += &temp3 * &temp;            
 
                     println!("calculating nucleus");
 
-                    let temp = get_nucleus(renderer.center_reference.c.clone(), renderer.ball_method.period);
+                    let temp = get_nucleus(box_center_arbitrary, renderer.box_method.period);
 
                     println!("nucleus: {}", temp);
 
-                    let temp2 = get_nucleus_position(temp.clone(), renderer.ball_method.period);
+                    let temp2 = get_nucleus_position(temp.clone(), renderer.box_method.period);
                     
                     let test_zoom_scale = linear_interpolation_between_zoom(renderer.zoom, temp2.0, 0.5);
 
@@ -1207,6 +1276,7 @@ pub fn main() {
             pixel_smooth: 0.0,
             pixel_rgb: Arc::new(Mutex::new(vec![0u8; 225 * 3])),
             coloring_type: ColoringType::SmoothIteration,
+            mouse_mode: 0
         })
         .expect("launch failed");
 }
