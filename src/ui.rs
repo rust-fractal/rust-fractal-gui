@@ -1,6 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 use druid::widget::{Align, Button, Checkbox, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, CrossAxisAlignment, Either};
-use druid::{Widget, ImageBuf, Data, LensExt, MenuDesc, LocalizedString, MenuItem, SysMods};
+use druid::{Widget, ImageBuf, Data, LensExt, Menu, LocalizedString, MenuItem, SysMods, Env, WindowId};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::text::format::ParseFormatter;
 use druid::commands::CLOSE_ALL_WINDOWS;
@@ -363,7 +363,7 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
     Split::columns(either_main_screen, side_menu).split_point(0.75).draggable(true).solid_bar(true).bar_size(4.0)
 }
 
-fn create_label_textbox_row<T: Data + Display + FromStr>(label: &str, width: f64) -> impl Widget<T> where <T as FromStr>::Err: std::error::Error {
+fn create_label_textbox_row<T: Data + Display + FromStr>(label: &str, width: f64) -> impl Widget<T> where <T as FromStr>::Err: std::error::Error, T: std::fmt::Debug {
     let label = Label::<T>::new(label).with_text_size(14.0);
 
     let text_box = TextBox::new()
@@ -405,30 +405,24 @@ fn create_checkbox_row(label: &str) -> impl Widget<bool> {
         .with_child(check_box)
 }
 
-#[allow(unused_assignments, unused_mut)]
-pub fn make_menu<T: Data>() -> MenuDesc<T> {
-    let mut base = MenuDesc::empty();
-
-    base = base.append(MenuDesc::new(LocalizedString::new("File"))
-        .append(MenuItem::new(LocalizedString::new("Open"), OPEN_LOCATION).hotkey(SysMods::Cmd, "o"))
-        .append(MenuItem::new(LocalizedString::new("Save Location"), SAVE_LOCATION))
-        .append(MenuItem::new(LocalizedString::new("Save Image"), SAVE_IMAGE).hotkey(SysMods::Cmd, "s"))
-        .append(MenuItem::new(LocalizedString::new("Save Configuration"), SAVE_ALL))
-        .append(MenuItem::new(LocalizedString::new("Zoom Out Default"), ZOOM_OUT))
-        .append(MenuItem::new(LocalizedString::new("Zoom Out Removed"), ZOOM_OUT_OPTIMISED))
-        .append(MenuItem::new(LocalizedString::new("Exit"), CLOSE_ALL_WINDOWS))
-    );
-
-    base = base.append(MenuDesc::new(LocalizedString::new("common-menu-edit-menu"))
-        .append(MenuItem::new(LocalizedString::new("Reset"), RESET_DEFAULT_LOCATION).hotkey(SysMods::Cmd, "r"))
-        .append(druid::platform_menus::common::cut())
-        .append(druid::platform_menus::common::copy())
-        .append(druid::platform_menus::common::paste()),
-    );
-
-    base.append(MenuDesc::new(LocalizedString::new("Colouring"))
-        .append(MenuItem::new(LocalizedString::new("Smooth Iteration"), SET_COLORING_METHOD.with(ColoringType::SmoothIteration)))
-        .append(MenuItem::new(LocalizedString::new("Step Iteration"), SET_COLORING_METHOD.with(ColoringType::StepIteration)))
-        .append(MenuItem::new(LocalizedString::new("Distance"), SET_COLORING_METHOD.with(ColoringType::Distance)))
+pub fn make_menu(_: Option<WindowId>, _state: &FractalData, _: &Env) -> Menu<FractalData> {
+    Menu::empty()
+        .entry(Menu::new(LocalizedString::new("File"))
+            .entry(MenuItem::new(LocalizedString::new("Open")).command(OPEN_LOCATION).hotkey(SysMods::Cmd, "o"))
+            .entry(MenuItem::new(LocalizedString::new("Save Location")).command(SAVE_LOCATION))
+            .entry(MenuItem::new(LocalizedString::new("Save Image")).command(SAVE_IMAGE).hotkey(SysMods::Cmd, "s"))
+            .entry(MenuItem::new(LocalizedString::new("Save Configuration")).command(SAVE_ALL))
+            .entry(MenuItem::new(LocalizedString::new("Zoom Out Default")).command(ZOOM_OUT))
+            .entry(MenuItem::new(LocalizedString::new("Zoom Out Removed")).command(ZOOM_OUT_OPTIMISED))
+            .entry(MenuItem::new(LocalizedString::new("Exit")).command(CLOSE_ALL_WINDOWS)))
+        .entry(Menu::new(LocalizedString::new("common-menu-edit-menu"))
+            .entry(MenuItem::new(LocalizedString::new("Reset")).command(RESET_DEFAULT_LOCATION).hotkey(SysMods::Cmd, "r"))
+            .entry(druid::platform_menus::common::cut())
+            .entry(druid::platform_menus::common::copy())
+            .entry(druid::platform_menus::common::paste()))
+        .entry(Menu::new(LocalizedString::new("Colouring"))
+            .entry(MenuItem::new(LocalizedString::new("Smooth Iteration")).command(SET_COLORING_METHOD.with(ColoringType::SmoothIteration)))
+            .entry(MenuItem::new(LocalizedString::new("Step Iteration")).command(SET_COLORING_METHOD.with(ColoringType::StepIteration)))
+            .entry(MenuItem::new(LocalizedString::new("Distance")).command(SET_COLORING_METHOD.with(ColoringType::Distance)))
     )
 }

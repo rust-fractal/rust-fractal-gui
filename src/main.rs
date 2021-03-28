@@ -1237,7 +1237,7 @@ pub fn main() {
 
     let window = WindowDesc::new(ui::ui_builder(shared_renderer.clone())).title(
         LocalizedString::new("rust-fractal"),
-    ).window_size((1388.0, 827.0)).resizable(true).menu(ui::make_menu());
+    ).window_size((1388.0, 827.0)).resizable(true).menu(ui::make_menu);
 
     let launcher = AppLauncher::with_window(window);
 
