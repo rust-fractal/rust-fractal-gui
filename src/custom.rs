@@ -2,9 +2,8 @@ use crate::{FractalData, commands::{UPDATE_PALETTE, UPDATE_PIXEL_INFORMATION}};
 
 use druid::piet::{FontFamily, PietText, ImageFormat, ImageBuf};
 use druid::widget::prelude::*;
-use druid::{ArcStr, Color, FontDescriptor, Point, TextLayout};
+use druid::{ArcStr, Color, FontDescriptor, Point, TextLayout, WidgetPod};
 use druid::widget::{Controller, Image};
-use druid::{Data, WidgetPod};
 
 const LINE_HEIGHT_FACTOR: f64 = 1.2;
 const X_PADDING: f64 = 5.0;
@@ -117,37 +116,35 @@ impl Controller<FractalData, Image> for PixelInformationUpdateController {
 
 /// A widget that switches between two possible child views.
 pub struct Either<T> {
-    closure: Box<dyn Fn(&T, &Env) -> bool>,
-    true_branch: WidgetPod<T, Box<dyn Widget<T>>>,
-    false_branch: WidgetPod<T, Box<dyn Widget<T>>>,
-    current: bool,
+    closure: Box<dyn Fn(&T, &Env) -> usize>,
+    branches: Vec<WidgetPod<T, Box<dyn Widget<T>>>>,
+    current: usize,
 }
 
 impl<T> Either<T> {
     /// Create a new widget that switches between two views.
-    ///
-    /// The given closure is evaluated on data change. If its value is `true`, then
-    /// the `true_branch` widget is shown, otherwise `false_branch`.
     pub fn new(
-        closure: impl Fn(&T, &Env) -> bool + 'static,
-        true_branch: impl Widget<T> + 'static,
-        false_branch: impl Widget<T> + 'static,
+        closure: impl Fn(&T, &Env) -> usize + 'static,
     ) -> Either<T> {
         Either {
             closure: Box::new(closure),
-            true_branch: WidgetPod::new(true_branch).boxed(),
-            false_branch: WidgetPod::new(false_branch).boxed(),
-            current: false,
+            branches: Vec::new(),
+            current: 0,
         }
+    }
+
+    pub fn add_branch(mut self, branch: impl Widget<T> + 'static) -> Self {
+        self.branches.push(WidgetPod::new(branch).boxed());
+        self
     }
 }
 
 impl<T: Data> Widget<T> for Either<T> {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut T, env: &Env) {
-        // println!("{:?}", event);
         if event.should_propagate_to_hidden() {
-            self.true_branch.event(ctx, event, data, env);
-            self.false_branch.event(ctx, event, data, env);
+            for branch in &mut self.branches {
+                branch.event(ctx, event, data, env);
+            }
         } else {
             self.current_widget().event(ctx, event, data, env)
         }
@@ -159,16 +156,15 @@ impl<T: Data> Widget<T> for Either<T> {
         }
 
         if event.should_propagate_to_hidden() {
-            // println!("hidden");
-            self.true_branch.lifecycle(ctx, event, data, env);
-            self.false_branch.lifecycle(ctx, event, data, env);
+            for branch in &mut self.branches {
+                branch.lifecycle(ctx, event, data, env);
+            }
         } else {
             self.current_widget().lifecycle(ctx, event, data, env)
         }
     }
 
     fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &T, data: &T, env: &Env) {
-        // println!("evaluating closure");
         let current = (self.closure)(data, env);
         if current != self.current {
             self.current = current;
@@ -192,10 +188,6 @@ impl<T: Data> Widget<T> for Either<T> {
 
 impl<T> Either<T> {
     fn current_widget(&mut self) -> &mut WidgetPod<T, Box<dyn Widget<T>>> {
-        if self.current {
-            &mut self.true_branch
-        } else {
-            &mut self.false_branch
-        }
+        &mut self.branches[self.current]
     }
 }

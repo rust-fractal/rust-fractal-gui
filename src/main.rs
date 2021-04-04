@@ -97,6 +97,7 @@ pub struct FractalData {
     pixel_smooth: f32,
     pixel_rgb: Arc<Mutex<Vec<u8>>>,
     mouse_mode: usize,
+    current_tab: usize,
 }
 
 impl Widget<FractalData> for FractalWidget {
@@ -1291,7 +1292,8 @@ pub fn main() {
             pixel_smooth: 0.0,
             pixel_rgb: Arc::new(Mutex::new(vec![0u8; 225 * 3])),
             coloring_type: ColoringType::SmoothIteration,
-            mouse_mode: 0
+            mouse_mode: 0,
+            current_tab: 0
         })
         .expect("launch failed");
 }

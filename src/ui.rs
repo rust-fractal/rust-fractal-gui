@@ -1,5 +1,5 @@
 use std::{fmt::Display, str::FromStr};
-use druid::widget::{Align, Button, Checkbox, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, CrossAxisAlignment, Tabs, TabsTransition};
+use druid::widget::{Align, Button, Checkbox, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, CrossAxisAlignment};
 use druid::{Widget, ImageBuf, Data, LensExt, Menu, LocalizedString, MenuItem, SysMods, Env, WindowId};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::text::ParseFormatter;
@@ -314,21 +314,32 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         .with_child(button_save_advanced_options)
         .with_child(group_advanced_options);
 
-    let tabs_menu = Tabs::new()
-        .with_transition(TabsTransition::Instant)
-        .with_tab("IMAGE", Flex::column()
+    let tabs_menu = Either::new(|data: &FractalData, _env| data.current_tab)
+        .add_branch(Flex::column()
             .with_child(group_image_size)
             .with_spacer(8.0)
             .with_child(group_palette)
         )
-        .with_tab("LOCATION", group_location)
-        .with_tab("ADVANCED", group_extra);
+        .add_branch(group_location)
+        .add_branch(group_extra);
+
+    let tabs_selector = Flex::row()
+        .with_flex_child(Button::new("IMAGE").on_click(|_ctx, data: &mut FractalData, _env| {
+            data.current_tab = 0;
+        }).expand_width(), 0.33)
+        .with_flex_child(Button::new("LOCATION").on_click(|_ctx, data: &mut FractalData, _env| {
+            data.current_tab = 1;
+        }).expand_width(), 0.33)
+        .with_flex_child(Button::new("ADVANCED").on_click(|_ctx, data: &mut FractalData, _env| {
+            data.current_tab = 2;
+        }).expand_width(), 0.33);
 
     // TODO have a help and about menu
     // TODO have an additional window for the submission of the exact location
     let side_menu = Flex::row()
         .with_flex_spacer(0.05)
         .with_flex_child(Flex::column()
+            .with_child(tabs_selector)
             .with_spacer(4.0)
             .with_flex_child(tabs_menu,1.0)
             .with_spacer(24.0)
