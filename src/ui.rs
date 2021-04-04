@@ -1,8 +1,8 @@
 use std::{fmt::Display, str::FromStr};
-use druid::widget::{Align, Button, Checkbox, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, CrossAxisAlignment, Either};
+use druid::widget::{Align, Button, Checkbox, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, CrossAxisAlignment, Tabs, TabsTransition};
 use druid::{Widget, ImageBuf, Data, LensExt, Menu, LocalizedString, MenuItem, SysMods, Env, WindowId};
 use druid::piet::{ImageFormat, InterpolationMode};
-use druid::text::format::ParseFormatter;
+use druid::text::ParseFormatter;
 use druid::commands::CLOSE_ALL_WINDOWS;
 
 use parking_lot::Mutex;
@@ -27,8 +27,6 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
     });
 
     let group_image_size = Flex::column()
-        .with_child(Label::<FractalData>::new("RESOLUTION").with_text_size(20.0).expand_width())
-        .with_spacer(4.0)
         .with_child(Flex::row()
             .with_flex_child(Flex::column()
                 .with_child(create_label_textbox_row("WIDTH:", 75.0)
@@ -59,8 +57,6 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
 
     let group_location = Flex::column()
         .with_child(Flex::row()
-            .with_child(Label::<FractalData>::new("LOCATION").with_text_size(20.0))
-            .with_flex_spacer(0.2)
             .with_flex_child(Button::new("LOAD").on_click(|ctx, _data: &mut FractalData, _env| {
                 ctx.submit_command(OPEN_LOCATION);
             }).expand_width(), 0.4)
@@ -108,7 +104,13 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
                 .with_spacer(2.0)
                 .with_flex_child(Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
                     ctx.submit_command(SET_ROTATION.with(data.rotation + 15.0));
-                }).expand_width(), 0.15)));
+                }).expand_width(), 0.15))
+        .with_child(Flex::row()
+            .with_child(Label::<FractalData>::new("REAL:").with_text_size(14.0).fix_width(60.0))
+            .with_flex_child(TextBox::multiline().with_text_size(10.0).expand_width().lens(lens::RealLens), 1.0))
+        .with_child(Flex::row()
+            .with_child(Label::<FractalData>::new("IMAG:").with_text_size(14.0).fix_width(60.0))
+            .with_flex_child(TextBox::multiline().with_text_size(10.0).expand_width().lens(lens::ImagLens), 1.0)));
 
     let group_palette = Flex::column()
         .with_child(Flex::row()
@@ -142,8 +144,6 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
                 }).expand_width().fix_height(36.0), 0.3)));
 
     let group_information = Flex::column()
-        .with_child(Label::<FractalData>::new("INFORMATION").with_text_size(20.0).expand_width())
-        .with_spacer(4.0)
         .with_child(Flex::row()
         .with_flex_child(Label::<FractalData>::new("SKIPPED:").with_text_size(14.0).expand_width(), 1.0)
             .with_child(NoUpdateLabel::new().lens(FractalData::min_valid_iterations.map(|val| {
@@ -227,10 +227,6 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         };
     }).lens(FractalData::mouse_mode).expand_width();
 
-    let button_toggle_menu = Button::new("ADVANCED OPTIONS").on_click(|_ctx, data: &mut bool, _env| {
-        *data = true;
-    }).lens(FractalData::show_settings).expand_width();
-
     let group_pixel_information = Flex::column()
         .with_child(Flex::row()
             .with_flex_spacer(0.5)
@@ -258,46 +254,12 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         .with_child(Label::new(format!("rust-fractal-gui {}", env!("CARGO_PKG_VERSION"))))
         .with_child(Label::new(format!("{} {} {}", env!("VERGEN_GIT_SHA_SHORT"), env!("VERGEN_GIT_COMMIT_DATE"), env!("VERGEN_GIT_COMMIT_TIME"))))
         .with_child(Label::new(format!("{} {}", env!("VERGEN_RUSTC_SEMVER"), env!("VERGEN_RUSTC_HOST_TRIPLE"))));
-    // TODO have a help and about menu
-    let side_menu = Flex::row()
-        .with_flex_spacer(0.05)
-        .with_flex_child(Flex::column()
-            .with_spacer(8.0)
-            .with_child(group_image_size)
-            .with_spacer(8.0)
-            .with_child(group_location)
-            .with_spacer(8.0)
-            .with_child(group_palette)
-            .with_spacer(8.0)
-            .with_child(group_information)
-            .with_spacer(4.0)
-            .with_child(button_start_zoom_out)
-            .with_spacer(4.0)
-            .with_child(button_start_zoom_out_optimised)
-            .with_spacer(4.0)
-            .with_child(button_toggle_menu)
-            .with_spacer(4.0)
-            .with_child(button_toggle_mouse_mode)
-            .with_spacer(24.0)
-            .with_child(group_pixel_information)
-            .with_flex_spacer(1.0)
-            .with_child(group_general_information)
-            .with_spacer(8.0), 0.9)
-        .with_flex_spacer(0.05)
-        .cross_axis_alignment(CrossAxisAlignment::Start);
 
-    let label_advanced_options = Label::<FractalData>::new("ADVANCED OPTIONS").with_text_size(20.0).expand_width();
-    let button_save_advanced_options = Button::new("SAVE & UPDATE").on_click(|ctx, data: &mut bool, _env| {
-        *data = false;
+    let button_save_advanced_options = Button::new("SAVE & UPDATE").on_click(|ctx, _data, _env| {
         ctx.submit_command(SET_ADVANCED_OPTIONS);
-    }).lens(FractalData::show_settings).expand_width().fix_height(40.0);
+    }).expand_width().fix_height(40.0);
 
-    let row_advanced_options = Flex::row()
-        .with_flex_child(label_advanced_options, 0.8)
-        .with_spacer(8.0)
-        .with_flex_child(button_save_advanced_options, 0.2);
-
-    let section_checkboxes = Flex::column()
+    let group_advanced_options = Flex::column()
         .with_child(create_checkbox_row("Show glitched pixels").lens(FractalData::display_glitches))
         .with_spacer(4.0)
         .with_child(create_checkbox_row("Use experimental algorithm").lens(FractalData::experimental))
@@ -306,61 +268,80 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         .with_spacer(4.0)
         .with_child(create_checkbox_row("Automatically adjust iterations").lens(FractalData::auto_adjust_iterations))
         .with_spacer(4.0)
-        .with_child(create_checkbox_row("Remove image centre").lens(FractalData::remove_centre));
-
-    let section_values = Flex::column()
-        .with_child(create_label_slider_row("SERIES APPROXIMATION ORDER:", 280.0, 4.0, 128.0)
-            .lens(FractalData::order.map(|val| *val as f64, |val, new| *val = new as i64)))
+        .with_child(create_checkbox_row("Remove image centre").lens(FractalData::remove_centre))
         .with_spacer(4.0)
-        .with_child(create_label_textbox_row("GLITCH TOLERANCE:", 280.0)
+        .with_child(Flex::row()
+            .with_child(Label::new("S.A. Order:").fix_width(100.0))
+            .with_flex_child(Slider::new()
+                .with_range(1.0, 16.0)
+                .expand_width()
+                .lens(FractalData::order.map(
+                    |val| (*val / 4) as f64, 
+                    |val, new| *val = 4 * new as i64)), 1.0)
+            .with_child(Label::<i64>::new(|data: &i64, _env: &_| {
+                format!("{:>3}", *data)
+            }).lens(FractalData::order))
+        )
+        .with_spacer(4.0)
+        .with_child(create_label_textbox_row("GLITCH TOL:", 120.0)
             .lens(FractalData::glitch_tolerance))
         .with_spacer(4.0)
-        .with_child(create_label_textbox_row("GLITCH PERCENTAGE:", 280.0)
+        .with_child(create_label_textbox_row("GLITCH %:", 120.0)
             .lens(FractalData::glitch_percentage))
+            .with_child(Flex::row()
+            .with_child(Label::new("Data Int.:").fix_width(100.0))
+            .with_flex_child(Slider::new()
+                .with_range(0.0, 5.0)
+                .expand_width()
+                .lens(FractalData::iteration_interval.map(
+                    |val| (*val as f64).log10(), 
+                    |val, new| *val = 10_i64.pow(new as u32))), 1.0)
+            .with_child(Label::<i64>::new(|data: &i64, _env: &_| {
+                format!("{:>6}", *data)
+            }).lens(FractalData::iteration_interval))
+        )
         .with_spacer(4.0)
-        .with_child(create_label_textbox_row("DATA STORAGE INTERVAL:", 280.0)
-            .lens(FractalData::iteration_interval))
-        .with_spacer(4.0)
-        .with_child(create_label_textbox_row("PROBE SAMPLING:", 280.0)
+        .with_child(create_label_textbox_row("PROBE SAMPLING:", 100.0)
             .lens(FractalData::probe_sampling))
         .with_spacer(4.0)
-        .with_child(create_label_textbox_row("JITTER FACTOR:", 280.0)
+        .with_child(create_label_textbox_row("JITTER FACTOR:", 100.0)
             .lens(FractalData::jitter_factor));
-
-    let section_advanced_options = Flex::row()
-        .with_flex_child(section_checkboxes, 0.5)
-        .with_spacer(32.0)
-        .with_flex_child(section_values, 0.5);
-
-    let row_real = Flex::row()
-        .with_child(Label::<FractalData>::new("REAL:").with_text_size(14.0).fix_width(60.0))
-        .with_flex_child(TextBox::multiline().with_text_size(10.0).expand_width().lens(lens::RealLens), 1.0);
-
-    let row_imag = Flex::row()
-        .with_child(Label::<FractalData>::new("IMAG:").with_text_size(14.0).fix_width(60.0))
-        .with_flex_child(TextBox::multiline().with_text_size(10.0).expand_width().lens(lens::ImagLens), 1.0);
-
-    let column_advanced_options = Flex::column()
-        .with_spacer(8.0)
-        .with_child(row_advanced_options)
-        .with_spacer(4.0)
-        .with_child(section_advanced_options)
-        .with_spacer(32.0)
-        .with_child(row_real)
-        .with_spacer(4.0)
-        .with_child(row_imag);
     
-    let advanced_options_menu = Flex::row()
+    let group_extra = Flex::column()
+        .with_child(button_start_zoom_out)
+        .with_child(button_start_zoom_out_optimised)
+        .with_child(button_toggle_mouse_mode)
+        .with_child(button_save_advanced_options)
+        .with_child(group_advanced_options);
+
+    let tabs_menu = Tabs::new()
+        .with_transition(TabsTransition::Instant)
+        .with_tab("IMAGE", Flex::column()
+            .with_child(group_image_size)
+            .with_spacer(8.0)
+            .with_child(group_palette)
+        )
+        .with_tab("LOCATION", group_location)
+        .with_tab("ADVANCED", group_extra);
+
+    // TODO have a help and about menu
+    // TODO have an additional window for the submission of the exact location
+    let side_menu = Flex::row()
         .with_flex_spacer(0.05)
-        .with_flex_child(column_advanced_options, 0.9)
+        .with_flex_child(Flex::column()
+            .with_spacer(4.0)
+            .with_flex_child(tabs_menu,1.0)
+            .with_spacer(24.0)
+            .with_child(group_pixel_information)
+            .with_spacer(24.0)
+            .with_child(group_information)
+            .with_spacer(24.0)
+            .with_child(group_general_information)
+            .with_spacer(8.0), 0.9)
         .with_flex_spacer(0.05)
         .cross_axis_alignment(CrossAxisAlignment::Start);
 
-    let either_main_screen = Either::new(|data: &FractalData, _env| {
-            data.show_settings
-        }, advanced_options_menu, render_screen);
-
-    Split::columns(either_main_screen, side_menu).split_point(0.75).draggable(true).solid_bar(true).bar_size(4.0)
+    Split::columns(render_screen, side_menu).split_point(0.75).draggable(true).solid_bar(true).bar_size(4.0)
 }
 
 fn create_label_textbox_row<T: Data + Display + FromStr>(label: &str, width: f64) -> impl Widget<T> where <T as FromStr>::Err: std::error::Error, T: std::fmt::Debug {
@@ -374,23 +355,6 @@ fn create_label_textbox_row<T: Data + Display + FromStr>(label: &str, width: f64
     Flex::row()
         .with_child(label.fix_width(width))
         .with_flex_child(text_box, 1.0)
-}
-
-fn create_label_slider_row(label: &str, width: f64, min: f64, max: f64) -> impl Widget<f64> {
-    let label = Label::<f64>::new(label).with_text_size(14.0);
-
-    let slider = Slider::new()
-        .with_range(min, max)
-        .expand_width();
-
-    let value = Label::<f64>::new(|data: &f64, _env: &_| {
-        format!("{:>3}", *data as i64)
-    });
-
-    Flex::row()
-        .with_child(label.fix_width(width))
-        .with_flex_child(slider, 1.0)
-        .with_child(value)
 }
 
 fn create_checkbox_row(label: &str) -> impl Widget<bool> {

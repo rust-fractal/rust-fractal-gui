@@ -92,7 +92,6 @@ pub struct FractalData {
     buffer: Arc<Mutex<DataExport>>,
     need_full_rerender: bool,
     zoom_out_enabled: bool,
-    show_settings: bool,
     pixel_pos: [u32; 2],
     pixel_iterations: u32,
     pixel_smooth: f32,
@@ -318,7 +317,6 @@ impl Widget<FractalData> for FractalWidget {
                 }
 
                 if let Some((stage, progress, time, min_valid_iterations, max_valid_iterations)) = command.get(UPDATE_PROGRESS) {
-                    data.show_settings = false;
                     data.progress = *progress;
                     data.stage = *stage;
                     data.time = *time;
@@ -1288,7 +1286,6 @@ pub fn main() {
             buffer,
             need_full_rerender: false,
             zoom_out_enabled: false,
-            show_settings: true,
             pixel_pos: [0, 0],
             pixel_iterations: 1,
             pixel_smooth: 0.0,

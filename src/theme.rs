@@ -6,6 +6,7 @@ use druid::theme::{
     TEXTBOX_BORDER_WIDTH,
     PROGRESS_BAR_RADIUS, 
     BORDERED_WIDGET_HEIGHT, 
+    // BORDER_DARK,
     PRIMARY_LIGHT, 
     PRIMARY_DARK, 
     BACKGROUND_LIGHT, 
@@ -29,6 +30,8 @@ pub fn configure_env(env: &mut Env) {
     env.set(TEXTBOX_BORDER_WIDTH, 1.5);
 
     env.set(BORDERED_WIDGET_HEIGHT, 12.0);
+
+    // env.set(BORDER_DARK, Color::from_hex_str("#191414").unwrap());
 
     env.set(PRIMARY_LIGHT, Color::from_hex_str("#1DB954").unwrap());
     env.set(PRIMARY_DARK, Color::from_hex_str("#1DB954").unwrap());
