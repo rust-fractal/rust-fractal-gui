@@ -324,33 +324,35 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         .add_branch(group_extra);
 
     let tabs_selector = Flex::row()
-        .with_flex_child(Button::new("IMAGE").on_click(|_ctx, data: &mut FractalData, _env| {
+        .with_flex_child(Button::from_label(Label::new("IMAGE").with_text_size(16.0)).on_click(|_ctx, data: &mut FractalData, _env| {
             data.current_tab = 0;
-        }).expand_width(), 0.33)
-        .with_flex_child(Button::new("LOCATION").on_click(|_ctx, data: &mut FractalData, _env| {
+        }).expand_width().fix_height(40.0), 1.0)
+        .with_flex_child(Button::from_label(Label::new("LOCATION").with_text_size(16.0)).on_click(|_ctx, data: &mut FractalData, _env| {
             data.current_tab = 1;
-        }).expand_width(), 0.33)
-        .with_flex_child(Button::new("ADVANCED").on_click(|_ctx, data: &mut FractalData, _env| {
+        }).expand_width().fix_height(40.0), 1.0)
+        .with_flex_child(Button::from_label(Label::new("ADVANCED").with_text_size(16.0)).on_click(|_ctx, data: &mut FractalData, _env| {
             data.current_tab = 2;
-        }).expand_width(), 0.33);
+        }).expand_width().fix_height(40.0), 1.0);
 
     // TODO have a help and about menu
     // TODO have an additional window for the submission of the exact location
-    let side_menu = Flex::row()
-        .with_flex_spacer(0.05)
-        .with_flex_child(Flex::column()
-            .with_child(tabs_selector)
-            .with_spacer(4.0)
-            .with_flex_child(tabs_menu,1.0)
-            .with_spacer(24.0)
-            .with_child(group_pixel_information)
-            .with_spacer(24.0)
-            .with_child(group_information)
-            .with_spacer(24.0)
-            .with_child(group_general_information)
-            .with_spacer(8.0), 0.9)
-        .with_flex_spacer(0.05)
-        .cross_axis_alignment(CrossAxisAlignment::Start);
+    let side_menu = Flex::column()
+        .with_child(tabs_selector)
+        .with_spacer(4.0)
+        .with_flex_child(Flex::row()
+            .with_flex_spacer(0.05)
+            .with_flex_child(Flex::column()
+                .with_flex_child(Flex::column()
+                    .with_child(tabs_menu)
+                    .with_flex_spacer(1.0), 1.0)
+                .with_child(group_pixel_information)
+                .with_spacer(24.0)
+                .with_child(group_information)
+                .with_spacer(24.0)
+                .with_child(group_general_information)
+                .with_spacer(8.0), 0.9)
+            .with_flex_spacer(0.05)
+            .cross_axis_alignment(CrossAxisAlignment::Start), 1.0);
 
     Split::columns(render_screen, side_menu).split_point(0.75).draggable(true).solid_bar(true).bar_size(4.0)
 }
