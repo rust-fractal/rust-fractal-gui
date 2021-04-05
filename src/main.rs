@@ -56,8 +56,6 @@ pub struct FractalData {
     image_height: i64,
     real: String,
     imag: String,
-    zoom_mantissa: f64,
-    zoom_exponent: i64,
     zoom: String,
     maximum_iterations: i64,
     rotation: f64,
@@ -213,10 +211,6 @@ impl Widget<FractalData> for FractalWidget {
     
                         data.real = settings.get_str("real").unwrap();
                         data.imag = settings.get_str("imag").unwrap();
-    
-                        let temp: Vec<&str> = data.zoom.split('E').collect();
-                        data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
-                        data.zoom_exponent = temp[1].parse::<i64>().unwrap();
     
                         renderer.adjust_iterations();
     
@@ -539,8 +533,6 @@ impl Widget<FractalData> for FractalWidget {
                     let current_iterations = settings.get_int("iterations").unwrap();
                     let current_rotation = settings.get_float("rotate").unwrap();
 
-                    data.zoom = format!("{}E{}", data.zoom_mantissa, data.zoom_exponent);
-
                     if current_real == data.real && current_imag == data.imag {
                         // Check if the zoom has decreased or is near to the current level
                         if current_zoom.to_uppercase() == data.zoom.to_uppercase() {
@@ -609,10 +601,6 @@ impl Widget<FractalData> for FractalWidget {
 
                     data.zoom = extended_to_string_long(renderer.zoom);
                     settings.set("zoom", data.zoom.clone()).unwrap();
-                    
-                    let temp: Vec<&str> = data.zoom.split('E').collect();
-                    data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
-                    data.zoom_exponent = temp[1].parse::<i64>().unwrap();
 
                     data.need_full_rerender &= renderer.adjust_iterations();
 
@@ -867,10 +855,6 @@ impl Widget<FractalData> for FractalWidget {
                     data.imag = settings.get_str("imag").unwrap();
                     data.zoom = settings.get_str("zoom").unwrap();
 
-                    let temp: Vec<&str> = data.zoom.split('E').collect();
-                    data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
-                    data.zoom_exponent = temp[1].parse::<i64>().unwrap();
-
                     drop(renderer);
 
                     ctx.submit_command(RESET_RENDERER_FULL);
@@ -932,10 +916,6 @@ impl Widget<FractalData> for FractalWidget {
                     settings.set("iterations", 1000).unwrap();
                     settings.set("rotate", 0.0).unwrap();
 
-                    let temp: Vec<&str> = data.zoom.split('E').collect();
-                    data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
-                    data.zoom_exponent = temp[1].parse::<i64>().unwrap();
-
                     data.real = "-0.75".to_string();
                     data.imag = "0.0".to_string();
                     data.zoom = "1E1".to_string();
@@ -971,10 +951,6 @@ impl Widget<FractalData> for FractalWidget {
                     if let Ok(zoom) = new_settings.get_str("zoom") {
                         settings.set("zoom", zoom.clone()).unwrap();
                         data.zoom = zoom.to_uppercase();
-
-                        let temp: Vec<&str> = data.zoom.split('E').collect();
-                        data.zoom_mantissa = temp[0].parse::<f64>().unwrap();
-                        data.zoom_exponent = temp[1].parse::<i64>().unwrap();
 
                         reset_renderer = true;
                     }
@@ -1219,9 +1195,6 @@ pub fn main() {
         println!("{:<6}| {:<15}| {:<15}| {:<15}| {:<6}| {:<15}| {:<15}| {:<15}| {:<15}| {:<6}| {:<15}| {:<15}| {:<15}", "Frame", "Zoom", "Approx [ms]", "Skipped [it]", "Order", "Maximum [it]", "Packing [ms]", "Iteration [ms]", "Correct [ms]", "Ref", "Saving [ms]", "Frame [ms]", "TOTAL [ms]");
     };
 
-    let zoom_string = settings.get_str("zoom").unwrap();
-    let temp: Vec<&str> = zoom_string.split('E').collect();
-
     let shared_settings = Arc::new(Mutex::new(settings.clone()));
     let shared_renderer = Arc::new(Mutex::new(FractalRenderer::new(settings.clone())));
     let shared_stop_flag = Arc::new(AtomicBool::new(false));
@@ -1253,9 +1226,7 @@ pub fn main() {
             image_height: settings.get_int("image_height").unwrap(),
             real: settings.get_str("real").unwrap(),
             imag: settings.get_str("imag").unwrap(),
-            zoom_mantissa: temp[0].parse::<f64>().unwrap(),
-            zoom_exponent: temp[1].parse::<i64>().unwrap(),
-            zoom: zoom_string,
+            zoom: settings.get_str("zoom").unwrap(),
             maximum_iterations: settings.get_int("iterations").unwrap(),
             rotation: settings.get_float("rotate").unwrap(),
             order: settings.get_int("approximation_order").unwrap(),

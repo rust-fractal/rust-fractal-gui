@@ -1,6 +1,6 @@
 use std::{fmt::Display, str::FromStr};
-use druid::widget::{Align, Button, Checkbox, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, CrossAxisAlignment};
-use druid::{Widget, ImageBuf, Data, LensExt, Menu, LocalizedString, MenuItem, SysMods, Env, WindowId};
+use druid::{commands::CLOSE_WINDOW, widget::{Align, Button, Checkbox, CrossAxisAlignment, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt}, Command, Target};
+use druid::{Widget, ImageBuf, Data, LensExt, Menu, LocalizedString, MenuItem, SysMods, Env, WindowId, WindowDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::text::ParseFormatter;
 use druid::commands::CLOSE_ALL_WINDOWS;
@@ -54,6 +54,12 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
                 .with_child(Button::new("SET").on_click(|ctx, data: &mut FractalData, _env| {
                     ctx.submit_command(SET_SIZE.with((data.image_width, data.image_height)));
                 }).expand_width()), 0.25));
+    
+    let button_new_window = Button::new("edit location").on_click(|ctx, _data: &mut FractalData, _env| {
+        ctx.new_window(WindowDesc::new(create_location_menu()).title(
+            LocalizedString::new("Location"),
+        ).window_size((800.0, 400.0)).resizable(true));
+    }).expand_width();
 
     let group_location = Flex::column()
         .with_child(Flex::row()
@@ -68,13 +74,6 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         .with_child(Flex::column()
             .with_child(Flex::row()
                 .with_child(Label::<FractalData>::new("ZOOM:").with_text_size(14.0).fix_width(60.0))
-                .with_flex_child(TextBox::new()
-                    .with_formatter(ParseFormatter::new()).update_data_while_editing(true).expand_width().lens(FractalData::zoom_mantissa), 0.5)
-                .with_spacer(2.0)
-                .with_child(Label::<FractalData>::new("E").with_text_size(14.0))
-                .with_spacer(2.0)
-                .with_flex_child(TextBox::new()
-                    .with_formatter(ParseFormatter::new()).update_data_while_editing(true).expand_width().lens(FractalData::zoom_exponent), 0.2)
                 .with_spacer(4.0)
                 .with_flex_child(Button::new("+").on_click(|ctx, _data: &mut FractalData, _env| {
                     ctx.submit_command(MULTIPLY_ZOOM.with(2.0));
@@ -104,13 +103,8 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
                 .with_spacer(2.0)
                 .with_flex_child(Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
                     ctx.submit_command(SET_ROTATION.with(data.rotation + 15.0));
-                }).expand_width(), 0.15))
-        .with_child(Flex::row()
-            .with_child(Label::<FractalData>::new("REAL:").with_text_size(14.0).fix_width(60.0))
-            .with_flex_child(TextBox::multiline().with_text_size(10.0).expand_width().lens(lens::RealLens), 1.0))
-        .with_child(Flex::row()
-            .with_child(Label::<FractalData>::new("IMAG:").with_text_size(14.0).fix_width(60.0))
-            .with_flex_child(TextBox::multiline().with_text_size(10.0).expand_width().lens(lens::ImagLens), 1.0)));
+                }).expand_width(), 0.15)))
+        .with_child(button_new_window);
 
     let group_palette = Flex::column()
         .with_child(Flex::row()
@@ -306,7 +300,7 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
         .with_spacer(4.0)
         .with_child(create_label_textbox_row("JITTER FACTOR:", 100.0)
             .lens(FractalData::jitter_factor));
-    
+
     let group_extra = Flex::column()
         .with_child(button_start_zoom_out)
         .with_child(button_start_zoom_out_optimised)
@@ -402,4 +396,41 @@ pub fn make_menu(_: Option<WindowId>, _state: &FractalData, _: &Env) -> Menu<Fra
             .entry(MenuItem::new(LocalizedString::new("Step Iteration")).command(SET_COLORING_METHOD.with(ColoringType::StepIteration)))
             .entry(MenuItem::new(LocalizedString::new("Distance")).command(SET_COLORING_METHOD.with(ColoringType::Distance)))
     )
+}
+
+pub fn create_location_menu() -> impl Widget<FractalData> {
+    Flex::row()
+        .with_flex_spacer(0.05)
+        .with_flex_child(Flex::column()
+            .with_spacer(8.0)
+            .with_child(Label::new("REAL:").with_text_size(14.0))
+            .with_spacer(8.0)
+            .with_child(TextBox::multiline().with_text_size(10.0).expand_width().lens(lens::RealLens))
+            .with_spacer(8.0)
+            .with_child(Label::<FractalData>::new("IMAG:").with_text_size(14.0))
+            .with_spacer(8.0)
+            .with_child(TextBox::multiline().with_text_size(10.0).expand_width().lens(lens::ImagLens))
+            .with_spacer(8.0)
+            .with_child(Label::new("ZOOM:").with_text_size(14.0))
+            .with_spacer(8.0)
+            .with_child(TextBox::new().with_text_size(10.0).expand_width().lens(lens::ZoomLens))
+            .with_spacer(8.0)
+            .with_child(Flex::row()
+                .with_flex_spacer(0.25)
+                .with_flex_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
+                    ctx.submit_command(Command::new(SET_LOCATION, (), Target::Global));
+                    ctx.submit_command(CLOSE_WINDOW);
+                }).expand_width().fix_height(32.0), 0.25)
+                .with_spacer(4.0)
+                .with_flex_child(Button::new("CLOSE").on_click(|ctx, _data: &mut FractalData, _env| {
+                    // TODO reset to previous state
+                    // REVERT_LOCATION
+                    ctx.submit_command(CLOSE_WINDOW);
+                }).expand_width().fix_height(32.0), 0.25)
+                .with_flex_spacer(0.25))
+            .with_spacer(8.0)
+            .cross_axis_alignment(CrossAxisAlignment::Start), 0.9)
+        .with_flex_spacer(0.05)
+        .scroll()
+        .vertical()
 }

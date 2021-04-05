@@ -44,3 +44,25 @@ impl Lens<FractalData, String> for ImagLens {
         v
     }
 }
+
+pub struct ZoomLens;
+
+impl Lens<FractalData, String> for ZoomLens {
+    fn with<V, F: FnOnce(&String) -> V>(&self, data: &FractalData, f: F) -> V {
+        f(&data.zoom)
+    }
+    fn with_mut<V, F: FnOnce(&mut String) -> V>(&self, data: &mut FractalData, f: F) -> V {
+        let v = f(&mut data.zoom);
+        data.zoom.retain(|c| {
+            if c.is_digit(10) {
+                true
+            } else {
+                matches!(c, 'E' | 'e' | '.' | '-')
+            }
+        });
+
+        data.zoom = data.zoom.to_uppercase();
+
+        v
+    }
+}
