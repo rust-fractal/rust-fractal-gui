@@ -595,6 +595,16 @@ impl Widget<FractalData> for FractalWidget {
                     return;
                 }
 
+                // TODO maybe enable the iterations and rotation parts
+                if command.is(REVERT_LOCATION) {
+                    data.real = settings.get_str("real").unwrap();
+                    data.imag = settings.get_str("imag").unwrap();
+                    data.zoom = settings.get_str("zoom").unwrap();
+
+                    // let current_iterations = settings.get_int("iterations").unwrap();
+                    // let current_rotation = settings.get_float("rotate").unwrap();
+                }
+
                 if let Some(factor) = command.get(MULTIPLY_ZOOM) {
                     renderer.zoom.mantissa *= factor;
                     renderer.zoom.reduce();
@@ -1156,6 +1166,7 @@ impl Widget<FractalData> for FractalWidget {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, _data: &FractalData, _env: &Env) {
+        println!("paint");
         if self.image_width * self.image_height > 0 {
             // let start = Instant::now();
 

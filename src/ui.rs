@@ -1,9 +1,13 @@
 use std::{fmt::Display, str::FromStr};
-use druid::{commands::CLOSE_WINDOW, widget::{Align, Button, Checkbox, CrossAxisAlignment, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt}, Command, Target};
+use druid::{commands::CLOSE_WINDOW, 
+    widget::{Align, Button, Checkbox, CrossAxisAlignment, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, Painter}, 
+    Command, Target, RenderContext};
 use druid::{Widget, ImageBuf, Data, LensExt, Menu, LocalizedString, MenuItem, SysMods, Env, WindowId, WindowDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::text::ParseFormatter;
 use druid::commands::CLOSE_ALL_WINDOWS;
+
+use druid::theme::{PRIMARY_DARK, BACKGROUND_DARK};
 
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -328,11 +332,37 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             data.current_tab = 2;
         }).expand_width().fix_height(40.0), 1.0);
 
+    let tabs_indicator = Flex::row()
+        .with_flex_child(Painter::new(|ctx, data: &usize, env| {
+                let bounds = ctx.size().to_rect();
+                if *data == 0 {
+                    ctx.fill(bounds, &env.get(PRIMARY_DARK));
+                } else {
+                    ctx.fill(bounds, &env.get(BACKGROUND_DARK));
+                }
+            }).fix_height(2.0).lens(FractalData::current_tab), 1.0)
+        .with_flex_child(Painter::new(|ctx, data: &usize, env| {
+                let bounds = ctx.size().to_rect();
+                if *data == 1 {
+                    ctx.fill(bounds, &env.get(PRIMARY_DARK));
+                } else {
+                    ctx.fill(bounds, &env.get(BACKGROUND_DARK));
+                }
+            }).fix_height(2.0).lens(FractalData::current_tab), 1.0)
+        .with_flex_child(Painter::new(|ctx, data: &usize, env| {
+                let bounds = ctx.size().to_rect();
+                if *data == 2 {
+                    ctx.fill(bounds, &env.get(PRIMARY_DARK));
+                } else {
+                    ctx.fill(bounds, &env.get(BACKGROUND_DARK));
+                }
+            }).fix_height(2.0).lens(FractalData::current_tab), 1.0);
+
     // TODO have a help and about menu
-    // TODO have an additional window for the submission of the exact location
     let side_menu = Flex::column()
         .with_child(tabs_selector)
-        .with_spacer(4.0)
+        .with_child(tabs_indicator)
+        .with_spacer(8.0)
         .with_flex_child(Flex::row()
             .with_flex_spacer(0.05)
             .with_flex_child(Flex::column()
@@ -422,9 +452,8 @@ pub fn window_location() -> impl Widget<FractalData> {
                     ctx.submit_command(CLOSE_WINDOW);
                 }).expand_width().fix_height(32.0), 0.25)
                 .with_spacer(4.0)
-                .with_flex_child(Button::new("CLOSE").on_click(|ctx, _data: &mut FractalData, _env| {
-                    // TODO reset to previous state
-                    // REVERT_LOCATION
+                .with_flex_child(Button::new("CANCEL").on_click(|ctx, _data: &mut FractalData, _env| {
+                    ctx.submit_command(Command::new(REVERT_LOCATION, (), Target::Global));
                     ctx.submit_command(CLOSE_WINDOW);
                 }).expand_width().fix_height(32.0), 0.25)
                 .with_flex_spacer(0.25))

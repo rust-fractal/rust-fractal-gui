@@ -21,6 +21,8 @@ pub const SET_ROTATION: Selector<f64> = Selector::new("set_rotation");
 pub const SET_ITERATIONS: Selector<i64> = Selector::new("set_iterations");
 pub const SET_LOCATION: Selector<()> = Selector::new("set_location");
 
+pub const REVERT_LOCATION: Selector<()> = Selector::new("revert_location");
+
 pub const SET_OFFSET_SPAN: Selector<()> = Selector::new("set_offset_division");
 
 pub const SET_ADVANCED_OPTIONS: Selector<()> = Selector::new("set_advanced_options");
