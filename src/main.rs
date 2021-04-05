@@ -1207,7 +1207,7 @@ pub fn main() {
 
     let buffer = shared_renderer.lock().data_export.clone();
 
-    let window = WindowDesc::new(ui::ui_builder(shared_renderer.clone())).title(
+    let window = WindowDesc::new(ui::window_main(shared_renderer.clone())).title(
         LocalizedString::new("rust-fractal"),
     ).window_size((1388.0, 827.0)).resizable(true).menu(ui::make_menu);
 

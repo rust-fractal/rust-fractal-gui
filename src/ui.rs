@@ -16,7 +16,7 @@ use crate::custom::*;
 use crate::commands::*;
 use crate::lens;
 
-pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalData> {
+pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalData> {
     let render_screen = Align::centered(FractalWidget {
         buffer: Vec::new(),
         image_width: 0,
@@ -56,7 +56,7 @@ pub fn ui_builder(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalD
                 }).expand_width()), 0.25));
     
     let button_new_window = Button::new("edit location").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.new_window(WindowDesc::new(create_location_menu()).title(
+        ctx.new_window(WindowDesc::new(window_location()).title(
             LocalizedString::new("Location"),
         ).window_size((800.0, 400.0)).resizable(true));
     }).expand_width();
@@ -398,7 +398,7 @@ pub fn make_menu(_: Option<WindowId>, _state: &FractalData, _: &Env) -> Menu<Fra
     )
 }
 
-pub fn create_location_menu() -> impl Widget<FractalData> {
+pub fn window_location() -> impl Widget<FractalData> {
     Flex::row()
         .with_flex_spacer(0.05)
         .with_flex_child(Flex::column()
