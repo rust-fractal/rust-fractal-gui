@@ -1,12 +1,12 @@
 use std::sync::Arc;
-// use std::time::Instant;
+use std::time::Instant;
 
 use parking_lot::Mutex;
 
 use druid::{widget::prelude::*};
 
-use druid::{AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Data, Lens};
-use druid::piet::{ImageFormat, InterpolationMode};
+use druid::{AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Data, Lens, Rect};
+use druid::piet::{ImageFormat, InterpolationMode, D2DRenderContext, Color};
 
 
 use druid::commands::{
@@ -41,13 +41,15 @@ use crate::theme::*;
 
 use render_thread::testing_renderer;
 
-struct FractalWidget {
-    buffer: Vec<u8>,
+struct FractalWidget<'a> {
     image_width: usize,
     image_height: usize,
     save_type: usize,
     newton_pos1: (f64, f64),
-    newton_pos2: (f64, f64)
+    newton_pos2: (f64, f64),
+    cached_image: Option<<D2DRenderContext<'a> as RenderContext>::Image>,
+    needs_buffer_refresh: bool,
+    selecting_box: bool,
 }
 
 #[derive(Clone, Data, Lens)]
@@ -98,7 +100,7 @@ pub struct FractalData {
     current_tab: usize,
 }
 
-impl Widget<FractalData> for FractalWidget {
+impl<'a> Widget<FractalData> for FractalWidget<'a> {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut FractalData, _env: &Env) {
         ctx.request_focus();
         // println!("{:?}", event);
@@ -113,7 +115,12 @@ impl Widget<FractalData> for FractalWidget {
                 data.sender.lock().send(THREAD_RESET_RENDERER_FULL).unwrap();
             }
             // TODO this section sometimes blocks. Needs to be fixed
-            // Event::MouseMove(e) => {
+            Event::MouseMove(e) => {
+                if self.selecting_box {
+                    self.newton_pos2 = (e.pos.x, e.pos.y);
+                    ctx.request_paint();
+                }
+            }
             //     if data.stage == 0 {
             //         let size = ctx.size().to_rect();
 
@@ -220,6 +227,7 @@ impl Widget<FractalData> for FractalWidget {
                         ctx.submit_command(RESET_RENDERER_FULL);
                     } else {
                         println!("newton selection");
+                        self.selecting_box = true;
                         self.newton_pos1 = (e.pos.x, e.pos.y);
                     }
                 }
@@ -298,14 +306,13 @@ impl Widget<FractalData> for FractalWidget {
                 if command.is(REPAINT) {
                     let buffer = data.buffer.lock();
 
-                    self.buffer = buffer.buffer.clone();
-
                     if self.image_width != buffer.image_width || self.image_height != buffer.image_height {
                         self.image_width = buffer.image_width;
                         self.image_height = buffer.image_height;
                         ctx.request_layout();
                     }
 
+                    self.needs_buffer_refresh = true;
                     ctx.request_paint();
 
                     return;
@@ -867,6 +874,8 @@ impl Widget<FractalData> for FractalWidget {
 
                     drop(renderer);
 
+                    self.selecting_box = false;
+
                     ctx.submit_command(RESET_RENDERER_FULL);
 
                     return;
@@ -1165,26 +1174,37 @@ impl Widget<FractalData> for FractalWidget {
         test
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, _data: &FractalData, _env: &Env) {
-        println!("paint");
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, _env: &Env) {
         if self.image_width * self.image_height > 0 {
-            // let start = Instant::now();
+            let start = Instant::now();
+
+            if self.needs_buffer_refresh {
+                let temporary_image = data.buffer.lock().buffer.clone();
+
+                self.cached_image = Some(ctx
+                    .make_image(self.image_width, self.image_height, &temporary_image, ImageFormat::Rgb)
+                    .unwrap());
+
+                self.needs_buffer_refresh = false;
+            }
 
             let size = ctx.size().to_rect();
 
-            let image = ctx
-                .make_image(self.image_width, self.image_height, &self.buffer, ImageFormat::Rgb)
-                .unwrap();
-
-            if self.image_width > size.width() as usize || self.image_height > size.height() as usize {
-                ctx.draw_image(&image, size, InterpolationMode::Bilinear);
+            let interpolation_mode = if self.image_width > size.width() as usize || self.image_height > size.height() as usize {
+                InterpolationMode::Bilinear
             } else {
-                ctx.draw_image(&image, size, InterpolationMode::NearestNeighbor);
+                InterpolationMode::NearestNeighbor
             };
 
-            // let time = start.elapsed().as_millis() as usize;
+            ctx.draw_image(self.cached_image.as_ref().unwrap(), size, interpolation_mode);
 
-            // println!("paint: {}ms", time);
+            if self.selecting_box {
+                let rect = Rect::from_origin_size(self.newton_pos1, (self.newton_pos2.0 - self.newton_pos1.0, self.newton_pos2.1 - self.newton_pos1.1));
+                let fill_color = Color::rgba8(0x00, 0x00, 0x00, 0x7F);
+                ctx.fill(rect, &fill_color);
+            }
+
+            println!("paint: {}ms", start.elapsed().as_millis());
         }
     }
 
@@ -1275,7 +1295,7 @@ pub fn main() {
             pixel_rgb: Arc::new(Mutex::new(vec![0u8; 225 * 3])),
             coloring_type: ColoringType::SmoothIteration,
             mouse_mode: 0,
-            current_tab: 0
+            current_tab: 0,
         })
         .expect("launch failed");
 }

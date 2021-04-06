@@ -22,12 +22,14 @@ use crate::lens;
 
 pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalData> {
     let render_screen = Align::centered(FractalWidget {
-        buffer: Vec::new(),
         image_width: 0,
         image_height: 0,
         save_type: 0,
         newton_pos1: (0.0, 0.0),
         newton_pos2: (0.0, 0.0),
+        cached_image: None,
+        needs_buffer_refresh: true,
+        selecting_box: false
     });
 
     let group_image_size = Flex::column()
