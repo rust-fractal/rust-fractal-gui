@@ -51,11 +51,10 @@ impl Widget<String> for NoUpdateLabel {
 
     fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &String, env: &Env) -> Size {
         // println!("timer layout");
-        let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
         self.make_layout_if_needed(&data, &mut ctx.text(), env);
         bc.constrain((
             self.text.size().width + 2.0 * X_PADDING,
-            font_size * LINE_HEIGHT_FACTOR,
+            self.font_size * LINE_HEIGHT_FACTOR,
         ))
     }
 

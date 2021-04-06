@@ -223,9 +223,10 @@ pub fn testing_renderer(
                     event_sink.submit_command(REPAINT, (), Target::Auto).unwrap();
 
                     if (renderer.zoom.to_float() > 0.5) && repeat_flag.load(Ordering::SeqCst) {
+                        let zoom_out_factor = 1.0 / renderer.zoom_scale_factor;
                         drop(renderer);
                         thread::sleep(Duration::from_millis(100));
-                        event_sink.submit_command(MULTIPLY_ZOOM, 0.5, Target::Auto).unwrap();
+                        event_sink.submit_command(MULTIPLY_ZOOM, zoom_out_factor, Target::Auto).unwrap();
                     } else {
                         repeat_flag.store(false, Ordering::SeqCst);
                     };

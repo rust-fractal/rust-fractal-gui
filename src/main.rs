@@ -59,9 +59,10 @@ pub struct FractalData {
     real: String,
     imag: String,
     zoom: String,
-    maximum_iterations: i64,
+    iteration_limit: i64,
     rotation: f64,
     order: i64,
+    period: usize,
     palette_source: String,
     iteration_span: f64,
     iteration_offset: f64,
@@ -223,7 +224,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         renderer.adjust_iterations();
     
                         settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
-                        data.maximum_iterations = renderer.maximum_iteration as i64;
+                        data.iteration_limit = renderer.maximum_iteration as i64;
     
                         ctx.submit_command(RESET_RENDERER_FULL);
                     } else {
@@ -242,7 +243,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     println!("end newton selction");
                     self.newton_pos2 = (e.pos.x, e.pos.y);
 
-                    ctx.submit_command(CALCULATE_PERIOD);
+                    ctx.submit_command(CALCULATE_ROOT);
 
                     // call newton on point
                 }
@@ -338,7 +339,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             1
                         };
 
-                        data.max_iterations = min(*data.buffer.lock().iterations.iter().max().unwrap() as usize, data.maximum_iterations as usize);
+                        data.max_iterations = min(*data.buffer.lock().iterations.iter().max().unwrap() as usize, data.iteration_limit as usize);
                     }
                     
                     return;
@@ -401,10 +402,10 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     }
 
                     settings.set("iterations", *iterations).unwrap();
-                    data.maximum_iterations = *iterations;
+                    data.iteration_limit = *iterations;
 
                     if *iterations as usize <= renderer.maximum_iteration {
-                        renderer.data_export.lock().maximum_iteration = data.maximum_iterations as usize;
+                        renderer.data_export.lock().maximum_iteration = data.iteration_limit as usize;
                         renderer.data_export.lock().regenerate();
 
                         ctx.submit_command(REPAINT);
@@ -547,13 +548,13 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         // Check if the zoom has decreased or is near to the current level
                         if current_zoom.to_uppercase() == data.zoom.to_uppercase() {
                             // nothing has changed
-                            if current_rotation == data.rotation && current_iterations == data.maximum_iterations {
+                            if current_rotation == data.rotation && current_iterations == data.iteration_limit {
                                 // println!("nothing");
                                 return;
                             }
 
                             // iterations changed
-                            if current_iterations == data.maximum_iterations {
+                            if current_iterations == data.iteration_limit {
                                 // println!("rotation");
                                 ctx.submit_command(SET_ROTATION.with(data.rotation));
                                 return;
@@ -561,17 +562,17 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                             if current_rotation == data.rotation {
                                 // println!("iterations");
-                                ctx.submit_command(SET_ITERATIONS.with(data.maximum_iterations));
+                                ctx.submit_command(SET_ITERATIONS.with(data.iteration_limit));
                                 return;
                             }
 
                             // println!("rotation & iterations");
 
-                            settings.set("iterations", data.maximum_iterations).unwrap();
+                            settings.set("iterations", data.iteration_limit).unwrap();
 
-                            if (data.maximum_iterations as usize) < renderer.maximum_iteration {
+                            if (data.iteration_limit as usize) < renderer.maximum_iteration {
                                 // TODO needs to make it so that pixels are only iterated to the right level
-                                renderer.maximum_iteration = data.maximum_iterations as usize;
+                                renderer.maximum_iteration = data.iteration_limit as usize;
                                 ctx.submit_command(SET_ROTATION.with(data.rotation));
                                 return;
                             }
@@ -599,7 +600,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     settings.set("imag", data.imag.clone()).unwrap();
                     settings.set("zoom",  data.zoom.clone()).unwrap();
                     settings.set("rotate", data.rotation).unwrap();
-                    settings.set("iterations", data.maximum_iterations).unwrap();
+                    settings.set("iterations", data.iteration_limit).unwrap();
 
                     ctx.submit_command(RESET_RENDERER_FULL);
                     return;
@@ -625,7 +626,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.need_full_rerender &= renderer.adjust_iterations();
 
                     settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
-                    data.maximum_iterations = renderer.maximum_iteration as i64;
+                    data.iteration_limit = renderer.maximum_iteration as i64;
 
                     renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     // TODO properly set the maximum iterations
@@ -776,6 +777,40 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 }
 
                 if command.is(CALCULATE_PERIOD) {
+                    let cos_rotate = renderer.rotate.cos();
+                    let sin_rotate = renderer.rotate.sin();
+
+                    let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
+                    let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
+
+                    // NOTE this may not work with rotation
+                    let element1 = ComplexExtended::new(ComplexFixed::new(
+                        delta_top_left.re, 
+                        delta_top_left.im
+                    ), -renderer.zoom.exponent);
+
+                    let element2 = ComplexExtended::new(ComplexFixed::new(
+                        -delta_top_left.re, 
+                        delta_top_left.im
+                    ), -renderer.zoom.exponent);
+
+                    let element3 = ComplexExtended::new(ComplexFixed::new(
+                        -delta_top_left.re, 
+                        -delta_top_left.im
+                    ), -renderer.zoom.exponent);
+
+                    let element4 = ComplexExtended::new(ComplexFixed::new(
+                        delta_top_left.re, 
+                        -delta_top_left.im
+                    ), -renderer.zoom.exponent);
+
+                    renderer.find_period([element1, element2, element3, element4]);
+
+                    data.period = renderer.box_method.period;
+                }
+
+                // TODO split up into two different commands
+                if command.is(CALCULATE_ROOT) {
                     let size = ctx.size().to_rect();
 
                     let top_left = (self.newton_pos1.0.min(self.newton_pos2.0), self.newton_pos1.1.min(self.newton_pos2.1));
@@ -814,31 +849,14 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         i1 * delta_pixel * sin_rotate + j2 * delta_pixel * cos_rotate + delta_top_left.im
                     ), -renderer.zoom.exponent);
 
-                    println!("calculating period");
-
                     renderer.find_period([element1, element2, element3, element4]);
 
                     let precision = renderer.center_reference.c.real().prec();
-                    // let iteration_reference = self.data_storage_interval * ((self.min_valid_iteration - 1) / self.data_storage_interval) + 1;
 
                     let box_center = ComplexExtended::new(ComplexFixed::new(
                         0.5 * (i1 + i2) * delta_pixel * cos_rotate - 0.5 * (j1 + j2) * delta_pixel * sin_rotate + delta_top_left.re, 
                         0.5 * (i1 + i2) * delta_pixel * sin_rotate + 0.5 * (j1 + j2) * delta_pixel * cos_rotate + delta_top_left.im
                     ), -renderer.zoom.exponent);
-
-                    // let mut point_z_min = renderer.box_method.points_z[0];
-                    // let mut point_c_min = renderer.box_method.points_c[0];
-
-                    // for (i, point) in renderer.box_method.points_z.iter().enumerate().skip(1) {
-                    //     if point_z_min.norm_square() > point.norm_square() {
-                    //         point_z_min = *point;
-                    //         point_c_min = renderer.box_method.points_c[i];
-                    //     }
-                    // };
-
-                    // let box_center = point_c_min;
-                    // println!("box center: {}", box_center);
-                    // println!("box center: {}", point_z_min);
             
                     let mut box_center_arbitrary = renderer.center_reference.c.clone();
                     let temp = FloatArbitrary::with_val(precision, box_center.exponent).exp2();
@@ -848,7 +866,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     *box_center_arbitrary.mut_real() += &temp2 * &temp;
                     *box_center_arbitrary.mut_imag() += &temp3 * &temp;            
 
-                    println!("calculating nucleus");
+                    data.period = renderer.box_method.period;
 
                     let temp = get_nucleus(box_center_arbitrary, renderer.box_method.period);
 
@@ -856,6 +874,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     if temp.real().is_nan() {
                         println!("error in nr");
+                        self.selecting_box = false;
                         return;
                     }
 
@@ -878,6 +897,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     drop(renderer);
 
                     self.selecting_box = false;
+                    data.mouse_mode = 0;
 
                     ctx.submit_command(RESET_RENDERER_FULL);
 
@@ -941,7 +961,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.real = "-0.75".to_string();
                     data.imag = "0.0".to_string();
                     data.zoom = "1E1".to_string();
-                    data.maximum_iterations = 1000;
+                    data.iteration_limit = 1000;
                     data.rotation = 0.0;
 
                     ctx.submit_command(RESET_RENDERER_FULL);
@@ -979,7 +999,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     if let Ok(iterations) = new_settings.get_int("iterations") {
                         settings.set("iterations", iterations).unwrap();
-                        data.maximum_iterations = iterations;
+                        data.iteration_limit = iterations;
                         reset_renderer = true;
                     }
 
@@ -1256,9 +1276,10 @@ pub fn main() {
             real: settings.get_str("real").unwrap(),
             imag: settings.get_str("imag").unwrap(),
             zoom: settings.get_str("zoom").unwrap(),
-            maximum_iterations: settings.get_int("iterations").unwrap(),
+            iteration_limit: settings.get_int("iterations").unwrap(),
             rotation: settings.get_float("rotate").unwrap(),
             order: settings.get_int("approximation_order").unwrap(),
+            period: 0,
             palette_source: "default".to_string(),
             iteration_span: settings.get_float("iteration_division").unwrap(),
             iteration_offset: settings.get_float("palette_offset").unwrap(),
