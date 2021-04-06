@@ -33,6 +33,8 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
     });
 
     let group_image_size = Flex::column()
+        .with_child(Label::new("SIZING").with_text_size(20.0).expand_width())
+        .with_spacer(4.0)
         .with_child(Flex::row()
             .with_flex_child(Flex::column()
                 .with_child(create_label_textbox_row("WIDTH:", 75.0)
@@ -79,7 +81,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         .with_spacer(4.0)
         .with_child(Flex::column()
             .with_child(Flex::row()
-                .with_child(Label::<FractalData>::new("ZOOM:").with_text_size(14.0).fix_width(60.0))
+                .with_child(Label::new("ZOOM:").with_text_size(14.0).fix_width(60.0))
                 .with_spacer(4.0)
                 .with_flex_child(Button::new("+").on_click(|ctx, _data: &mut FractalData, _env| {
                     ctx.submit_command(MULTIPLY_ZOOM.with(2.0));
@@ -114,7 +116,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
 
     let group_palette = Flex::column()
         .with_child(Flex::row()
-            .with_flex_child(Label::<FractalData>::new("COLOURING").with_text_size(20.0).expand_width(), 0.5)
+            .with_flex_child(Label::new("COLOURING").with_text_size(20.0).expand_width(), 0.5)
             .with_flex_child(Label::new(|data: &FractalData, _env: &_| {
                 data.palette_source.clone()
             }).align_right().expand_width(), 0.5))
@@ -145,7 +147,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
 
     let group_information = Flex::column()
         .with_child(Flex::row()
-        .with_flex_child(Label::<FractalData>::new("SKIPPED:").with_text_size(14.0).expand_width(), 1.0)
+        .with_flex_child(Label::new("SKIPPED:").with_text_size(14.0).expand_width(), 1.0)
             .with_child(NoUpdateLabel::new().lens(FractalData::min_valid_iterations.map(|val| {
                 format!("min. {:>8}", val)
             }, |_, _| {})))

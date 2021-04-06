@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::time::Instant;
+// use std::time::Instant;
 
 use parking_lot::Mutex;
 
@@ -1176,8 +1176,6 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &FractalData, _env: &Env) {
         if self.image_width * self.image_height > 0 {
-            let start = Instant::now();
-
             if self.needs_buffer_refresh {
                 let temporary_image = data.buffer.lock().buffer.clone();
 
@@ -1203,8 +1201,6 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 let fill_color = Color::rgba8(0x00, 0x00, 0x00, 0x7F);
                 ctx.fill(rect, &fill_color);
             }
-
-            println!("paint: {}ms", start.elapsed().as_millis());
         }
     }
 
