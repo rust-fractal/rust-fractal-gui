@@ -113,17 +113,6 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             }).expand_width().fix_height(24.0), 1.0))
         .with_spacer(4.0)
         .with_child(Flex::row()
-            .with_child(Label::new("Period: ").with_text_size(14.0))
-            .with_flex_spacer(1.0)
-            .with_child(NoUpdateLabel::new(24.0).lens(FractalData::period.map(|val| {
-                format!("{:>12}", val)
-            }, |_, _| {}))))
-        .with_spacer(4.0)
-        .with_child(Button::new("FIND PERIOD").on_click(|ctx, _data: &mut FractalData, _env| {
-            ctx.submit_command(CALCULATE_PERIOD);
-        }).expand_width().fix_height(24.0))
-        .with_spacer(4.0)
-        .with_child(Flex::row()
             .with_child(Label::new("Rotation: ").with_text_size(14.0))
             .with_flex_child(Slider::new()
                 .with_range(0.0, 72.0).expand_width()
@@ -151,7 +140,34 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         .with_spacer(8.0)
         .with_child(Label::new("ROOT FINDING").with_text_size(20.0).expand_width())
         .with_spacer(4.0)
-        .with_child(Label::new("root zoom factor"))
+        .with_child(Flex::row()
+            .with_child(Label::new("Period: ").with_text_size(14.0))
+            .with_flex_spacer(1.0)
+            .with_child(NoUpdateLabel::new(24.0).lens(FractalData::period.map(|val| {
+                format!("{:>12}", val)
+            }, |_, _| {}))))
+        .with_spacer(4.0)
+        .with_child(Button::new("FIND PERIOD").on_click(|ctx, _data: &mut FractalData, _env| {
+            ctx.submit_command(CALCULATE_PERIOD);
+        }).expand_width().fix_height(24.0))
+        .with_spacer(4.0)
+        .with_child(Flex::row()
+        .with_child(Label::new("Pattern Zoom: ").with_text_size(14.0))
+        .with_flex_child(Slider::new()
+            .with_range(-1.0,4.0).expand_width()
+            .lens(FractalData::root_zoom_factor.map(
+                |val| (1.0 / (1.0 - val)).log2(), 
+                |val, new| *val = 1.0 - (1.0 / 2.0_f64.powf(new.round())))), 1.0)
+        .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
+            // here need to work out pattern types
+            let temp = 1.0 / (1.0 - *data);
+
+            if temp < 1.0 {
+                format!("{:>3.1}X", temp)
+            } else {
+                format!("{:>3.0}X", temp)
+            }
+        }).lens(FractalData::root_zoom_factor)))
         .with_spacer(4.0)
         .with_child(Button::new(|data: &usize, _: &Env| {
                 if *data == 0 {

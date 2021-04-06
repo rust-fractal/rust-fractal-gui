@@ -100,6 +100,7 @@ pub struct FractalData {
     mouse_mode: usize,
     current_tab: usize,
     zoom_scale_factor: f64,
+    root_zoom_factor: f64,
 }
 
 impl<'a> Widget<FractalData> for FractalWidget<'a> {
@@ -880,7 +881,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     let temp2 = get_nucleus_position(temp.clone(), renderer.box_method.period);
                     
-                    let test_zoom_scale = linear_interpolation_between_zoom(renderer.zoom, temp2.0, 0.5);
+                    let test_zoom_scale = linear_interpolation_between_zoom(renderer.zoom, temp2.0, data.root_zoom_factor);
 
                     println!("zoom: {}", temp2.0);
                     println!("interpolated zoom: {}", test_zoom_scale);
@@ -1315,7 +1316,8 @@ pub fn main() {
             coloring_type: ColoringType::SmoothIteration,
             mouse_mode: 0,
             current_tab: 0,
-            zoom_scale_factor: settings.get_float("zoom_scale").unwrap()
+            zoom_scale_factor: settings.get_float("zoom_scale").unwrap(),
+            root_zoom_factor: 0.5
         })
         .expect("launch failed");
 }
