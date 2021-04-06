@@ -98,6 +98,7 @@ pub struct FractalData {
     pixel_rgb: Arc<Mutex<Vec<u8>>>,
     mouse_mode: usize,
     current_tab: usize,
+    zoom_scale_factor: f64,
 }
 
 impl<'a> Widget<FractalData> for FractalWidget<'a> {
@@ -196,7 +197,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         let element = ComplexExtended::new(element, -renderer.zoom.exponent);
                         let mut zoom = renderer.zoom;
                     
-                        zoom.mantissa *= 2.0;
+                        zoom.mantissa *= data.zoom_scale_factor;
                         zoom.reduce();
     
                         let mut location = renderer.center_reference.c.clone();
@@ -233,7 +234,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 }
 
                 if e.button == MouseButton::Right {
-                    ctx.submit_command(MULTIPLY_ZOOM.with(0.5));
+                    ctx.submit_command(MULTIPLY_ZOOM.with(1.0 / data.zoom_scale_factor));
                 }
             },
             Event::MouseUp(e) => {
@@ -521,6 +522,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     renderer.glitch_percentage = data.glitch_percentage;
                     renderer.jitter = data.jitter;
                     renderer.jitter_factor = data.jitter_factor;
+
+                    renderer.zoom_scale_factor = data.zoom_scale_factor;
 
                     // println!("setting to {}", data.remove_centre);
                     renderer.remove_centre = data.remove_centre;
@@ -1106,7 +1109,6 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             let analytic_derivative = settings.get_bool("analytic_derivative").unwrap();
 
                             let palette = renderer.data_export.lock().palette_buffer.clone().into_iter().flat_map(|seq| {
-                                // BGR format
                                 let (r, g, b, _) = seq.rgba_u8();
                                 vec![r, g, b]
                             }).collect::<Vec<u8>>();
@@ -1292,6 +1294,7 @@ pub fn main() {
             coloring_type: ColoringType::SmoothIteration,
             mouse_mode: 0,
             current_tab: 0,
+            zoom_scale_factor: settings.get_float("zoom_scale").unwrap()
         })
         .expect("launch failed");
 }

@@ -11,24 +11,24 @@ pub struct NoUpdateLabel {
     text: TextLayout<ArcStr>,
     // Does the layout need to be changed?
     needs_update: bool,
+    font_size: f64
 }
 
 impl NoUpdateLabel {
-    pub fn new() -> NoUpdateLabel {
+    pub fn new(font_size: f64) -> NoUpdateLabel {
         NoUpdateLabel {
             text: TextLayout::new(),
             needs_update: true,
+            font_size
         }
     }
 
     fn make_layout_if_needed(&mut self, value: &String, t: &mut PietText, env: &Env) {
         if self.needs_update {
-            let font_size = env.get(druid::theme::TEXT_SIZE_NORMAL);
-
             self.text
                 .set_text(value.clone().into());
             self.text
-                .set_font(FontDescriptor::new(FontFamily::MONOSPACE).with_size(font_size));
+                .set_font(FontDescriptor::new(FontFamily::MONOSPACE).with_size(self.font_size));
             self.text.set_text_color(Color::WHITE);
             self.text.rebuild_if_needed(t, env);
 

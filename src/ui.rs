@@ -11,7 +11,10 @@ use druid::theme::{PRIMARY_DARK, BACKGROUND_DARK};
 
 use parking_lot::Mutex;
 use std::sync::Arc;
-use rust_fractal::renderer::FractalRenderer;
+use rust_fractal::{
+    renderer::FractalRenderer,
+    util::{string_to_extended, extended_to_string_short}
+};
 
 use crate::{FractalData, FractalWidget, ColoringType};
 use crate::custom::*;
@@ -37,10 +40,10 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         .with_spacer(4.0)
         .with_child(Flex::row()
             .with_flex_child(Flex::column()
-                .with_child(create_label_textbox_row("WIDTH:", 75.0)
+                .with_child(create_label_textbox_row("Width:", 75.0)
                     .lens(FractalData::image_width))
                 .with_spacer(4.0)
-                .with_child(create_label_textbox_row("HEIGHT:", 75.0)
+                .with_child(create_label_textbox_row("Height:", 75.0)
                     .lens(FractalData::image_height)), 0.5)
             .with_spacer(4.0)
             .with_flex_child(Flex::column()
@@ -62,57 +65,88 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                 .with_child(Button::new("SET").on_click(|ctx, data: &mut FractalData, _env| {
                     ctx.submit_command(SET_SIZE.with((data.image_width, data.image_height)));
                 }).expand_width()), 0.25));
-    
-    let button_new_window = Button::new("edit location").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.new_window(WindowDesc::new(window_location()).title(
-            LocalizedString::new("Location"),
-        ).window_size((800.0, 400.0)).resizable(true));
-    }).expand_width();
 
     let group_location = Flex::column()
-        .with_child(Flex::row()
-            .with_flex_child(Button::new("LOAD").on_click(|ctx, _data: &mut FractalData, _env| {
-                ctx.submit_command(OPEN_LOCATION);
-            }).expand_width(), 0.4)
-            .with_spacer(4.0)
-            .with_flex_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
-                ctx.submit_command(SET_LOCATION);
-            }).expand_width(), 0.4))
+        .with_child(Label::new("POSITION").with_text_size(20.0).expand_width())
         .with_spacer(4.0)
-        .with_child(Flex::column()
-            .with_child(Flex::row()
-                .with_child(Label::new("ZOOM:").with_text_size(14.0).fix_width(60.0))
-                .with_spacer(4.0)
-                .with_flex_child(Button::new("+").on_click(|ctx, _data: &mut FractalData, _env| {
-                    ctx.submit_command(MULTIPLY_ZOOM.with(2.0));
-                }).expand_width(), 0.15)
-                .with_spacer(2.0)
-                .with_flex_child(Button::new("-").on_click(|ctx, _data: &mut FractalData, _env| {
-                    ctx.submit_command(MULTIPLY_ZOOM.with(0.5));
-                }).expand_width(), 0.15))
+        .with_child(Flex::row()
+            .with_child(Flex::column()
+                .with_flex_spacer(1.0)
+                .with_child(Label::new("Zoom:").with_text_size(14.0))
+                .with_flex_spacer(1.0).fix_height(64.0))
+            .with_flex_spacer(1.0)
+            .with_child(NoUpdateLabel::new(24.0).lens(FractalData::zoom.map(|val| {
+                format!("{:<10}", extended_to_string_short(string_to_extended(val)))
+            }, |_, _| {}))).cross_axis_alignment(CrossAxisAlignment::Center).fix_height(32.0))
+        .with_spacer(4.0)
+        .with_child(Flex::row()
+            .with_child(Label::new("Zoom Factor:").fix_width(100.0))
+            .with_flex_child(Slider::new()
+                .with_range(0.0, 5.64385618977).expand_width()
+                .lens(FractalData::zoom_scale_factor.map(
+                    |val| val.log2(), 
+                    |val, new| *val = 0.1 * (2.0_f64.powf(new) * 10.0).round())), 1.0)
+            .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
+                format!("{:>4.2}", *data)
+            }).lens(FractalData::zoom_scale_factor)))
+        .with_spacer(4.0)
+        .with_child(Flex::row()
+            .with_flex_spacer(0.5)
+            .with_flex_child(Button::new("ZOOM IN").on_click(|ctx, data: &mut FractalData, _env| {
+                ctx.submit_command(MULTIPLY_ZOOM.with(data.zoom_scale_factor));
+            }).expand_width().fix_height(16.0), 1.0)
+            .with_spacer(2.0)
+            .with_flex_child(Button::new("ZOOM OUT").on_click(|ctx, data: &mut FractalData, _env| {
+                ctx.submit_command(MULTIPLY_ZOOM.with(1.0 / data.zoom_scale_factor));
+            }).expand_width().fix_height(16.0), 1.0)
+            .with_flex_spacer(0.5))
+        .with_spacer(4.0)
+        .with_child(Flex::row()
+            .with_flex_child(create_label_textbox_row("Iterations:", 120.0).lens(FractalData::maximum_iterations), 0.7)
             .with_spacer(4.0)
-            .with_child(Flex::row()
-                .with_flex_child(create_label_textbox_row("ITER:", 60.0).lens(FractalData::maximum_iterations), 0.7)
-                .with_spacer(4.0)
-                .with_flex_child(Button::new("+").on_click(|ctx, data: &mut FractalData, _env| {
-                    ctx.submit_command(SET_ITERATIONS.with(2 * data.maximum_iterations));
-                }).expand_width(), 0.15)
-                .with_spacer(2.0)
-                .with_flex_child(Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
-                    ctx.submit_command(SET_ITERATIONS.with(data.maximum_iterations / 2));
-                }).expand_width(), 0.15))
+            .with_flex_child(Button::new("+").on_click(|ctx, data: &mut FractalData, _env| {
+                ctx.submit_command(SET_ITERATIONS.with(2 * data.maximum_iterations));
+            }).expand_width(), 0.15)
+            .with_spacer(2.0)
+            .with_flex_child(Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
+                ctx.submit_command(SET_ITERATIONS.with(data.maximum_iterations / 2));
+            }).expand_width(), 0.15))
+        .with_spacer(4.0)
+        .with_child(Flex::row()
+            .with_flex_child(create_label_textbox_row("Rotation:", 120.0).lens(FractalData::rotation), 0.7)
             .with_spacer(4.0)
-            .with_child(Flex::row()
-                .with_flex_child(create_label_textbox_row("ROTN:", 60.0).lens(FractalData::rotation), 0.7)
-                .with_spacer(4.0)
-                .with_flex_child(Button::new("+").on_click(|ctx, data: &mut FractalData, _env| {
-                    ctx.submit_command(SET_ROTATION.with(data.rotation - 15.0));
-                }).expand_width(), 0.15)
-                .with_spacer(2.0)
-                .with_flex_child(Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
-                    ctx.submit_command(SET_ROTATION.with(data.rotation + 15.0));
-                }).expand_width(), 0.15)))
-        .with_child(button_new_window);
+            .with_flex_child(Button::new("+").on_click(|ctx, data: &mut FractalData, _env| {
+                ctx.submit_command(SET_ROTATION.with(data.rotation - 15.0));
+            }).expand_width(), 0.15)
+            .with_spacer(2.0)
+            .with_flex_child(Button::new("-").on_click(|ctx, data: &mut FractalData, _env| {
+                ctx.submit_command(SET_ROTATION.with(data.rotation + 15.0));
+            }).expand_width(), 0.15))
+        .with_spacer(4.0)
+        .with_child(Label::new("period"))
+        .with_spacer(4.0)
+        .with_child(Flex::row()
+            .with_flex_child(Button::new("EDIT LOCATION").on_click(|ctx, _data: &mut FractalData, _env| {
+                ctx.new_window(WindowDesc::new(window_location()).title(
+                    LocalizedString::new("Location"),
+                ).window_size((800.0, 400.0)).resizable(true));
+            }).expand_width(), 1.0)
+            .with_spacer(4.0)
+            .with_flex_child(Button::new("LOAD LOCATION").on_click(|ctx, _data: &mut FractalData, _env| {
+                ctx.submit_command(OPEN_LOCATION);
+            }).expand_width(), 1.0)
+            .with_spacer(4.0)
+            .with_flex_child(Button::new("SET LOCATION").on_click(|ctx, _data: &mut FractalData, _env| {
+                ctx.submit_command(SET_LOCATION);
+            }).expand_width(), 1.0))
+        .with_spacer(4.0)
+        .with_child(Label::new("ROOT FINDING").with_text_size(20.0).expand_width())
+        .with_spacer(4.0)
+        .with_child(Label::new("root zoom factor"))
+        .with_spacer(4.0)
+        .with_child(Label::new("root click box"))
+        .with_spacer(4.0)
+        .with_child(Label::new("root progress"));
 
     let group_palette = Flex::column()
         .with_child(Flex::row()
@@ -148,25 +182,25 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
     let group_information = Flex::column()
         .with_child(Flex::row()
         .with_flex_child(Label::new("SKIPPED:").with_text_size(14.0).expand_width(), 1.0)
-            .with_child(NoUpdateLabel::new().lens(FractalData::min_valid_iterations.map(|val| {
+            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::min_valid_iterations.map(|val| {
                 format!("min. {:>8}", val)
             }, |_, _| {})))
-            .with_child(NoUpdateLabel::new().lens(FractalData::max_valid_iterations.map(|val| {
+            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::max_valid_iterations.map(|val| {
                 format!("max. {:>8}", val)
             }, |_, _| {}))))
         .with_spacer(4.0)
         .with_child(Flex::row()
             .with_flex_child(Label::<FractalData>::new("ITERATIONS:").with_text_size(14.0).expand_width(), 1.0)
-            .with_child(NoUpdateLabel::new().lens(FractalData::min_iterations.map(|val| {
+            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::min_iterations.map(|val| {
                 format!("min. {:>8}", val)
             }, |_, _| {})))
-            .with_child(NoUpdateLabel::new().lens(FractalData::max_iterations.map(|val| {
+            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::max_iterations.map(|val| {
                 format!("max. {:>8}", val)
             }, |_, _| {}))))
         .with_spacer(4.0)
         .with_child(Flex::row()
             .with_flex_child(Label::<FractalData>::new("RENDER:").with_text_size(14.0).expand_width(), 1.0)
-            .with_child(NoUpdateLabel::new().lens(FractalData::stage.map(|val| {
+            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::stage.map(|val| {
                 let text = match val {
                     1 => "REFERENCE",
                     2 | 3 => "APPROXIMATION",
@@ -178,7 +212,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
     
                 format!("{:>14}", text)
             }, |_, _| {})))
-            .with_child(NoUpdateLabel::new().lens(FractalData::time.map(|val| {
+            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::time.map(|val| {
                 let ms = val % 1000;
                 let s = val / 1000;
                 let m = s / 60;
@@ -240,14 +274,14 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                     .fix_height(100.0))
             .with_spacer(4.0)
             .with_child(Flex::column()
-                .with_child(NoUpdateLabel::new().lens(FractalData::pixel_pos.map(|val| {
+                .with_child(NoUpdateLabel::new(12.0).lens(FractalData::pixel_pos.map(|val| {
                     format!("{:>13}", format!("({},{})", val[0], val[1]))
                 }, |_, _| {})))
                 .with_child(Flex::row()
-                    .with_child(NoUpdateLabel::new().lens(FractalData::pixel_iterations.map(|val| {
+                    .with_child(NoUpdateLabel::new(12.0).lens(FractalData::pixel_iterations.map(|val| {
                         format!("{:>8}", val)
                     }, |_, _| {})))
-                    .with_child(NoUpdateLabel::new().lens(FractalData::pixel_smooth.map(|val| {
+                    .with_child(NoUpdateLabel::new(12.0).lens(FractalData::pixel_smooth.map(|val| {
                         format!("{:>.4}", val)
                     }, |_, _| {})))))
             .with_flex_spacer(0.5));
@@ -285,12 +319,10 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             }).lens(FractalData::order))
         )
         .with_spacer(4.0)
-        .with_child(create_label_textbox_row("GLITCH TOL:", 120.0)
-            .lens(FractalData::glitch_tolerance))
+        .with_child(create_label_textbox_row("GLITCH TOL:", 120.0).lens(FractalData::glitch_tolerance))
         .with_spacer(4.0)
-        .with_child(create_label_textbox_row("GLITCH %:", 120.0)
-            .lens(FractalData::glitch_percentage))
-            .with_child(Flex::row()
+        .with_child(create_label_textbox_row("GLITCH %:", 120.0).lens(FractalData::glitch_percentage))
+        .with_child(Flex::row()
             .with_child(Label::new("Data Int.:").fix_width(100.0))
             .with_flex_child(Slider::new()
                 .with_range(0.0, 5.0)
@@ -300,14 +332,11 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                     |val, new| *val = 10_i64.pow(new as u32))), 1.0)
             .with_child(Label::<i64>::new(|data: &i64, _env: &_| {
                 format!("{:>6}", *data)
-            }).lens(FractalData::iteration_interval))
-        )
+            }).lens(FractalData::iteration_interval)))
         .with_spacer(4.0)
-        .with_child(create_label_textbox_row("PROBE SAMPLING:", 100.0)
-            .lens(FractalData::probe_sampling))
+        .with_child(create_label_textbox_row("PROBE SAMPLING:", 100.0).lens(FractalData::probe_sampling))
         .with_spacer(4.0)
-        .with_child(create_label_textbox_row("JITTER FACTOR:", 100.0)
-            .lens(FractalData::jitter_factor));
+        .with_child(create_label_textbox_row("JITTER FACTOR:", 100.0).lens(FractalData::jitter_factor));
 
     let group_extra = Flex::column()
         .with_child(button_start_zoom_out)
