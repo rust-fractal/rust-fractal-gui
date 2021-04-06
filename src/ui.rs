@@ -153,7 +153,19 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         .with_spacer(4.0)
         .with_child(Label::new("root zoom factor"))
         .with_spacer(4.0)
-        .with_child(Label::new("root click box"))
+        .with_child(Button::new(|data: &usize, _: &Env| {
+                if *data == 0 {
+                    "DRAW BOX AROUND ROOT".to_string()
+                } else {
+                    "CANCEL".to_string()
+                }
+            }).on_click(|_ctx, data: &mut usize, _env| {
+                *data = if *data == 0 {
+                    1
+                } else {
+                    0
+                };
+            }).lens(FractalData::mouse_mode).expand_width())
         .with_spacer(4.0)
         .with_child(Label::new("root progress"));
 
@@ -256,22 +268,6 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                 }
             }).expand_width(), 0.25));
 
-    let button_start_zoom_out = Button::new("START ZOOM OUT").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(ZOOM_OUT);
-    }).expand_width();
-
-    let button_start_zoom_out_optimised = Button::new("START ZOOM OUT OPTIMISED").on_click(|ctx, _data: &mut FractalData, _env| {
-        ctx.submit_command(ZOOM_OUT_OPTIMISED);
-    }).expand_width();
-
-    let button_toggle_mouse_mode = Button::new("MOUSE MODE").on_click(|_ctx, data: &mut usize, _env| {
-        *data = if *data == 0 {
-            1
-        } else {
-            0
-        };
-    }).lens(FractalData::mouse_mode).expand_width();
-
     let group_pixel_information = Flex::column()
         .with_child(Flex::row()
             .with_flex_spacer(0.5)
@@ -348,9 +344,6 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         .with_child(create_label_textbox_row("JITTER FACTOR:", 100.0).lens(FractalData::jitter_factor));
 
     let group_extra = Flex::column()
-        .with_child(button_start_zoom_out)
-        .with_child(button_start_zoom_out_optimised)
-        .with_child(button_toggle_mouse_mode)
         .with_child(button_save_advanced_options)
         .with_child(group_advanced_options);
 
