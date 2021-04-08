@@ -183,7 +183,14 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                 };
             }).lens(FractalData::mouse_mode).expand_width())
         .with_spacer(4.0)
-        .with_child(Label::new("root progress"));
+        .with_child(Flex::row()
+            .with_flex_child(ProgressBar::new().lens(FractalData::root_progress).expand_width(), 0.75)
+            .with_spacer(4.0)
+            .with_flex_child(Button::new(|_data: &FractalData, _env: &_| {
+                "CANCEL".to_string()
+            }).on_click(|ctx, _data: &mut FractalData, _env| {
+                ctx.submit_command(STOP_ROOT_FINDING);
+            }).expand_width(), 0.25));
 
     let group_palette = Flex::column()
         .with_child(Flex::row()
@@ -259,7 +266,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             }, |_, _| {}))))
         .with_spacer(4.0)
         .with_child(Flex::row()
-            .with_flex_child(ProgressBar::new().lens(FractalData::progress).expand_width(), 0.75)
+            .with_flex_child(ProgressBar::new().lens(FractalData::rendering_progress).expand_width(), 0.75)
             .with_spacer(4.0)
             .with_flex_child(Button::new(|data: &FractalData, _env: &_| {
                 match data.stage {

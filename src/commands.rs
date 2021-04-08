@@ -29,7 +29,9 @@ pub const SET_ADVANCED_OPTIONS: Selector<()> = Selector::new("set_advanced_optio
 
 pub const UPDATE_PALETTE: Selector<()> = Selector::new("update_palette");
 pub const UPDATE_PIXEL_INFORMATION: Selector<()> = Selector::new("update_pixel_information");
+
 pub const STOP_RENDERING: Selector<()> = Selector::new("stop_rendering");
+pub const STOP_ROOT_FINDING: Selector<()> = Selector::new("step_root_finding");
 
 pub const REPAINT: Selector<()> = Selector::new("repaint");
 pub const RESET_DEFAULT_LOCATION: Selector<()> = Selector::new("reset_default_location");

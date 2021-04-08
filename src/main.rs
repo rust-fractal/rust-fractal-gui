@@ -68,7 +68,8 @@ pub struct FractalData {
     iteration_offset: f64,
     #[data(same_fn = "PartialEq::eq")]
     coloring_type: ColoringType,
-    progress: f64,
+    rendering_progress: f64,
+    root_progress: f64,
     stage: usize,
     time: usize,
     min_valid_iterations: usize,
@@ -322,7 +323,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 }
 
                 if let Some((stage, progress, time, min_valid_iterations, max_valid_iterations)) = command.get(UPDATE_PROGRESS) {
-                    data.progress = *progress;
+                    data.rendering_progress = *progress;
                     data.stage = *stage;
                     data.time = *time;
 
@@ -810,7 +811,6 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.period = renderer.box_method.period;
                 }
 
-                // TODO split up into two different commands
                 if command.is(CALCULATE_ROOT) {
                     let size = ctx.size().to_rect();
 
@@ -953,17 +953,20 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 }
 
                 if command.is(RESET_DEFAULT_LOCATION) {
-                    settings.set("real", "-0.75").unwrap();
-                    settings.set("imag", "0.0").unwrap();
-                    settings.set("zoom", "1E0").unwrap();
-                    settings.set("iterations", 1000).unwrap();
-                    settings.set("rotate", 0.0).unwrap();
+                    let mut new_settings = Config::default();
+                    new_settings.merge(File::with_name("start.toml")).unwrap();
 
-                    data.real = "-0.75".to_string();
-                    data.imag = "0.0".to_string();
-                    data.zoom = "1E1".to_string();
-                    data.iteration_limit = 1000;
-                    data.rotation = 0.0;
+                    settings.set("real", new_settings.get_str("real").unwrap()).unwrap();
+                    settings.set("imag", new_settings.get_str("imag").unwrap()).unwrap();
+                    settings.set("zoom", new_settings.get_str("zoom").unwrap()).unwrap();
+                    settings.set("iterations", new_settings.get_int("iterations").unwrap()).unwrap();
+                    settings.set("rotate", new_settings.get_float("rotate").unwrap()).unwrap();
+
+                    data.real = settings.get_str("real").unwrap();
+                    data.imag = settings.get_str("imag").unwrap();
+                    data.zoom = settings.get_str("zoom").unwrap().to_uppercase();
+                    data.iteration_limit = settings.get_int("iterations").unwrap();
+                    data.rotation = settings.get_float("rotate").unwrap();
 
                     ctx.submit_command(RESET_RENDERER_FULL);
                 }
@@ -1284,7 +1287,8 @@ pub fn main() {
             palette_source: "default".to_string(),
             iteration_span: settings.get_float("iteration_division").unwrap(),
             iteration_offset: settings.get_float("palette_offset").unwrap(),
-            progress: 0.0,
+            rendering_progress: 0.0,
+            root_progress: 0.0,
             stage: 1,
             time: 0,
             min_valid_iterations: 1,
