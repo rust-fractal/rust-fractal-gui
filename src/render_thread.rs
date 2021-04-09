@@ -1,8 +1,11 @@
 use std::sync::mpsc;
-use std::sync::atomic::{AtomicBool, Ordering};
-
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Instant, Duration};
+
 use rust_fractal::renderer::FractalRenderer;
+use rust_fractal::util::{FloatArbitrary, linear_interpolation_between_zoom, extended_to_string_long};
+use rust_fractal::math::{get_nucleus, get_nucleus_position};
+
 use druid::Target;
 use std::sync::Arc;
 use parking_lot::Mutex;
@@ -101,7 +104,7 @@ pub fn testing_renderer(
                                     let min_valid_iteration = thread_counter_7.load(Ordering::Relaxed);
                                     let max_valid_iteration = thread_counter_8.load(Ordering::Relaxed);
 
-                                    test.submit_command(UPDATE_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
+                                    test.submit_command(UPDATE_RENDERING_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
                                 }
                             };
 
@@ -126,7 +129,7 @@ pub fn testing_renderer(
 
                     tx.send(()).unwrap();
 
-                    event_sink.submit_command(UPDATE_PROGRESS, (0, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), Target::Auto).unwrap();
+                    event_sink.submit_command(UPDATE_RENDERING_PROGRESS, (0, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), Target::Auto).unwrap();
                     event_sink.submit_command(REPAINT, (), Target::Auto).unwrap();
 
                     if command == THREAD_RESET_RENDERER_FAST {
@@ -139,6 +142,74 @@ pub fn testing_renderer(
                             repeat_flag.store(false, Ordering::SeqCst);
                         };
                     }
+                }
+                THREAD_CALCULATE_ROOT => {
+                    let stop_flag = thread_stop_flag.clone();
+
+                    let mut renderer = thread_renderer.lock();
+
+                    renderer.find_period();
+
+                    event_sink.submit_command(SET_PERIOD, renderer.period_finding.period, Target::Auto).unwrap();
+                    
+                    let mut box_center_arbitrary = renderer.center_reference.c.clone();
+                    let box_center = renderer.period_finding.box_center;
+
+                    let temp = FloatArbitrary::with_val(renderer.center_reference.c.real().prec(), box_center.exponent).exp2();
+            
+                    *box_center_arbitrary.mut_real() += temp.clone() * box_center.mantissa.re;
+                    *box_center_arbitrary.mut_imag() += temp.clone() * box_center.mantissa.im;
+
+                    let thread_counter_1 = Arc::new(AtomicUsize::new(0));
+                    let thread_counter_1_clone = thread_counter_1.clone();
+
+                    let thread_counter_2 = Arc::new(AtomicUsize::new(0));
+                    let thread_counter_2_clone = thread_counter_2.clone();
+
+                    let (tx, rx) = mpsc::channel();
+
+                    let test = event_sink.clone();
+
+                    thread::spawn(move || {
+                        loop {
+                            match rx.try_recv() {
+                                Ok(_) => {
+                                    break;
+                                },
+                                Err(_) => {
+                                    test.submit_command(UPDATE_ROOT_PROGRESS, (thread_counter_1.load(Ordering::Relaxed), thread_counter_2.load(Ordering::Relaxed)), Target::Auto).unwrap();
+                                }
+                            }
+                            
+                            thread::sleep(Duration::from_millis(20));
+                        };
+                    });
+                    
+                    if let Some(nucleus) = get_nucleus(box_center_arbitrary, renderer.period_finding.period, thread_counter_1_clone, thread_counter_2_clone, stop_flag) {
+                        let nucleus_position = get_nucleus_position(nucleus.clone(), renderer.period_finding.period);
+                    
+                        let new_zoom = linear_interpolation_between_zoom(renderer.zoom, nucleus_position.0, renderer.root_zoom_factor);
+    
+                        drop(renderer);
+    
+                        let mut settings = thread_settings.lock();
+    
+                        settings.set("real", nucleus.real().to_string()).unwrap();
+                        settings.set("imag", nucleus.imag().to_string()).unwrap();
+                        settings.set("zoom", extended_to_string_long(new_zoom)).unwrap();
+    
+                        drop(settings);
+    
+                        event_sink.submit_command(ROOT_FINDING_COMPLETE, Some(nucleus_position.0), Target::Auto).unwrap();
+    
+                        // this currently updates the data fields
+                        event_sink.submit_command(REVERT_LOCATION, (), Target::Auto).unwrap();
+                        event_sink.submit_command(RESET_RENDERER_FULL, (), Target::Auto).unwrap();
+                    } else {
+                        event_sink.submit_command(ROOT_FINDING_COMPLETE, None, Target::Auto).unwrap();
+                    }
+
+                    tx.send(()).unwrap();
                 }
                 _ => {
                     println!("thread_command: {}", command);

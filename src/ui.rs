@@ -32,7 +32,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         newton_pos2: (0.0, 0.0),
         cached_image: None,
         needs_buffer_refresh: true,
-        selecting_box: false
+        show_selecting_box: false
     });
 
     let group_image_size = Flex::column()
@@ -141,23 +141,32 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         .with_child(Label::new("ROOT FINDING").with_text_size(20.0).expand_width())
         .with_spacer(4.0)
         .with_child(Flex::row()
-            .with_child(Label::new("Period: ").with_text_size(14.0))
+            .with_child(Label::new("Root Zoom:").with_text_size(14.0))
+            .with_flex_spacer(1.0)
+            .with_child(NoUpdateLabel::new(24.0).lens(FractalData::root_zoom.map(|val| {
+                let output = if val.len() > 0 {
+                    extended_to_string_short(string_to_extended(val))
+                } else {
+                    String::new()
+                };
+
+                format!("{:>12}", output)
+            }, |_, _| {}))))
+        .with_spacer(4.0)
+        .with_child(Flex::row()
+            .with_child(Label::new("Root Period: ").with_text_size(14.0))
             .with_flex_spacer(1.0)
             .with_child(NoUpdateLabel::new(24.0).lens(FractalData::period.map(|val| {
                 format!("{:>12}", val)
             }, |_, _| {}))))
         .with_spacer(4.0)
-        .with_child(Button::new("FIND PERIOD").on_click(|ctx, _data: &mut FractalData, _env| {
-            ctx.submit_command(CALCULATE_PERIOD);
-        }).expand_width().fix_height(24.0))
-        .with_spacer(4.0)
         .with_child(Flex::row()
-        .with_child(Label::new("Pattern Zoom: ").with_text_size(14.0))
-        .with_flex_child(Slider::new()
-            .with_range(-1.0,4.0).expand_width()
-            .lens(FractalData::root_zoom_factor.map(
-                |val| (1.0 / (1.0 - val)).log2(), 
-                |val, new| *val = 1.0 - (1.0 / 2.0_f64.powf(new.round())))), 1.0)
+            .with_child(Label::new("Pattern Zoom: ").with_text_size(14.0))
+            .with_flex_child(Slider::new()
+                .with_range(-1.0,4.0).expand_width()
+                .lens(FractalData::root_zoom_factor.map(
+                    |val| (1.0 / (1.0 - val)).log2(), 
+                    |val, new| *val = 1.0 - (1.0 / 2.0_f64.powf(new.round())))), 1.0)
         .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
             // here need to work out pattern types
             let temp = 1.0 / (1.0 - *data);
@@ -184,13 +193,37 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             }).lens(FractalData::mouse_mode).expand_width())
         .with_spacer(4.0)
         .with_child(Flex::row()
-            .with_flex_child(ProgressBar::new().lens(FractalData::root_progress).expand_width(), 0.75)
+            .with_flex_child(ProgressBar::new().lens(FractalData::root_progress).expand_width(), 0.5)
             .with_spacer(4.0)
+            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::root_iteration.map(|val| {
+                format!("{:>3}/256", val)
+            }, |_, _| {})))
+            .with_spacer(4.0)
+            .with_spacer(4.0)
+            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::root_stage.map(|val| {
+                let text = match val {
+                    1 => "RUNNING",
+                    2 => "ERROR",
+                    0 => "COMPLETE",
+                    _ => "DEFAULT"
+                };
+    
+                format!("{:>8}", text)                
+            }, |_, _| {})))
             .with_flex_child(Button::new(|_data: &FractalData, _env: &_| {
                 "CANCEL".to_string()
             }).on_click(|ctx, _data: &mut FractalData, _env| {
                 ctx.submit_command(STOP_ROOT_FINDING);
-            }).expand_width(), 0.25));
+            }).expand_width(), 0.25))
+        .with_spacer(4.0)
+        .with_child(Flex::row()
+            .with_flex_child(Button::new("CENTRAL HALF").on_click(|ctx, _data: &mut FractalData, _env| {
+                ctx.submit_command(MULTIPLY_PATTERN.with(-1.0));
+            }).expand_width().fix_height(24.0), 1.0)
+            .with_spacer(4.0)
+            .with_flex_child(Button::new("CENTRAL DOUBLE").on_click(|ctx, _data: &mut FractalData, _env| {
+                ctx.submit_command(MULTIPLY_PATTERN.with(0.5));
+            }).expand_width().fix_height(24.0), 1.0));
 
     let group_palette = Flex::column()
         .with_child(Flex::row()
@@ -244,7 +277,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         .with_spacer(4.0)
         .with_child(Flex::row()
             .with_flex_child(Label::<FractalData>::new("RENDER:").with_text_size(14.0).expand_width(), 1.0)
-            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::stage.map(|val| {
+            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::rendering_stage.map(|val| {
                 let text = match val {
                     1 => "REFERENCE",
                     2 | 3 => "APPROXIMATION",
@@ -256,7 +289,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
     
                 format!("{:>14}", text)
             }, |_, _| {})))
-            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::time.map(|val| {
+            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::rendering_time.map(|val| {
                 let ms = val % 1000;
                 let s = val / 1000;
                 let m = s / 60;
@@ -269,7 +302,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             .with_flex_child(ProgressBar::new().lens(FractalData::rendering_progress).expand_width(), 0.75)
             .with_spacer(4.0)
             .with_flex_child(Button::new(|data: &FractalData, _env: &_| {
-                match data.stage {
+                match data.rendering_stage {
                     0 => {
                         if data.zoom_out_enabled {
                             "CANCEL".to_string()
@@ -282,7 +315,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                     }
                 }
             }).on_click(|ctx, data: &mut FractalData, _env| {
-                if data.stage == 0 && !data.zoom_out_enabled {
+                if data.rendering_stage == 0 && !data.zoom_out_enabled {
                     // TODO maybe add a section here that checks if a zoom out sequence is ongoing
                     ctx.submit_command(RESET_RENDERER_FAST);
                 } else {

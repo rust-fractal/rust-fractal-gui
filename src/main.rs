@@ -18,7 +18,7 @@ use druid::commands::{
 
 use rust_fractal::{renderer::FractalRenderer};
 use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom, data_export::DataExport, data_export::ColoringType};
-use rust_fractal::math::{get_nucleus, get_nucleus_position};
+use rust_fractal::math::BoxPeriod;
 
 use config::{Config, File};
 
@@ -49,7 +49,7 @@ struct FractalWidget<'a> {
     newton_pos2: (f64, f64),
     cached_image: Option<<D2DRenderContext<'a> as RenderContext>::Image>,
     needs_buffer_refresh: bool,
-    selecting_box: bool,
+    show_selecting_box: bool,
 }
 
 #[derive(Clone, Data, Lens)]
@@ -59,6 +59,7 @@ pub struct FractalData {
     real: String,
     imag: String,
     zoom: String,
+    root_zoom: String,
     iteration_limit: i64,
     rotation: f64,
     order: i64,
@@ -70,8 +71,10 @@ pub struct FractalData {
     coloring_type: ColoringType,
     rendering_progress: f64,
     root_progress: f64,
-    stage: usize,
-    time: usize,
+    rendering_stage: usize,
+    rendering_time: usize,
+    root_iteration: usize,
+    root_stage: usize,
     min_valid_iterations: usize,
     max_valid_iterations: usize,
     min_iterations: usize,
@@ -120,7 +123,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
             }
             // TODO this section sometimes blocks. Needs to be fixed
             Event::MouseMove(e) => {
-                if self.selecting_box {
+                if data.mouse_mode != 0 {
                     self.newton_pos2 = (e.pos.x, e.pos.y);
                     ctx.request_paint();
                 }
@@ -171,7 +174,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
             // }
             Event::MouseDown(e) => {
                 // If the rendering has not completed, stop
-                if data.stage != 0 {
+                if data.rendering_stage != 0 {
                     return;
                 }
 
@@ -230,8 +233,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
     
                         ctx.submit_command(RESET_RENDERER_FULL);
                     } else {
-                        println!("newton selection");
-                        self.selecting_box = true;
+                        self.show_selecting_box = true;
                         self.newton_pos1 = (e.pos.x, e.pos.y);
                     }
                 }
@@ -242,12 +244,10 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
             },
             Event::MouseUp(e) => {
                 if e.button == MouseButton::Left && data.mouse_mode != 0 {
-                    println!("end newton selction");
+                    data.mouse_mode = 0;
                     self.newton_pos2 = (e.pos.x, e.pos.y);
 
                     ctx.submit_command(CALCULATE_ROOT);
-
-                    // call newton on point
                 }
             }
             Event::KeyUp(e) => {
@@ -290,13 +290,44 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     return;
                 }
 
+                if let Some(period) = command.get(SET_PERIOD) {
+                    data.period = *period;
+
+                    return;
+                }
+
+                if let Some(root_zoom) = command.get(ROOT_FINDING_COMPLETE) {
+                    self.show_selecting_box = false;
+
+                    data.root_progress = 1.0;
+                    data.root_iteration = 256;
+
+                    if let Some(root_zoom) = root_zoom {
+                        data.root_zoom = extended_to_string_long(*root_zoom);
+                        data.root_stage = 0;
+                    } else {
+                        ctx.request_paint();
+                        data.root_stage = 2;
+                    }
+
+                    return;
+                }
+
+                if command.is(STOP_ROOT_FINDING) {
+                    if data.root_stage != 0 {
+                        data.stop_flag.store(true, Ordering::SeqCst);
+                    }
+
+                    return;
+                }
+
                 if command.is(STOP_RENDERING) {
-                    if data.stage != 0 || data.zoom_out_enabled {
+                    if data.rendering_stage != 0 || data.zoom_out_enabled {
                         data.stop_flag.store(true, Ordering::SeqCst);
                     }
 
                     // if the renderer was stopped during SA / reference
-                    data.need_full_rerender = data.stage == 1 || data.stage == 2;
+                    data.need_full_rerender = data.rendering_stage == 1 || data.rendering_stage == 2;
 
                     if data.zoom_out_enabled {
                         data.repeat_flag.store(false, Ordering::SeqCst);
@@ -322,10 +353,17 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     return;
                 }
 
-                if let Some((stage, progress, time, min_valid_iterations, max_valid_iterations)) = command.get(UPDATE_PROGRESS) {
+                if let Some((iteration, progress)) = command.get(UPDATE_ROOT_PROGRESS) {
+                    data.root_iteration = *iteration;
+                    data.root_progress = *progress as f64 / data.period as f64;
+
+                    return;
+                }
+
+                if let Some((stage, progress, time, min_valid_iterations, max_valid_iterations)) = command.get(UPDATE_RENDERING_PROGRESS) {
                     data.rendering_progress = *progress;
-                    data.stage = *stage;
-                    data.time = *time;
+                    data.rendering_stage = *stage;
+                    data.rendering_time = *time;
 
                     if *stage >= 3 || *stage == 0 {
                         data.min_valid_iterations = *min_valid_iterations;
@@ -348,7 +386,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 }
 
                 // If the rendering has not completed, stop
-                if data.stage != 0 {
+                if data.rendering_stage != 0 {
                     return;
                 }
 
@@ -582,7 +620,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             // Zoom has changed, and need to rerender depending on if the zoom has changed too much
 
                             let current_exponent = renderer.center_reference.zoom.exponent;
-                            let new_zoom = string_to_extended(&data.zoom.to_uppercase());
+                            let new_zoom = string_to_extended(&data.zoom);
 
                             if new_zoom.exponent <= current_exponent {
                                 // println!("zoom decreased");
@@ -616,6 +654,28 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     // let current_iterations = settings.get_int("iterations").unwrap();
                     // let current_rotation = settings.get_float("rotate").unwrap();
+                }
+
+                if let Some(factor) = command.get(MULTIPLY_PATTERN) {
+                    let new_zoom = linear_interpolation_between_zoom(renderer.zoom, string_to_extended(&data.root_zoom), *factor);
+
+                    renderer.zoom = new_zoom;
+
+                    data.zoom = extended_to_string_long(renderer.zoom);
+                    settings.set("zoom", data.zoom.clone()).unwrap();
+
+                    renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+
+                    // if there is no zoom in
+                    if *factor < 0.0 {
+                        println!("resetting fast");
+                        ctx.submit_command(RESET_RENDERER_FAST);
+                    } else {
+                        println!("resetting full");
+                        ctx.submit_command(RESET_RENDERER_FULL);
+                    }
+
+                    return;
                 }
 
                 if let Some(factor) = command.get(MULTIPLY_ZOOM) {
@@ -778,40 +838,9 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     return;
                 }
 
-                if command.is(CALCULATE_PERIOD) {
-                    let cos_rotate = renderer.rotate.cos();
-                    let sin_rotate = renderer.rotate.sin();
-
-                    let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
-                    let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
-
-                    // NOTE this may not work with rotation
-                    let element1 = ComplexExtended::new(ComplexFixed::new(
-                        delta_top_left.re, 
-                        delta_top_left.im
-                    ), -renderer.zoom.exponent);
-
-                    let element2 = ComplexExtended::new(ComplexFixed::new(
-                        -delta_top_left.re, 
-                        delta_top_left.im
-                    ), -renderer.zoom.exponent);
-
-                    let element3 = ComplexExtended::new(ComplexFixed::new(
-                        -delta_top_left.re, 
-                        -delta_top_left.im
-                    ), -renderer.zoom.exponent);
-
-                    let element4 = ComplexExtended::new(ComplexFixed::new(
-                        delta_top_left.re, 
-                        -delta_top_left.im
-                    ), -renderer.zoom.exponent);
-
-                    renderer.find_period([element1, element2, element3, element4]);
-
-                    data.period = renderer.box_method.period;
-                }
-
                 if command.is(CALCULATE_ROOT) {
+                    data.root_stage = 1;
+
                     let size = ctx.size().to_rect();
 
                     let top_left = (self.newton_pos1.0.min(self.newton_pos2.0), self.newton_pos1.1.min(self.newton_pos2.1));
@@ -850,57 +879,15 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         i1 * delta_pixel * sin_rotate + j2 * delta_pixel * cos_rotate + delta_top_left.im
                     ), -renderer.zoom.exponent);
 
-                    renderer.find_period([element1, element2, element3, element4]);
-
-                    let precision = renderer.center_reference.c.real().prec();
-
                     let box_center = ComplexExtended::new(ComplexFixed::new(
                         0.5 * (i1 + i2) * delta_pixel * cos_rotate - 0.5 * (j1 + j2) * delta_pixel * sin_rotate + delta_top_left.re, 
                         0.5 * (i1 + i2) * delta_pixel * sin_rotate + 0.5 * (j1 + j2) * delta_pixel * cos_rotate + delta_top_left.im
                     ), -renderer.zoom.exponent);
-            
-                    let mut box_center_arbitrary = renderer.center_reference.c.clone();
-                    let temp = FloatArbitrary::with_val(precision, box_center.exponent).exp2();
-                    let temp2 = FloatArbitrary::with_val(precision, box_center.mantissa.re);
-                    let temp3 = FloatArbitrary::with_val(precision, box_center.mantissa.im);
-            
-                    *box_center_arbitrary.mut_real() += &temp2 * &temp;
-                    *box_center_arbitrary.mut_imag() += &temp3 * &temp;            
 
-                    data.period = renderer.box_method.period;
+                    renderer.period_finding = BoxPeriod::new(box_center, [element1, element2, element3, element4]);
+                    renderer.root_zoom_factor = data.root_zoom_factor;
 
-                    let temp = get_nucleus(box_center_arbitrary, renderer.box_method.period);
-
-                    println!("nucleus: {}", temp);
-
-                    if temp.real().is_nan() {
-                        println!("error in nr");
-                        self.selecting_box = false;
-                        return;
-                    }
-
-                    let temp2 = get_nucleus_position(temp.clone(), renderer.box_method.period);
-                    
-                    let test_zoom_scale = linear_interpolation_between_zoom(renderer.zoom, temp2.0, data.root_zoom_factor);
-
-                    println!("zoom: {}", temp2.0);
-                    println!("interpolated zoom: {}", test_zoom_scale);
-                    println!("orientation: {}", temp2.1);
-
-                    settings.set("real", temp.real().to_string()).unwrap();
-                    settings.set("imag", temp.imag().to_string()).unwrap();
-                    settings.set("zoom", extended_to_string_long(test_zoom_scale)).unwrap();
-
-                    data.real = settings.get_str("real").unwrap();
-                    data.imag = settings.get_str("imag").unwrap();
-                    data.zoom = settings.get_str("zoom").unwrap();
-
-                    drop(renderer);
-
-                    self.selecting_box = false;
-                    data.mouse_mode = 0;
-
-                    ctx.submit_command(RESET_RENDERER_FULL);
+                    data.sender.lock().send(THREAD_CALCULATE_ROOT).unwrap();
 
                     return;
                 }
@@ -1222,7 +1209,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
             ctx.draw_image(self.cached_image.as_ref().unwrap(), size, interpolation_mode);
 
-            if self.selecting_box {
+            if self.show_selecting_box {
                 let rect = Rect::from_origin_size(self.newton_pos1, (self.newton_pos2.0 - self.newton_pos1.0, self.newton_pos2.1 - self.newton_pos1.1));
                 let fill_color = Color::rgba8(0x00, 0x00, 0x00, 0x7F);
                 ctx.fill(rect, &fill_color);
@@ -1280,6 +1267,7 @@ pub fn main() {
             real: settings.get_str("real").unwrap(),
             imag: settings.get_str("imag").unwrap(),
             zoom: settings.get_str("zoom").unwrap(),
+            root_zoom: "1E0".to_string(),
             iteration_limit: settings.get_int("iterations").unwrap(),
             rotation: settings.get_float("rotate").unwrap(),
             order: settings.get_int("approximation_order").unwrap(),
@@ -1288,9 +1276,11 @@ pub fn main() {
             iteration_span: settings.get_float("iteration_division").unwrap(),
             iteration_offset: settings.get_float("palette_offset").unwrap(),
             rendering_progress: 0.0,
-            root_progress: 0.0,
-            stage: 1,
-            time: 0,
+            root_progress: 1.0,
+            rendering_stage: 1,
+            rendering_time: 0,
+            root_iteration: 256,
+            root_stage: 0,
             min_valid_iterations: 1,
             max_valid_iterations: 1,
             min_iterations: 1,
