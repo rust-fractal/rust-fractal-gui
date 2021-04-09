@@ -668,10 +668,10 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     // if there is no zoom in
                     if *factor < 0.0 {
-                        println!("resetting fast");
+                        // println!("resetting fast");
                         ctx.submit_command(RESET_RENDERER_FAST);
                     } else {
-                        println!("resetting full");
+                        // println!("resetting full");
                         ctx.submit_command(RESET_RENDERER_FULL);
                     }
 
