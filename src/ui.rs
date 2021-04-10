@@ -196,7 +196,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             .with_flex_child(ProgressBar::new().lens(FractalData::root_progress).expand_width(), 0.5)
             .with_spacer(4.0)
             .with_child(NoUpdateLabel::new(12.0).lens(FractalData::root_iteration.map(|val| {
-                format!("{:>3}/256", val)
+                format!("{:>2}/64", val)
             }, |_, _| {})))
             .with_spacer(4.0)
             .with_spacer(4.0)

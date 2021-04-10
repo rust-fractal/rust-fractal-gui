@@ -105,6 +105,7 @@ pub struct FractalData {
     current_tab: usize,
     zoom_scale_factor: f64,
     root_zoom_factor: f64,
+    center_reference_zoom: String,
 }
 
 impl<'a> Widget<FractalData> for FractalWidget<'a> {
@@ -174,7 +175,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
             // }
             Event::MouseDown(e) => {
                 // If the rendering has not completed, stop
-                if data.rendering_stage != 0 {
+                if data.rendering_stage != 0 || data.root_stage == 1 {
                     return;
                 }
 
@@ -300,7 +301,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     self.show_selecting_box = false;
 
                     data.root_progress = 1.0;
-                    data.root_iteration = 256;
+                    data.root_iteration = 64;
 
                     if let Some(root_zoom) = root_zoom {
                         data.root_zoom = extended_to_string_long(*root_zoom);
@@ -385,8 +386,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     return;
                 }
 
-                // If the rendering has not completed, stop
-                if data.rendering_stage != 0 {
+                // If the rendering / root finding has not completed, stop
+                if data.rendering_stage != 0 || data.root_stage == 1 {
                     return;
                 }
 
@@ -651,8 +652,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.real = settings.get_str("real").unwrap();
                     data.imag = settings.get_str("imag").unwrap();
                     data.zoom = settings.get_str("zoom").unwrap();
+                    data.iteration_limit = settings.get_int("iterations").unwrap();
 
-                    // let current_iterations = settings.get_int("iterations").unwrap();
                     // let current_rotation = settings.get_float("rotate").unwrap();
                 }
 
@@ -667,13 +668,13 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
 
                     // if there is no zoom in
-                    if *factor < 0.0 {
+                    if string_to_extended(&data.zoom) > string_to_extended(&data.center_reference_zoom) {
                         // println!("resetting fast");
-                        ctx.submit_command(RESET_RENDERER_FAST);
-                    } else {
-                        // println!("resetting full");
-                        ctx.submit_command(RESET_RENDERER_FULL);
-                    }
+                        // println!("zoom pattern need rerender");
+                        data.need_full_rerender = true;
+                    };
+
+                    ctx.submit_command(RESET_RENDERER_FAST);
 
                     return;
                 }
@@ -691,8 +692,14 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.iteration_limit = renderer.maximum_iteration as i64;
 
                     renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
-                    // TODO properly set the maximum iterations
+                    
+                    if string_to_extended(&data.zoom) > string_to_extended(&data.center_reference_zoom) {
+                        // println!("zoom quick need rerender");
+                        data.need_full_rerender = true;
+                    };
+
                     ctx.submit_command(RESET_RENDERER_FAST);
+
                     return;
                 }
 
@@ -807,6 +814,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     if data.need_full_rerender {
                         // println!("needs full rerender");
+                        data.need_full_rerender = false;
                         ctx.submit_command(RESET_RENDERER_FULL);
                         return;
                     }
@@ -834,6 +842,12 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.max_valid_iterations = 1;
                     data.min_iterations = 1;
                     data.max_iterations = 1;
+
+                    let mut center_reference_zoom = string_to_extended(&data.zoom);
+                    center_reference_zoom.exponent += 40;
+
+                    // This is the maximum zoom using the center reference that is valid
+                    data.center_reference_zoom = extended_to_string_long(center_reference_zoom);
 
                     return;
                 }
@@ -1057,7 +1071,6 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         }
 
                         settings.set("palette", colour_values.clone()).unwrap();
-                        ctx.submit_command(UPDATE_PALETTE);
 
                         let palette = colour_values.chunks_exact(3).map(|value| {
                             // We assume the palette is in BGR rather than RGB
@@ -1257,6 +1270,9 @@ pub fn main() {
 
     let (sender, reciever) = mpsc::channel();
 
+    let mut center_reference_zoom = string_to_extended(&settings.get_str("zoom").unwrap());
+    center_reference_zoom.exponent += 40;
+
     thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer, thread_stop_flag, thread_repeat_flag));
 
     launcher
@@ -1311,7 +1327,8 @@ pub fn main() {
             mouse_mode: 0,
             current_tab: 0,
             zoom_scale_factor: settings.get_float("zoom_scale").unwrap(),
-            root_zoom_factor: 0.5
+            root_zoom_factor: 0.5,
+            center_reference_zoom: extended_to_string_long(center_reference_zoom)
         })
         .expect("launch failed");
 }
