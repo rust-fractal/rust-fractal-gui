@@ -2,7 +2,7 @@ use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Instant, Duration};
 
-use rust_fractal::renderer::FractalRenderer;
+use rust_fractal::{renderer::FractalRenderer, util::ComplexExtended};
 use rust_fractal::util::{FloatArbitrary, linear_interpolation_between_zoom, extended_to_string_long};
 use rust_fractal::math::{get_nucleus, get_nucleus_position};
 
@@ -166,6 +166,9 @@ pub fn testing_renderer(
                     let thread_counter_2 = Arc::new(AtomicUsize::new(0));
                     let thread_counter_2_clone = thread_counter_2.clone();
 
+                    let current_estimate_difference_1 = Arc::new(Mutex::new(ComplexExtended::new2(0.0, 0.0, 0)));
+                    let current_estimate_difference_2 = current_estimate_difference_1.clone();
+
                     let (tx, rx) = mpsc::channel();
 
                     let test = event_sink.clone();
@@ -177,7 +180,8 @@ pub fn testing_renderer(
                                     break;
                                 },
                                 Err(_) => {
-                                    test.submit_command(UPDATE_ROOT_PROGRESS, (thread_counter_1.load(Ordering::Relaxed), thread_counter_2.load(Ordering::Relaxed)), Target::Auto).unwrap();
+                                    // do some processing to get back to the original coordinates
+                                    test.submit_command(UPDATE_ROOT_PROGRESS, (thread_counter_1.load(Ordering::Relaxed), thread_counter_2.load(Ordering::Relaxed), current_estimate_difference_1.lock().clone()), Target::Auto).unwrap();
                                 }
                             }
                             
@@ -185,7 +189,7 @@ pub fn testing_renderer(
                         };
                     });
                     
-                    if let Some(nucleus) = get_nucleus(box_center_arbitrary, renderer.period_finding.period, thread_counter_1_clone, thread_counter_2_clone, stop_flag) {
+                    if let Some(nucleus) = get_nucleus(box_center_arbitrary, renderer.period_finding.period, thread_counter_1_clone, thread_counter_2_clone, stop_flag, current_estimate_difference_2) {
                         let nucleus_position = get_nucleus_position(nucleus.clone(), renderer.period_finding.period);
                     
                         let new_zoom = linear_interpolation_between_zoom(renderer.zoom, nucleus_position.0, renderer.root_zoom_factor);

@@ -8,6 +8,8 @@ use druid::{widget::prelude::*};
 use druid::{AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Data, Lens, Rect};
 use druid::piet::{ImageFormat, InterpolationMode, D2DRenderContext, Color};
 
+use druid::kurbo::Circle;
+
 
 use druid::commands::{
     OPEN_FILE,
@@ -17,7 +19,7 @@ use druid::commands::{
 };
 
 use rust_fractal::{renderer::FractalRenderer};
-use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom, data_export::DataExport, data_export::ColoringType};
+use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom, data_export::DataExport, data_export::ColoringType};
 use rust_fractal::math::BoxPeriod;
 
 use config::{Config, File};
@@ -47,9 +49,13 @@ struct FractalWidget<'a> {
     save_type: usize,
     newton_pos1: (f64, f64),
     newton_pos2: (f64, f64),
+    root_pos_start: (f64, f64),
+    root_pos_current: (f64, f64),
     cached_image: Option<<D2DRenderContext<'a> as RenderContext>::Image>,
     needs_buffer_refresh: bool,
     show_selecting_box: bool,
+    renderer_zoom: FloatExtended,
+    renderer_rotate: (f64, f64)
 }
 
 #[derive(Clone, Data, Lens)]
@@ -126,6 +132,12 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
             Event::MouseMove(e) => {
                 if data.mouse_mode != 0 {
                     self.newton_pos2 = (e.pos.x, e.pos.y);
+                    
+                    let top_left = (self.newton_pos1.0.min(self.newton_pos2.0), self.newton_pos1.1.min(self.newton_pos2.1));
+                    let bottom_right = (self.newton_pos1.0.max(self.newton_pos2.0), self.newton_pos1.1.max(self.newton_pos2.1));
+
+                    self.root_pos_current = (0.5 * (top_left.0 + bottom_right.0), 0.5 * (top_left.1 + bottom_right.1));
+
                     ctx.request_paint();
                 }
             }
@@ -354,9 +366,19 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     return;
                 }
 
-                if let Some((iteration, progress)) = command.get(UPDATE_ROOT_PROGRESS) {
+                if let Some((iteration, progress, position)) = command.get(UPDATE_ROOT_PROGRESS) {
                     data.root_iteration = *iteration;
                     data.root_progress = *progress as f64 / data.period as f64;
+
+                    let delta_pixel =  4.0 / ((data.image_height - 1) as f64 * self.renderer_zoom.mantissa);
+
+                    let size = ctx.size().to_rect();
+
+                    let difference_fixed = position.mantissa * 2.0f64.powi(position.exponent + self.renderer_zoom.exponent) / delta_pixel;
+                    let difference_real = (self.renderer_rotate.0 * difference_fixed.re + self.renderer_rotate.1 * difference_fixed.im) * size.width() / data.image_width as f64;
+                    let difference_imag = (-self.renderer_rotate.1 * difference_fixed.re + self.renderer_rotate.0 * difference_fixed.im) * size.height() / data.image_height as f64;
+
+                    self.root_pos_current = (self.root_pos_start.0 + difference_real, self.root_pos_start.1 + difference_imag);
 
                     return;
                 }
@@ -859,6 +881,9 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     let top_left = (self.newton_pos1.0.min(self.newton_pos2.0), self.newton_pos1.1.min(self.newton_pos2.1));
                     let bottom_right = (self.newton_pos1.0.max(self.newton_pos2.0), self.newton_pos1.1.max(self.newton_pos2.1));
+
+                    self.root_pos_current = (0.5 * (top_left.0 + bottom_right.0), 0.5 * (top_left.1 + bottom_right.1));
+                    self.root_pos_start = self.root_pos_current;
     
                     let i1 = top_left.0 * renderer.image_width as f64 / size.width();
                     let j1 = top_left.1 * renderer.image_height as f64 / size.height();
@@ -869,10 +894,12 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     let cos_rotate = renderer.rotate.cos();
                     let sin_rotate = renderer.rotate.sin();
 
+                    self.renderer_zoom = renderer.zoom;
+                    self.renderer_rotate = (cos_rotate, sin_rotate);
+
                     let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
                     let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
 
-                    // NOTE this may not work with rotation
                     let element1 = ComplexExtended::new(ComplexFixed::new(
                         i1 * delta_pixel * cos_rotate - j1 * delta_pixel * sin_rotate + delta_top_left.re, 
                         i1 * delta_pixel * sin_rotate + j1 * delta_pixel * cos_rotate + delta_top_left.im
@@ -1224,8 +1251,13 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
             if self.show_selecting_box {
                 let rect = Rect::from_origin_size(self.newton_pos1, (self.newton_pos2.0 - self.newton_pos1.0, self.newton_pos2.1 - self.newton_pos1.1));
-                let fill_color = Color::rgba8(0x00, 0x00, 0x00, 0x7F);
+                let fill_color = Color::rgba8(0, 0, 0, 180);
                 ctx.fill(rect, &fill_color);
+
+                let circle = Circle::new(self.root_pos_current, 2.0);
+                let fill_color = Color::rgba8(255, 0, 0, 0);
+
+                ctx.fill(circle, &fill_color);
             }
         }
     }
@@ -1295,7 +1327,7 @@ pub fn main() {
             root_progress: 1.0,
             rendering_stage: 1,
             rendering_time: 0,
-            root_iteration: 256,
+            root_iteration: 64,
             root_stage: 0,
             min_valid_iterations: 1,
             max_valid_iterations: 1,

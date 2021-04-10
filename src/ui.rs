@@ -13,7 +13,7 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use rust_fractal::{
     renderer::FractalRenderer,
-    util::{string_to_extended, extended_to_string_short}
+    util::{string_to_extended, extended_to_string_short, FloatExtended}
 };
 
 use crate::{FractalData, FractalWidget, ColoringType};
@@ -30,9 +30,13 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         save_type: 0,
         newton_pos1: (0.0, 0.0),
         newton_pos2: (0.0, 0.0),
+        root_pos_start: (0.0, 0.0),
+        root_pos_current: (0.0, 0.0),
         cached_image: None,
         needs_buffer_refresh: true,
-        show_selecting_box: false
+        show_selecting_box: false,
+        renderer_zoom: FloatExtended::new(0.0, 0),
+        renderer_rotate: (0.0, 0.0),
     });
 
     let group_image_size = Flex::column()
