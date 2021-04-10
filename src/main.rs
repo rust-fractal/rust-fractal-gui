@@ -1251,11 +1251,11 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
             if self.show_selecting_box {
                 let rect = Rect::from_origin_size(self.newton_pos1, (self.newton_pos2.0 - self.newton_pos1.0, self.newton_pos2.1 - self.newton_pos1.1));
-                let fill_color = Color::rgba8(0, 0, 0, 180);
+                let fill_color = Color::rgba8(0, 0, 0, 150);
                 ctx.fill(rect, &fill_color);
 
                 let circle = Circle::new(self.root_pos_current, 2.0);
-                let fill_color = Color::rgba8(255, 0, 0, 0);
+                let fill_color = Color::rgba8(255, 0, 0, 255);
 
                 ctx.fill(circle, &fill_color);
             }
@@ -1294,7 +1294,7 @@ pub fn main() {
 
     let window = WindowDesc::new(ui::window_main(shared_renderer.clone())).title(
         LocalizedString::new("rust-fractal"),
-    ).window_size((1388.0, 827.0)).resizable(true).menu(ui::make_menu);
+    ).window_size((1386.0, 825.0)).resizable(true).menu(ui::make_menu);
 
     let launcher = AppLauncher::with_window(window);
 
@@ -1354,7 +1354,7 @@ pub fn main() {
             pixel_pos: [0, 0],
             pixel_iterations: 1,
             pixel_smooth: 0.0,
-            pixel_rgb: Arc::new(Mutex::new(vec![0u8; 225 * 3])),
+            pixel_rgb: Arc::new(Mutex::new(vec![0u8; 255 * 3])),
             coloring_type: ColoringType::SmoothIteration,
             mouse_mode: 0,
             current_tab: 0,

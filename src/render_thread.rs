@@ -166,7 +166,7 @@ pub fn testing_renderer(
                     let thread_counter_2 = Arc::new(AtomicUsize::new(0));
                     let thread_counter_2_clone = thread_counter_2.clone();
 
-                    let current_estimate_difference_1 = Arc::new(Mutex::new(ComplexExtended::new2(0.0, 0.0, 0)));
+                    let current_estimate_difference_1 = Arc::new(Mutex::new(ComplexExtended::new2(0.0, 0.0, -99999999)));
                     let current_estimate_difference_2 = current_estimate_difference_1.clone();
 
                     let (tx, rx) = mpsc::channel();
