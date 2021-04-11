@@ -523,7 +523,7 @@ pub fn make_menu(_: Option<WindowId>, _state: &FractalData, _: &Env) -> Menu<Fra
         .entry(Menu::new(LocalizedString::new("Colouring"))
             .entry(MenuItem::new(LocalizedString::new("Smooth Iteration")).command(SET_COLORING_METHOD.with(ColoringType::SmoothIteration)))
             .entry(MenuItem::new(LocalizedString::new("Step Iteration")).command(SET_COLORING_METHOD.with(ColoringType::StepIteration)))
-            .entry(MenuItem::new(LocalizedString::new("Distance")).command(SET_COLORING_METHOD.with(ColoringType::Distance)))
+            .entry(MenuItem::new(LocalizedString::new("Distance")).command(SET_COLORING_METHOD.with(ColoringType::DistanceEstimate)))
     )
 }
 

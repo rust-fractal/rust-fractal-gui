@@ -771,7 +771,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                                 renderer.data_export.lock().regenerate();
                                 ctx.submit_command(REPAINT);
                             }
-                            ColoringType::Distance => {
+                            ColoringType::DistanceEstimate => {
                                 settings.set("analytic_derivative", true).unwrap();
 
                                 if renderer.analytic_derivative {
@@ -782,6 +782,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                                     ctx.submit_command(RESET_RENDERER_FAST);
                                 };
                             }
+                            _ => {}
                         }
                     }
 
@@ -1065,7 +1066,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     if let Ok(analytic_derivative) = new_settings.get_bool("analytic_derivative") {
                         renderer.data_export.lock().coloring_type = if analytic_derivative {
-                            ColoringType::Distance
+                            ColoringType::DistanceEstimate
                         } else {
                             data.coloring_type
                         };
