@@ -380,6 +380,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     self.root_pos_current = (self.root_pos_start.0 + difference_real, self.root_pos_start.1 + difference_imag);
 
+                    ctx.request_paint();
+
                     return;
                 }
 
@@ -1294,7 +1296,7 @@ pub fn main() {
 
     let window = WindowDesc::new(ui::window_main(shared_renderer.clone())).title(
         LocalizedString::new("rust-fractal"),
-    ).window_size((1386.0, 825.0)).resizable(true).menu(ui::make_menu);
+    ).window_size((1392.0, 830.0)).resizable(true).menu(ui::make_menu);
 
     let launcher = AppLauncher::with_window(window);
 
