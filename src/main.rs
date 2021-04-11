@@ -763,14 +763,14 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                                 renderer.data_export.lock().regenerate();
                                 ctx.submit_command(REPAINT);
-                            }
+                            },
                             ColoringType::StepIteration => {
                                 settings.set("analytic_derivative", false).unwrap();
                                 settings.set("step_iteration", true).unwrap();
 
                                 renderer.data_export.lock().regenerate();
                                 ctx.submit_command(REPAINT);
-                            }
+                            },
                             ColoringType::DistanceEstimate => {
                                 settings.set("analytic_derivative", true).unwrap();
 
@@ -781,7 +781,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                                     renderer.analytic_derivative = true;
                                     ctx.submit_command(RESET_RENDERER_FAST);
                                 };
-                            }
+                            },
                             _ => {}
                         }
                     }
