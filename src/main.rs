@@ -34,7 +34,6 @@ pub mod lens;
 mod saving;
 pub mod custom;
 pub mod render_thread;
-pub mod formatters;
 pub mod commands;
 pub mod theme;
 
@@ -1115,6 +1114,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         );
 
                         data.palette_source = file_name.to_string();
+
+                        ctx.submit_command(UPDATE_PALETTE);
 
                         if !reset_renderer || !quick_reset {
                             renderer.data_export.lock().regenerate();

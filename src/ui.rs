@@ -182,20 +182,6 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             }
         }).lens(FractalData::root_zoom_factor)))
         .with_spacer(4.0)
-        .with_child(Button::new(|data: &usize, _: &Env| {
-                if *data == 0 {
-                    "DRAW BOX AROUND ROOT".to_string()
-                } else {
-                    "CANCEL".to_string()
-                }
-            }).on_click(|_ctx, data: &mut usize, _env| {
-                *data = if *data == 0 {
-                    1
-                } else {
-                    0
-                };
-            }).lens(FractalData::mouse_mode).expand_width())
-        .with_spacer(4.0)
         .with_child(Flex::row()
             .with_flex_child(ProgressBar::new().lens(FractalData::root_progress).expand_width(), 0.5)
             .with_spacer(4.0)
@@ -221,11 +207,25 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             }).expand_width(), 0.25))
         .with_spacer(4.0)
         .with_child(Flex::row()
-            .with_flex_child(Button::new("CENTRAL HALF").on_click(|ctx, _data: &mut FractalData, _env| {
+            .with_flex_child(Button::new(|data: &usize, _: &Env| {
+                    if *data == 0 {
+                        "DRAW BOX".to_string()
+                    } else {
+                        "CANCEL".to_string()
+                    }
+                }).on_click(|_ctx, data: &mut usize, _env| {
+                    *data = if *data == 0 {
+                        1
+                    } else {
+                        0
+                    };
+                }).lens(FractalData::mouse_mode).expand_width().fix_height(24.0), 1.0)
+            .with_spacer(4.0)
+            .with_flex_child(Button::new("CENTRAL OUT").on_click(|ctx, _data: &mut FractalData, _env| {
                 ctx.submit_command(MULTIPLY_PATTERN.with(-1.0));
             }).expand_width().fix_height(24.0), 1.0)
             .with_spacer(4.0)
-            .with_flex_child(Button::new("CENTRAL DOUBLE").on_click(|ctx, _data: &mut FractalData, _env| {
+            .with_flex_child(Button::new("CENTRAL IN").on_click(|ctx, _data: &mut FractalData, _env| {
                 ctx.submit_command(MULTIPLY_PATTERN.with(0.5));
             }).expand_width().fix_height(24.0), 1.0));
 
@@ -248,17 +248,22 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                     .fix_height(24.0)
                     .expand_width())
             .with_spacer(4.0)
+            .with_child(create_label_textbox_row("SPAN:", 90.0)
+                .lens(FractalData::iteration_span))
+            .with_spacer(4.0)
             .with_child(Flex::row()
-                .with_flex_child(Flex::column()
-                    .with_child(create_label_textbox_row("SPAN:", 90.0)
-                        .lens(FractalData::iteration_span))
-                    .with_spacer(4.0)
-                    .with_child(create_label_textbox_row("OFFSET:", 90.0)
-                        .lens(FractalData::iteration_offset)), 0.7)
-                .with_spacer(4.0)
-                .with_flex_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
+                .with_child(Label::new("Offset:").fix_width(100.0))
+                .with_flex_child(Slider::new()
+                    .with_range(0.0, 1.0)
+                    .expand_width()
+                    .lens(FractalData::iteration_offset), 1.0)
+                .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
+                    format!("{:>.3}", *data)
+                }).lens(FractalData::iteration_offset))))
+            .with_spacer(4.0)
+            .with_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
                     ctx.submit_command(SET_OFFSET_SPAN);
-                }).expand_width().fix_height(36.0), 0.3)));
+                }).expand_width().fix_height(36.0));
 
     let group_information = Flex::column()
         .with_child(Flex::row()
@@ -381,8 +386,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                     |val, new| *val = 4 * new as i64)), 1.0)
             .with_child(Label::<i64>::new(|data: &i64, _env: &_| {
                 format!("{:>3}", *data)
-            }).lens(FractalData::order))
-        )
+            }).lens(FractalData::order)))
         .with_spacer(4.0)
         .with_child(create_label_textbox_row("GLITCH TOL:", 120.0).lens(FractalData::glitch_tolerance))
         .with_spacer(4.0)
