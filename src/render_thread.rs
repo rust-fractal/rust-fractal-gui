@@ -46,6 +46,8 @@ pub fn testing_renderer(
 
                     let total_pixels = renderer.total_pixels as f64;
 
+                    let repaint_frequency = renderer.total_pixels / 200000;
+
                     let (tx, rx) = mpsc::channel();
 
                     let test = event_sink.clone();
@@ -110,7 +112,7 @@ pub fn testing_renderer(
 
                             if stage > 3 {
                                 index += 1;
-                                if index % 10 == 0 {
+                                if index % repaint_frequency == 0 {
                                     test.submit_command(REPAINT, (), Target::Auto).unwrap();
                                     index = 0;
                                 }
@@ -136,7 +138,10 @@ pub fn testing_renderer(
                         if (renderer.zoom.to_float() > 0.5) && repeat_flag.load(Ordering::SeqCst) {
                             let zoom_out_factor = 1.0 / renderer.zoom_scale_factor;
                             drop(renderer);
+
+                            // This is the delay between frames of zoom animations
                             thread::sleep(Duration::from_millis(100));
+
                             event_sink.submit_command(MULTIPLY_ZOOM, zoom_out_factor, Target::Auto).unwrap();
                         } else {
                             repeat_flag.store(false, Ordering::SeqCst);
