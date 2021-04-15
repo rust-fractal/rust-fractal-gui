@@ -304,7 +304,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                 let m = s / 60;
                 let h = m / 60;
     
-                format!("{}:{:0>2}:{:0>2}:{:0>3}", h, m % 60, s % 60, ms)
+                format!("{}:{:0>2}:{:0>2}.{:0>3}", h, m % 60, s % 60, ms)
             }, |_, _| {}))))
         .with_spacer(4.0)
         .with_child(Flex::row()
