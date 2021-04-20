@@ -79,13 +79,16 @@ impl Controller<FractalData, Image> for PaletteUpdateController {
     ) {
         match event {
             Event::Command(command) if command.is(UPDATE_PALETTE) => {
-                let raw_buffer = data.buffer.lock().palette_generator.colors(100).iter().map(|value| {
+                let step = (data.buffer.lock().palette_interpolated_buffer.len() / 500).max(1);
+                let raw_buffer = data.buffer.lock().palette_interpolated_buffer.iter().step_by(step).map(|value| {
                     let (r, g, b, _) = value.rgba_u8();
 
                     vec![r, g, b]
                 }).flatten().collect::<Vec<u8>>();
 
-                child.set_image_data(ImageBuf::from_raw(raw_buffer, ImageFormat::Rgb, 100, 1))
+                let width = raw_buffer.len() / 3;
+
+                child.set_image_data(ImageBuf::from_raw(raw_buffer, ImageFormat::Rgb, width, 1))
             }
             other => child.event(ctx, other, data, env),
         }

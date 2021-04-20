@@ -34,3 +34,4 @@ iterations = 1000
 
 iteration_division = 100.0
 palette_offset = 0
+palette_cyclic = true

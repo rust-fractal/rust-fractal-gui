@@ -70,6 +70,7 @@ pub struct FractalData {
     order: i64,
     period: usize,
     palette_source: String,
+    palette_cyclic: bool,
     iteration_span: f64,
     iteration_offset: f64,
     #[data(same_fn = "PartialEq::eq")]
@@ -804,30 +805,22 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 }
 
                 if command.is(SET_OFFSET_SPAN) {
-                    let current_division = settings.get_float("iteration_division").unwrap();
-                    let current_offset = settings.get_float("palette_offset").unwrap();
+                    let current_iteration_span = settings.get_float("iteration_division").unwrap();
+                    let current_iteration_offset = settings.get_float("palette_offset").unwrap();
+                    let current_cyclic = settings.get_bool("palette_cyclic").unwrap();
 
-                    let new_division = data.iteration_span;
-                    let new_offset = data.iteration_offset;
-
-                    // println!("{} {} {}", data.temporary_iteration_offset, new_offset, new_division);
-
-                    if current_division == new_division && current_offset == new_offset {
+                    if current_iteration_span == data.iteration_span && current_iteration_offset == data.iteration_offset && current_cyclic == data.palette_cyclic {
                         return;
                     }
 
-                    data.iteration_span = new_division;
-                    data.iteration_offset = new_offset;
+                    settings.set("iteration_division", data.iteration_span).unwrap();
+                    settings.set("palette_offset", data.iteration_offset).unwrap();
+                    settings.set("palette_cyclic", data.palette_cyclic).unwrap();
 
-                    settings.set("iteration_division", new_division).unwrap();
-                    settings.set("palette_offset", new_offset).unwrap();
-
-                    renderer.data_export.lock().change_palette(None, new_division as f32, new_offset as f32);
+                    renderer.data_export.lock().change_palette(None, data.iteration_span as f32, data.iteration_offset as f32, data.palette_cyclic);
                     renderer.data_export.lock().regenerate();
 
-                    data.image_width = settings.get_int("image_width").unwrap();
-                    data.image_height = settings.get_int("image_height").unwrap();
-
+                    ctx.submit_command(UPDATE_PALETTE);
                     ctx.submit_command(REPAINT);
 
                     return;
@@ -1111,7 +1104,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         renderer.data_export.lock().change_palette(
                             Some(palette),
                             settings.get_float("iteration_division").unwrap() as f32,
-                            settings.get_float("palette_offset").unwrap() as f32
+                            settings.get_float("palette_offset").unwrap() as f32,
+                            data.palette_cyclic
                         );
 
                         data.palette_source = file_name.to_string();
@@ -1163,7 +1157,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             let approximation_order = settings.get_int("approximation_order").unwrap();
                             let analytic_derivative = settings.get_bool("analytic_derivative").unwrap();
 
-                            let palette = renderer.data_export.lock().palette_buffer.clone().into_iter().flat_map(|seq| {
+                            let palette = renderer.data_export.lock().palette_interpolated_buffer.clone().into_iter().flat_map(|seq| {
                                 let (r, g, b, _) = seq.rgba_u8();
                                 vec![r, g, b]
                             }).collect::<Vec<u8>>();
@@ -1325,6 +1319,7 @@ pub fn main() {
             order: settings.get_int("approximation_order").unwrap(),
             period: 0,
             palette_source: "default".to_string(),
+            palette_cyclic: settings.get_bool("palette_cyclic").unwrap(),
             iteration_span: settings.get_float("iteration_division").unwrap(),
             iteration_offset: settings.get_float("palette_offset").unwrap(),
             rendering_progress: 0.0,

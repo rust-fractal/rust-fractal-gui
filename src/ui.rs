@@ -1,6 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 use druid::{commands::CLOSE_WINDOW, 
-    widget::{Align, Button, Checkbox, CrossAxisAlignment, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, Painter}, 
+    widget::{Align, Button, 
+        Checkbox, CrossAxisAlignment, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, Painter}, 
     Command, Target, RenderContext};
 use druid::{Widget, ImageBuf, Data, LensExt, Menu, LocalizedString, MenuItem, SysMods, Env, WindowId, WindowDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
@@ -237,16 +238,24 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             }).align_right().expand_width(), 0.5))
         .with_spacer(4.0)
         .with_child(Flex::column()
-            .with_child(
-                Image::new(ImageBuf::from_raw(renderer.lock().data_export.lock().palette_generator.colors(100).iter().map(|value| {
-                    let (r, g, b, _) = value.rgba_u8();
-                    vec![r, g, b]
-                }).flatten().collect::<Vec<u8>>(), ImageFormat::Rgb, 100, 1))
-                    .interpolation_mode(InterpolationMode::Bilinear)
-                    .fill_mode(FillStrat::Fill)
-                    .controller(PaletteUpdateController)
-                    .fix_height(24.0)
-                    .expand_width())
+            .with_child(Image::new({
+                    let buffer = renderer.lock().data_export.clone();
+
+                    let step = (buffer.lock().palette_interpolated_buffer.len() / 500).max(1);
+                    let raw_buffer = buffer.lock().palette_interpolated_buffer.iter().step_by(step).map(|value| {
+                        let (r, g, b, _) = value.rgba_u8();
+
+                        vec![r, g, b]
+                    }).flatten().collect::<Vec<u8>>();
+
+                    let width = raw_buffer.len() / 3;
+
+                    ImageBuf::from_raw(raw_buffer, ImageFormat::Rgb, width, 1)
+                }).interpolation_mode(InterpolationMode::Bilinear)
+                .fill_mode(FillStrat::Fill)
+                .controller(PaletteUpdateController)
+                .fix_height(24.0)
+                .expand_width())
             .with_spacer(4.0)
             .with_child(create_label_textbox_row("SPAN:", 90.0)
                 .lens(FractalData::iteration_span))
@@ -260,6 +269,8 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                 .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
                     format!("{:>.3}", *data)
                 }).lens(FractalData::iteration_offset))))
+            .with_spacer(4.0)
+            .with_child(create_checkbox_row("Cyclic palette").lens(FractalData::palette_cyclic))
             .with_spacer(4.0)
             .with_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
                     ctx.submit_command(SET_OFFSET_SPAN);
