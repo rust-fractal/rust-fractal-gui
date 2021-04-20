@@ -72,7 +72,7 @@ pub struct FractalData {
     palette_source: String,
     palette_cyclic: bool,
     palette_iteration_span: f64,
-    iteration_offset: f64,
+    palette_offset: f64,
     #[data(same_fn = "PartialEq::eq")]
     coloring_type: ColoringType,
     rendering_progress: f64,
@@ -809,15 +809,15 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     let current_palette_offset = settings.get_float("palette_offset").unwrap();
                     let current_cyclic = settings.get_bool("palette_cyclic").unwrap();
 
-                    if current_palette_iteration_span == data.palette_iteration_span && current_palette_offset == data.iteration_offset && current_cyclic == data.palette_cyclic {
+                    if current_palette_iteration_span == data.palette_iteration_span && current_palette_offset == data.palette_offset && current_cyclic == data.palette_cyclic {
                         return;
                     }
 
                     settings.set("palette_iteration_span", data.palette_iteration_span).unwrap();
-                    settings.set("palette_offset", data.iteration_offset).unwrap();
+                    settings.set("palette_offset", data.palette_offset).unwrap();
                     settings.set("palette_cyclic", data.palette_cyclic).unwrap();
 
-                    renderer.data_export.lock().change_palette(None, data.palette_iteration_span as f32, data.iteration_offset as f32, data.palette_cyclic);
+                    renderer.data_export.lock().change_palette(None, data.palette_iteration_span as f32, data.palette_offset as f32, data.palette_cyclic);
                     renderer.data_export.lock().regenerate();
 
                     ctx.submit_command(UPDATE_PALETTE);
@@ -1084,11 +1084,11 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         match new_settings.get_float("palette_offset") {
                             Ok(palette_offset) => {
                                 settings.set("palette_offset", palette_offset).unwrap();
-                                data.iteration_offset = palette_offset;
+                                data.palette_offset = palette_offset;
                             }
                             Err(_) => {
                                 settings.set("palette_offset", 0.0).unwrap();
-                                data.iteration_offset = 0.0;
+                                data.palette_offset = 0.0;
                             }
                         }
 
@@ -1165,7 +1165,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             let palette_offset = settings.get_float("palette_offset").unwrap();
 
                             let output = format!(
-                                "version = \"{}\"\n\nreal = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}\n\nimage_width = {}\nimage_height = {}\nglitch_percentage = {}\napproximation_order = {}\nanalytic_derivative = {}\nframes = 1\nframe_offset = 0\nzoom_scale = 2.0\ndisplay_glitches = false\nauto_adjust_iterations = true\nremove_centre = false\nglitch_tolerance = 1.4e-6\nprobe_sampling = 15\ndata_storage_interval = 100\nvalid_iteration_frame_multiplier = 0.10\nvalid_iteration_probe_multiplier = 0.01\nexperimental = true\njitter = false\nexport = \"png\"\n\npalette = {:?}\palette_iteration_span = {}\npalette_offset = {}", 
+                                "version = \"{}\"\n\nreal = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}\n\nimage_width = {}\nimage_height = {}\nglitch_percentage = {}\napproximation_order = {}\nanalytic_derivative = {}\nframes = 1\nframe_offset = 0\nzoom_scale = 2.0\ndisplay_glitches = false\nauto_adjust_iterations = true\nremove_centre = false\nglitch_tolerance = 1.4e-6\nprobe_sampling = 15\ndata_storage_interval = 100\nvalid_iteration_frame_multiplier = 0.10\nvalid_iteration_probe_multiplier = 0.01\nexperimental = true\njitter = false\nexport = \"png\"\n\npalette = {:?}\npalette_iteration_span = {}\npalette_offset = {}", 
                                 env!("CARGO_PKG_VERSION"),
                                 real, 
                                 imag, 
@@ -1321,7 +1321,7 @@ pub fn main() {
             palette_source: "default".to_string(),
             palette_cyclic: settings.get_bool("palette_cyclic").unwrap(),
             palette_iteration_span: settings.get_float("palette_iteration_span").unwrap(),
-            iteration_offset: settings.get_float("palette_offset").unwrap(),
+            palette_offset: settings.get_float("palette_offset").unwrap(),
             rendering_progress: 0.0,
             root_progress: 1.0,
             rendering_stage: 1,
