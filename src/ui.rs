@@ -240,16 +240,13 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         .with_child(Flex::column()
             .with_child(Image::new({
                     let buffer = renderer.lock().data_export.clone();
-
                     let step = (buffer.lock().palette_interpolated_buffer.len() / 500).max(1);
                     let raw_buffer = buffer.lock().palette_interpolated_buffer.iter().step_by(step).map(|value| {
                         let (r, g, b, _) = value.rgba_u8();
-
                         vec![r, g, b]
                     }).flatten().collect::<Vec<u8>>();
 
                     let width = raw_buffer.len() / 3;
-
                     ImageBuf::from_raw(raw_buffer, ImageFormat::Rgb, width, 1)
                 }).interpolation_mode(InterpolationMode::Bilinear)
                 .fill_mode(FillStrat::Fill)
