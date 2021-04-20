@@ -32,6 +32,6 @@ jitter_factor = 0.2
 show_output = true
 iterations = 1000
 
-iteration_division = 100.0
+palette_iteration_span = 100.0
 palette_offset = 0
 palette_cyclic = true

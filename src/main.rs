@@ -71,7 +71,7 @@ pub struct FractalData {
     period: usize,
     palette_source: String,
     palette_cyclic: bool,
-    iteration_span: f64,
+    palette_iteration_span: f64,
     iteration_offset: f64,
     #[data(same_fn = "PartialEq::eq")]
     coloring_type: ColoringType,
@@ -805,19 +805,19 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 }
 
                 if command.is(SET_OFFSET_SPAN) {
-                    let current_iteration_span = settings.get_float("iteration_division").unwrap();
-                    let current_iteration_offset = settings.get_float("palette_offset").unwrap();
+                    let current_palette_iteration_span = settings.get_float("palette_iteration_span").unwrap();
+                    let current_palette_offset = settings.get_float("palette_offset").unwrap();
                     let current_cyclic = settings.get_bool("palette_cyclic").unwrap();
 
-                    if current_iteration_span == data.iteration_span && current_iteration_offset == data.iteration_offset && current_cyclic == data.palette_cyclic {
+                    if current_palette_iteration_span == data.palette_iteration_span && current_palette_offset == data.iteration_offset && current_cyclic == data.palette_cyclic {
                         return;
                     }
 
-                    settings.set("iteration_division", data.iteration_span).unwrap();
+                    settings.set("palette_iteration_span", data.palette_iteration_span).unwrap();
                     settings.set("palette_offset", data.iteration_offset).unwrap();
                     settings.set("palette_cyclic", data.palette_cyclic).unwrap();
 
-                    renderer.data_export.lock().change_palette(None, data.iteration_span as f32, data.iteration_offset as f32, data.palette_cyclic);
+                    renderer.data_export.lock().change_palette(None, data.palette_iteration_span as f32, data.iteration_offset as f32, data.palette_cyclic);
                     renderer.data_export.lock().regenerate();
 
                     ctx.submit_command(UPDATE_PALETTE);
@@ -1070,14 +1070,14 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     if let Ok(colour_values) = new_settings.get_array("palette") {
                         // Only reset these if the palette is defined
-                        match new_settings.get_float("iteration_division") {
-                            Ok(iteration_division) => {
-                                settings.set("iteration_division", iteration_division).unwrap();
-                                data.iteration_span = iteration_division;
+                        match new_settings.get_float("palette_iteration_span") {
+                            Ok(palette_iteration_span) => {
+                                settings.set("palette_iteration_span", palette_iteration_span).unwrap();
+                                data.palette_iteration_span = palette_iteration_span;
                             }
                             Err(_) => {
-                                settings.set("iteration_division", 1.0).unwrap();
-                                data.iteration_span = 1.0;
+                                settings.set("palette_iteration_span", 1.0).unwrap();
+                                data.palette_iteration_span = 1.0;
                             }
                         }
     
@@ -1103,7 +1103,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                         renderer.data_export.lock().change_palette(
                             Some(palette),
-                            settings.get_float("iteration_division").unwrap() as f32,
+                            settings.get_float("palette_iteration_span").unwrap() as f32,
                             settings.get_float("palette_offset").unwrap() as f32,
                             data.palette_cyclic
                         );
@@ -1161,11 +1161,11 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                                 let (r, g, b, _) = seq.rgba_u8();
                                 vec![r, g, b]
                             }).collect::<Vec<u8>>();
-                            let iteration_division = settings.get_float("iteration_division").unwrap();
+                            let palette_iteration_span = settings.get_float("palette_iteration_span").unwrap();
                             let palette_offset = settings.get_float("palette_offset").unwrap();
 
                             let output = format!(
-                                "version = \"{}\"\n\nreal = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}\n\nimage_width = {}\nimage_height = {}\nglitch_percentage = {}\napproximation_order = {}\nanalytic_derivative = {}\nframes = 1\nframe_offset = 0\nzoom_scale = 2.0\ndisplay_glitches = false\nauto_adjust_iterations = true\nremove_centre = false\nglitch_tolerance = 1.4e-6\nprobe_sampling = 15\ndata_storage_interval = 100\nvalid_iteration_frame_multiplier = 0.10\nvalid_iteration_probe_multiplier = 0.01\nexperimental = true\njitter = false\nexport = \"png\"\n\npalette = {:?}\niteration_division = {}\npalette_offset = {}", 
+                                "version = \"{}\"\n\nreal = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}\n\nimage_width = {}\nimage_height = {}\nglitch_percentage = {}\napproximation_order = {}\nanalytic_derivative = {}\nframes = 1\nframe_offset = 0\nzoom_scale = 2.0\ndisplay_glitches = false\nauto_adjust_iterations = true\nremove_centre = false\nglitch_tolerance = 1.4e-6\nprobe_sampling = 15\ndata_storage_interval = 100\nvalid_iteration_frame_multiplier = 0.10\nvalid_iteration_probe_multiplier = 0.01\nexperimental = true\njitter = false\nexport = \"png\"\n\npalette = {:?}\palette_iteration_span = {}\npalette_offset = {}", 
                                 env!("CARGO_PKG_VERSION"),
                                 real, 
                                 imag, 
@@ -1178,7 +1178,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                                 approximation_order,
                                 analytic_derivative,
                                 palette,
-                                iteration_division,
+                                palette_iteration_span,
                                 palette_offset);
 
                             if let Err(e) = std::fs::write(file_info.path(), output) {
@@ -1320,7 +1320,7 @@ pub fn main() {
             period: 0,
             palette_source: "default".to_string(),
             palette_cyclic: settings.get_bool("palette_cyclic").unwrap(),
-            iteration_span: settings.get_float("iteration_division").unwrap(),
+            palette_iteration_span: settings.get_float("palette_iteration_span").unwrap(),
             iteration_offset: settings.get_float("palette_offset").unwrap(),
             rendering_progress: 0.0,
             root_progress: 1.0,
