@@ -278,7 +278,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
 
     let group_information = Flex::column()
         .with_child(Flex::row()
-        .with_flex_child(Label::new("SKIPPED:").with_text_size(14.0).expand_width(), 1.0)
+        .with_flex_child(Label::new("Skipped:").with_text_size(14.0).expand_width(), 1.0)
             .with_child(NoUpdateLabel::new(12.0).lens(FractalData::min_valid_iterations.map(|val| {
                 format!("min. {:>8}", val)
             }, |_, _| {})))
@@ -287,7 +287,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             }, |_, _| {}))))
         .with_spacer(4.0)
         .with_child(Flex::row()
-            .with_flex_child(Label::<FractalData>::new("ITERATIONS:").with_text_size(14.0).expand_width(), 1.0)
+            .with_flex_child(Label::<FractalData>::new("Iterations:").with_text_size(14.0).expand_width(), 1.0)
             .with_child(NoUpdateLabel::new(12.0).lens(FractalData::min_iterations.map(|val| {
                 format!("min. {:>8}", val)
             }, |_, _| {})))
@@ -296,18 +296,20 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             }, |_, _| {}))))
         .with_spacer(4.0)
         .with_child(Flex::row()
-            .with_flex_child(Label::<FractalData>::new("RENDER:").with_text_size(14.0).expand_width(), 1.0)
+            .with_flex_child(Label::<FractalData>::new("Render:").with_text_size(14.0).expand_width(), 1.0)
             .with_child(NoUpdateLabel::new(12.0).lens(FractalData::rendering_stage.map(|val| {
                 let text = match val {
-                    1 => "REFERENCE",
-                    2 | 3 => "APPROXIMATION",
-                    4 => "ITERATION",
-                    5 => "CORRECTION",
-                    0 => "COMPLETE",
-                    _ => "DEFAULT"
+                    1 => "Reference",
+                    2 | 3 => "Approximation",
+                    4 => "Iteration",
+                    5 => "Correction",
+                    _ => "Complete",
                 };
     
                 format!("{:>14}", text)
+            }, |_, _| {})))
+            .with_child(NoUpdateLabel::new(12.0).lens(FractalData::reference_count.map(|val| {
+                format!("{:>8}", format!("Ref:{}", val))
             }, |_, _| {})))
             .with_child(NoUpdateLabel::new(12.0).lens(FractalData::rendering_time.map(|val| {
                 let ms = val % 1000;

@@ -112,6 +112,7 @@ pub struct FractalData {
     zoom_scale_factor: f64,
     root_zoom_factor: f64,
     center_reference_zoom: String,
+    reference_count: usize
 }
 
 impl<'a> Widget<FractalData> for FractalWidget<'a> {
@@ -385,10 +386,11 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     return;
                 }
 
-                if let Some((stage, progress, time, min_valid_iterations, max_valid_iterations)) = command.get(UPDATE_RENDERING_PROGRESS) {
+                if let Some((stage, progress, time, min_valid_iterations, max_valid_iterations, reference_count)) = command.get(UPDATE_RENDERING_PROGRESS) {
                     data.rendering_progress = *progress;
                     data.rendering_stage = *stage;
                     data.rendering_time = *time;
+                    data.reference_count = *reference_count;
 
                     if *stage >= 3 || *stage == 0 {
                         data.min_valid_iterations = *min_valid_iterations;
@@ -1359,7 +1361,8 @@ pub fn main() {
             current_tab: 0,
             zoom_scale_factor: settings.get_float("zoom_scale").unwrap(),
             root_zoom_factor: 0.5,
-            center_reference_zoom: extended_to_string_long(center_reference_zoom)
+            center_reference_zoom: extended_to_string_long(center_reference_zoom),
+            reference_count: 1,
         })
         .expect("launch failed");
 }

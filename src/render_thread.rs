@@ -39,6 +39,7 @@ pub fn testing_renderer(
                     let thread_counter_6 = renderer.progress.glitched_maximum.clone();
                     let thread_counter_7 = renderer.progress.min_series_approximation.clone();
                     let thread_counter_8 = renderer.progress.max_series_approximation.clone();
+                    let thread_counter_9 = renderer.progress.reference_count.clone();
 
                     if command == THREAD_RESET_RENDERER_FULL {
                         renderer.regenerate_from_settings(thread_settings.lock().clone());
@@ -105,8 +106,9 @@ pub fn testing_renderer(
                                     let time = start.elapsed().as_millis() as usize;
                                     let min_valid_iteration = thread_counter_7.load(Ordering::Relaxed);
                                     let max_valid_iteration = thread_counter_8.load(Ordering::Relaxed);
+                                    let reference_count = thread_counter_9.load(Ordering::Relaxed);
 
-                                    test.submit_command(UPDATE_RENDERING_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration), Target::Auto).unwrap();
+                                    test.submit_command(UPDATE_RENDERING_PROGRESS, (stage, progress, time, min_valid_iteration, max_valid_iteration, reference_count), Target::Auto).unwrap();
                                 }
                             };
 
@@ -131,7 +133,7 @@ pub fn testing_renderer(
 
                     tx.send(()).unwrap();
 
-                    event_sink.submit_command(UPDATE_RENDERING_PROGRESS, (0, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration), Target::Auto).unwrap();
+                    event_sink.submit_command(UPDATE_RENDERING_PROGRESS, (0, 1.0, renderer.render_time as usize, renderer.series_approximation.min_valid_iteration, renderer.series_approximation.max_valid_iteration, renderer.progress.reference_count.load(Ordering::SeqCst)), Target::Auto).unwrap();
                     event_sink.submit_command(REPAINT, (), Target::Auto).unwrap();
 
                     if command == THREAD_RESET_RENDERER_FAST {

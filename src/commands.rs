@@ -43,7 +43,7 @@ pub const STOP_ROOT_FINDING: Selector<()> = Selector::new("step_root_finding");
 pub const REPAINT: Selector<()> = Selector::new("repaint");
 pub const RESET_DEFAULT_LOCATION: Selector<()> = Selector::new("reset_default_location");
 
-pub const UPDATE_RENDERING_PROGRESS: Selector<(usize, f64, usize, usize, usize)> = Selector::new("update_rendering_progress");
+pub const UPDATE_RENDERING_PROGRESS: Selector<(usize, f64, usize, usize, usize, usize)> = Selector::new("update_rendering_progress");
 pub const UPDATE_ROOT_PROGRESS: Selector<(usize, usize, ComplexExtended)> = Selector::new("update_root_progress");
 
 pub const ZOOM_OUT: Selector<()> = Selector::new("start_zoom_out");
