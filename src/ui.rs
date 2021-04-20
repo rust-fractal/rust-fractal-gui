@@ -257,7 +257,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                 .fix_height(24.0)
                 .expand_width())
             .with_spacer(4.0)
-            .with_child(create_label_textbox_row("SPAN:", 90.0)
+            .with_child(create_label_textbox_row("Span:", 160.0)
                 .lens(FractalData::palette_iteration_span))
             .with_spacer(4.0)
             .with_child(Flex::row()
