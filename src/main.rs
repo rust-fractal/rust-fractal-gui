@@ -4,13 +4,9 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use druid::{widget::prelude::*};
-
 use druid::{AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Data, Lens, Rect};
 use druid::piet::{ImageFormat, InterpolationMode, D2DRenderContext, Color};
-
 use druid::kurbo::Circle;
-
-
 use druid::commands::{
     OPEN_FILE,
     SAVE_FILE_AS,
@@ -759,6 +755,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     if coloring_method != &data.coloring_type {
                         renderer.data_export.lock().coloring_type = *coloring_method;
 
+                        // TODO need to change the data type as well
+
                         match coloring_method {
                             ColoringType::SmoothIteration => {
                                 settings.set("analytic_derivative", false).unwrap();
@@ -774,7 +772,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                                 renderer.data_export.lock().regenerate();
                                 ctx.submit_command(REPAINT);
                             },
-                            ColoringType::DistanceEstimate => {
+                            ColoringType::Distance => {
                                 settings.set("analytic_derivative", true).unwrap();
 
                                 if renderer.analytic_derivative {
@@ -1060,8 +1058,9 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     }
 
                     if let Ok(analytic_derivative) = new_settings.get_bool("analytic_derivative") {
+                        // TODO need to change the data type
                         renderer.data_export.lock().coloring_type = if analytic_derivative {
-                            ColoringType::DistanceEstimate
+                            ColoringType::Distance
                         } else {
                             data.coloring_type
                         };
