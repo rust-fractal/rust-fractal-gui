@@ -120,7 +120,6 @@ pub fn testing_renderer(
                                 }
                             }
                             
-                            // TODO maybe this can be dynamic based on the time to draw the image? e.g. 1ms draw is 60hz, 200ms is 1hz or less
                             thread::sleep(Duration::from_millis(20));
                         };
                     });

@@ -15,7 +15,8 @@ use druid::commands::{
 };
 
 use rust_fractal::{renderer::FractalRenderer};
-use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom, data_export::DataExport, data_export::ColoringType};
+use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom};
+use rust_fractal::util::data_export::{DataExport, DataType, ColoringType};
 use rust_fractal::math::BoxPeriod;
 
 use config::{Config, File};
@@ -761,6 +762,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             ColoringType::SmoothIteration => {
                                 settings.set("analytic_derivative", false).unwrap();
                                 settings.set("step_iteration", false).unwrap();
+                                renderer.data_export.lock().data_type = DataType::Iteration;
 
                                 renderer.data_export.lock().regenerate();
                                 ctx.submit_command(REPAINT);
@@ -768,12 +770,14 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             ColoringType::StepIteration => {
                                 settings.set("analytic_derivative", false).unwrap();
                                 settings.set("step_iteration", true).unwrap();
+                                renderer.data_export.lock().data_type = DataType::Iteration;
 
                                 renderer.data_export.lock().regenerate();
                                 ctx.submit_command(REPAINT);
                             },
                             ColoringType::Distance => {
                                 settings.set("analytic_derivative", true).unwrap();
+                                renderer.data_export.lock().data_type = DataType::Distance;
 
                                 if renderer.analytic_derivative {
                                     renderer.data_export.lock().regenerate();
@@ -1063,6 +1067,12 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             ColoringType::Distance
                         } else {
                             data.coloring_type
+                        };
+
+                        renderer.data_export.lock().data_type = if analytic_derivative {
+                            DataType::Distance
+                        } else {
+                            DataType::Iteration
                         };
 
                         settings.set("analytic_derivative", analytic_derivative).unwrap();

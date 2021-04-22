@@ -43,14 +43,11 @@ impl Widget<String> for NoUpdateLabel {
     fn lifecycle(&mut self, _: &mut LifeCycleCtx, _: &LifeCycle, _: &String, _: &Env) {}
 
     fn update(&mut self, ctx: &mut UpdateCtx, _: &String, _: &String, _: &Env) {
-        // println!("timer update");
-        // TODO: update on env changes also
         self.needs_update = true;
         ctx.request_paint();
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &String, env: &Env) -> Size {
-        // println!("timer layout");
         self.make_layout_if_needed(&data, &mut ctx.text(), env);
         bc.constrain((
             self.text.size().width + 2.0 * X_PADDING,
@@ -59,7 +56,6 @@ impl Widget<String> for NoUpdateLabel {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &String, env: &Env) {
-        // println!("timer paint");
         self.make_layout_if_needed(&data, &mut ctx.text(), env);
         let origin = Point::new(X_PADDING, 0.0);
         self.text.draw(ctx, origin);
