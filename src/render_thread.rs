@@ -47,7 +47,7 @@ pub fn testing_renderer(
 
                     let total_pixels = renderer.total_pixels as f64;
 
-                    let repaint_frequency = renderer.total_pixels / 200000;
+                    let repaint_frequency = (renderer.total_pixels / 200000).max(1);
 
                     let (tx, rx) = mpsc::channel();
 

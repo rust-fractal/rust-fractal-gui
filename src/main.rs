@@ -840,6 +840,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         return;
                     }
 
+                    renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+
                     let sender = data.sender.lock();
                     sender.send(THREAD_RESET_RENDERER_FAST).unwrap();
 
