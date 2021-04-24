@@ -104,7 +104,7 @@ impl Controller<FractalData, Image> for PixelInformationUpdateController {
     ) {
         match event {
             Event::Command(command) if command.is(UPDATE_PIXEL_INFORMATION) => {
-                child.set_image_data(ImageBuf::from_raw(data.pixel_rgb.lock().as_ref(), ImageFormat::Rgb, 15, 15));
+                // child.set_image_data(ImageBuf::from_raw(data.pixel_rgb.lock().as_ref(), ImageFormat::Rgb, 15, 15));
                 ctx.request_paint();
             }
             other => child.event(ctx, other, data, env),

@@ -138,51 +138,31 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     ctx.request_paint();
                 }
+                // if data.rendering_stage == 0 {
+                //     let size = ctx.size().to_rect();
+
+                //     let i = e.pos.x * data.image_width as f64 / size.width();
+                //     let j = e.pos.y * data.image_height as f64 / size.height();
+
+                //     let k = j as usize * data.image_width as usize + i as usize;
+
+                //     data.pixel_pos[0] = i as u32;
+                //     data.pixel_pos[1] = j as u32;
+
+                //     let data_export = data.buffer.lock();
+
+                //     data.pixel_iterations = data_export.iterations[k];
+                //     data.pixel_smooth = if data_export.smooth[k] <= 1.0 {
+                //         data_export.smooth[k]
+                //     } else {
+                //         0.0
+                //     };
+
+                //     drop(data_export);
+
+                //     ctx.submit_command(UPDATE_PIXEL_INFORMATION);
+                // }
             }
-            //     if data.stage == 0 {
-            //         let size = ctx.size().to_rect();
-
-            //         let i = e.pos.x * data.image_width as f64 / size.width();
-            //         let j = e.pos.y * data.image_height as f64 / size.height();
-
-            //         let k = j as usize * data.image_width as usize + i as usize;
-
-            //         data.pixel_pos[0] = i as u32;
-            //         data.pixel_pos[1] = j as u32;
-
-            //         let data_export = data.buffer.lock();
-
-            //         data.pixel_iterations = data_export.iterations[k];
-            //         data.pixel_smooth = if data_export.smooth[k] <= 1.0 {
-            //             data_export.smooth[k]
-            //         } else {
-            //             0.0
-            //         };
-
-            //         drop(data_export);
-
-            //         let mut pixel_buffer = data.pixel_rgb.lock();
-
-            //         if i as i64 > 15 && i as i64 + 15 < data.image_width && j as i64 > 15 && j as i64 + 15 < data.image_height {
-            //             let mut temp = 0;
-            //             for n in (j as usize - 7)..=(j as usize + 7) {
-            //                 for m in (i as usize - 7)..=(i as usize + 7) {
-            //                     let o = 3 * (n * data.image_width as usize + m);
-
-            //                     pixel_buffer[temp] = self.buffer[o];
-            //                     pixel_buffer[temp + 1] = self.buffer[o + 1];
-            //                     pixel_buffer[temp + 2] = self.buffer[o + 2];
-
-            //                     temp += 3;
-            //                 }
-            //             }
-            //         };
-
-            //         drop(pixel_buffer);
-
-            //         ctx.submit_command(UPDATE_PIXEL_INFORMATION);
-            //     }
-            // }
             Event::MouseDown(e) => {
                 // If the rendering has not completed, stop
                 if data.rendering_stage != 0 || data.root_stage == 1 {
@@ -518,8 +498,6 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                         renderer.progress.reset_series_approximation();
 
-                        // renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
-
                         ctx.submit_command(RESET_RENDERER_FAST);
 
                         // println!("order or probe sampling or experimental changed");
@@ -650,7 +628,6 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                                 // println!("zoom decreased");
                                 renderer.zoom = new_zoom;
                                 settings.set("zoom", data.zoom.clone()).unwrap();
-                                renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
 
                                 ctx.submit_command(RESET_RENDERER_FAST);
                                 return;
@@ -688,8 +665,6 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.zoom = extended_to_string_long(renderer.zoom);
                     settings.set("zoom", data.zoom.clone()).unwrap();
 
-                    renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
-
                     // if there is no zoom in
                     if string_to_extended(&data.zoom) > string_to_extended(&data.center_reference_zoom) {
                         // println!("resetting fast");
@@ -713,8 +688,6 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
                     data.iteration_limit = renderer.maximum_iteration as i64;
-
-                    renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     
                     if string_to_extended(&data.zoom) > string_to_extended(&data.center_reference_zoom) {
                         // println!("zoom quick need rerender");
@@ -756,39 +729,32 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 if let Some(coloring_method) = command.get(SET_COLORING_METHOD) {
                     if coloring_method != &data.coloring_type {
                         renderer.data_export.lock().coloring_type = *coloring_method;
-
-                        // TODO need to change the data type as well
-
-                        match coloring_method {
+                
+                        let (pixel_data_type, coloring_string) = match coloring_method {
                             ColoringType::SmoothIteration => {
-                                settings.set("analytic_derivative", false).unwrap();
-                                settings.set("step_iteration", false).unwrap();
-                                renderer.data_export.lock().data_type = DataType::Iteration;
-
-                                renderer.data_export.lock().regenerate();
-                                ctx.submit_command(REPAINT);
+                                (DataType::Iteration, "smooth")
                             },
                             ColoringType::StepIteration => {
-                                settings.set("analytic_derivative", false).unwrap();
-                                settings.set("step_iteration", true).unwrap();
-                                renderer.data_export.lock().data_type = DataType::Iteration;
-
-                                renderer.data_export.lock().regenerate();
-                                ctx.submit_command(REPAINT);
+                                (DataType::Iteration, "step")
                             },
-                            ColoringType::Distance => {
-                                settings.set("analytic_derivative", true).unwrap();
-                                renderer.data_export.lock().data_type = DataType::Distance;
-
-                                if renderer.analytic_derivative {
-                                    renderer.data_export.lock().regenerate();
-                                    ctx.submit_command(REPAINT);
-                                } else {
-                                    renderer.analytic_derivative = true;
-                                    ctx.submit_command(RESET_RENDERER_FAST);
-                                };
+                            ColoringType::Stripe =>  {
+                                (DataType::Iteration, "stripe")
                             },
-                            _ => {}
+                            _ => {
+                                (DataType::Distance, "distance")
+                            }
+                        };
+
+                        settings.set("coloring_type", coloring_string).unwrap();
+
+                        renderer.data_export.lock().data_type = pixel_data_type;
+
+                        if pixel_data_type == DataType::Distance && renderer.pixel_data_type != DataType::Distance {
+                            renderer.pixel_data_type = DataType::Distance;
+                            ctx.submit_command(RESET_RENDERER_FAST);
+                        } else {
+                            renderer.data_export.lock().regenerate();
+                            ctx.submit_command(REPAINT);
                         }
                     }
 
@@ -802,7 +768,6 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     settings.set("rotate", new_rotate).unwrap();
                     data.rotation = new_rotate;
 
-                    renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
                     renderer.rotate = new_rotate.to_radians();
 
                     ctx.submit_command(RESET_RENDERER_FAST);
@@ -841,7 +806,10 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         return;
                     }
 
-                    renderer.analytic_derivative = settings.get("analytic_derivative").unwrap();
+                    renderer.pixel_data_type = match settings.get_str("coloring_type").unwrap().to_ascii_uppercase().as_ref() {
+                        "SMOOTH_ITERATION" | "SMOOTH" | "STEP_ITERATION" | "STEP" | "STRIPE" => DataType::Iteration,
+                        _ => DataType::Distance
+                    };
 
                     let sender = data.sender.lock();
                     sender.send(THREAD_RESET_RENDERER_FAST).unwrap();
@@ -1064,23 +1032,23 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         quick_reset = true;
                     }
 
-                    if let Ok(analytic_derivative) = new_settings.get_bool("analytic_derivative") {
-                        // TODO need to change the data type
-                        renderer.data_export.lock().coloring_type = if analytic_derivative {
-                            ColoringType::Distance
-                        } else {
-                            data.coloring_type
-                        };
+                    // if let Ok(analytic_derivative) = new_settings.get_bool("analytic_derivative") {
+                    //     // TODO need to change the data type
+                    //     renderer.data_export.lock().coloring_type = if analytic_derivative {
+                    //         ColoringType::Distance
+                    //     } else {
+                    //         data.coloring_type
+                    //     };
 
-                        renderer.data_export.lock().data_type = if analytic_derivative {
-                            DataType::Distance
-                        } else {
-                            DataType::Iteration
-                        };
+                    //     renderer.data_export.lock().data_type = if analytic_derivative {
+                    //         DataType::Distance
+                    //     } else {
+                    //         DataType::Iteration
+                    //     };
 
-                        settings.set("analytic_derivative", analytic_derivative).unwrap();
-                        quick_reset = true;
-                    }
+                    //     settings.set("analytic_derivative", analytic_derivative).unwrap();
+                    //     quick_reset = true;
+                    // }
 
                     if let Ok(colour_values) = new_settings.get_array("palette") {
                         // Only reset these if the palette is defined
@@ -1169,7 +1137,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             let image_height = settings.get_int("image_height").unwrap();
                             let glitch_percentage = settings.get_float("glitch_percentage").unwrap();
                             let approximation_order = settings.get_int("approximation_order").unwrap();
-                            let analytic_derivative = settings.get_bool("analytic_derivative").unwrap();
+                            let coloring_type = settings.get_str("coloring_type").unwrap();
 
                             let palette = renderer.data_export.lock().palette_interpolated_buffer.clone().into_iter().flat_map(|seq| {
                                 let (r, g, b, _) = seq.rgba_u8();
@@ -1179,7 +1147,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             let palette_offset = settings.get_float("palette_offset").unwrap();
 
                             let output = format!(
-                                "version = \"{}\"\n\nreal = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}\n\nimage_width = {}\nimage_height = {}\nglitch_percentage = {}\napproximation_order = {}\nanalytic_derivative = {}\nframes = 1\nframe_offset = 0\nzoom_scale = 2.0\ndisplay_glitches = false\nauto_adjust_iterations = true\nremove_centre = false\nglitch_tolerance = 1.4e-6\nprobe_sampling = 15\ndata_storage_interval = 100\nvalid_iteration_frame_multiplier = 0.10\nvalid_iteration_probe_multiplier = 0.01\nexperimental = true\njitter = false\nexport = \"png\"\n\npalette = {:?}\npalette_iteration_span = {}\npalette_offset = {}", 
+                                "version = \"{}\"\n\nreal = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}\n\nimage_width = {}\nimage_height = {}\nglitch_percentage = {}\napproximation_order = {}\ncoloring_type = {}\nframes = 1\nframe_offset = 0\nzoom_scale = 2.0\ndisplay_glitches = false\nauto_adjust_iterations = true\nremove_centre = false\nglitch_tolerance = 1.4e-6\nprobe_sampling = 15\ndata_storage_interval = 100\nvalid_iteration_frame_multiplier = 0.10\nvalid_iteration_probe_multiplier = 0.01\nexperimental = true\njitter = false\nexport = \"png\"\n\npalette = {:?}\npalette_iteration_span = {}\npalette_offset = {}", 
                                 env!("CARGO_PKG_VERSION"),
                                 real, 
                                 imag, 
@@ -1190,7 +1158,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                                 image_height,
                                 glitch_percentage,
                                 approximation_order,
-                                analytic_derivative,
+                                coloring_type,
                                 palette,
                                 palette_iteration_span,
                                 palette_offset);

@@ -25,7 +25,8 @@ data_storage_interval = 100
 valid_iteration_probe_multiplier = 0.01
 
 experimental = true  
-analytic_derivative = false
+
+coloring_type = "smooth_iteration"
 
 jitter = false
 jitter_factor = 0.2
