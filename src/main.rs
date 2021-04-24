@@ -730,17 +730,18 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.zoom_out_enabled = true;
                     data.repeat_flag.store(true, Ordering::SeqCst);
 
-                    ctx.submit_command(MULTIPLY_ZOOM.with(0.5));
+                    ctx.submit_command(MULTIPLY_ZOOM.with(renderer.zoom_scale_factor));
 
                     return;
                 }
 
                 if command.is(ZOOM_OUT_OPTIMISED) {
-                    renderer.remaining_frames = 2;
                     renderer.remove_centre = true;
 
                     renderer.data_export.lock().centre_removed = false;
                     renderer.data_export.lock().clear_buffers();
+
+                    renderer.zoom_scale_factor = data.zoom_scale_factor;
 
                     data.remove_centre = true;
                     settings.set("remove_centre", true).unwrap();
@@ -748,7 +749,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.zoom_out_enabled = true;
                     data.repeat_flag.store(true, Ordering::SeqCst);
 
-                    ctx.submit_command(MULTIPLY_ZOOM.with(0.5));
+                    ctx.submit_command(MULTIPLY_ZOOM.with(renderer.zoom_scale_factor));
                     return;
                 }
 
