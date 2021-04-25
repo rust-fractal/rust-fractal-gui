@@ -272,6 +272,9 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             .with_child(create_label_textbox_row("Stripe Scale:", 160.0)
                 .lens(FractalData::stripe_scale))
             .with_spacer(4.0)
+            .with_child(create_label_textbox_row("Distance Transition:", 160.0)
+                .lens(FractalData::distance_transition))
+            .with_spacer(4.0)
             .with_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
                     ctx.submit_command(SET_OFFSET_SPAN);
                 }).expand_width().fix_height(36.0));

@@ -38,3 +38,4 @@ palette_offset = 0
 palette_cyclic = true
 
 stripe_scale = 1.0
+distance_transition = 1.0

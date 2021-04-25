@@ -111,6 +111,7 @@ pub struct FractalData {
     center_reference_zoom: String,
     reference_count: usize,
     stripe_scale: f32,
+    distance_transition: f32,
 }
 
 impl<'a> Widget<FractalData> for FractalWidget<'a> {
@@ -790,8 +791,13 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     let current_palette_offset = settings.get_float("palette_offset").unwrap();
                     let current_cyclic = settings.get_bool("palette_cyclic").unwrap();
                     let current_stripe_scale = settings.get_float("stripe_scale").unwrap() as f32;
+                    let current_distance_transition = settings.get_float("distance_transition").unwrap() as f32;
 
-                    if current_palette_iteration_span == data.palette_iteration_span && current_palette_offset == data.palette_offset && current_cyclic == data.palette_cyclic && current_stripe_scale == data.stripe_scale {
+                    if current_palette_iteration_span == data.palette_iteration_span 
+                        && current_palette_offset == data.palette_offset 
+                        && current_cyclic == data.palette_cyclic 
+                        && current_stripe_scale == data.stripe_scale 
+                        && current_distance_transition == data.distance_transition {
                         return;
                     }
 
@@ -799,8 +805,9 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     settings.set("palette_offset", data.palette_offset).unwrap();
                     settings.set("palette_cyclic", data.palette_cyclic).unwrap();
                     settings.set("stripe_scale", data.stripe_scale as f64).unwrap();
+                    settings.set("distance_transition", data.distance_transition as f64).unwrap();
 
-                    renderer.data_export.lock().change_palette(None, data.palette_iteration_span as f32, data.palette_offset as f32, data.palette_cyclic);
+                    renderer.data_export.lock().change_palette(None, data.palette_iteration_span as f32, data.palette_offset as f32, data.distance_transition, data.palette_cyclic);
                     
                     if current_stripe_scale == data.stripe_scale {
                         renderer.data_export.lock().regenerate();
@@ -1108,7 +1115,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             Some(palette),
                             settings.get_float("palette_iteration_span").unwrap() as f32,
                             settings.get_float("palette_offset").unwrap() as f32,
-                            data.palette_cyclic
+                            settings.get_float("distance_transition").unwrap() as f32,
+                            settings.get_bool("palette_cyclic").unwrap()
                         );
 
                         data.palette_source = file_name.to_string();
@@ -1365,6 +1373,7 @@ pub fn main() {
             center_reference_zoom: extended_to_string_long(center_reference_zoom),
             reference_count: 1,
             stripe_scale: settings.get_float("stripe_scale").unwrap() as f32,
+            distance_transition: settings.get_float("distance_transition").unwrap() as f32,
         })
         .expect("launch failed");
 }
