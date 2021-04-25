@@ -36,3 +36,5 @@ iterations = 1000
 palette_iteration_span = 100.0
 palette_offset = 0
 palette_cyclic = true
+
+stripe_scale = 1.0

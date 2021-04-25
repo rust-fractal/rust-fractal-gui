@@ -109,7 +109,8 @@ pub struct FractalData {
     zoom_scale_factor: f64,
     root_zoom_factor: f64,
     center_reference_zoom: String,
-    reference_count: usize
+    reference_count: usize,
+    stripe_scale: f32,
 }
 
 impl<'a> Widget<FractalData> for FractalWidget<'a> {
@@ -738,8 +739,11 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                                 (DataType::Iteration, "step")
                             },
                             ColoringType::Stripe =>  {
-                                (DataType::Iteration, "stripe")
+                                (DataType::Stripe, "stripe")
                             },
+                            ColoringType::DistanceStripe => {
+                                (DataType::DistanceStripe, "distance_stripe")
+                            }
                             _ => {
                                 (DataType::Distance, "distance")
                             }
@@ -749,8 +753,15 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                         renderer.data_export.lock().data_type = pixel_data_type;
 
-                        if pixel_data_type == DataType::Distance && renderer.pixel_data_type != DataType::Distance {
-                            renderer.pixel_data_type = DataType::Distance;
+                        if renderer.pixel_data_type == DataType::DistanceStripe {
+                            renderer.data_export.lock().regenerate();
+                            ctx.submit_command(REPAINT);
+                            data.coloring_type = *coloring_method;
+                            return;
+                        }
+
+                        if (pixel_data_type == DataType::DistanceStripe) ||
+                            ((pixel_data_type == DataType::Distance && renderer.pixel_data_type != DataType::Distance) || (pixel_data_type == DataType::Stripe && renderer.pixel_data_type != DataType::Stripe)) {
                             ctx.submit_command(RESET_RENDERER_FAST);
                         } else {
                             renderer.data_export.lock().regenerate();
@@ -778,20 +789,28 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     let current_palette_iteration_span = settings.get_float("palette_iteration_span").unwrap();
                     let current_palette_offset = settings.get_float("palette_offset").unwrap();
                     let current_cyclic = settings.get_bool("palette_cyclic").unwrap();
+                    let current_stripe_scale = settings.get_float("stripe_scale").unwrap() as f32;
 
-                    if current_palette_iteration_span == data.palette_iteration_span && current_palette_offset == data.palette_offset && current_cyclic == data.palette_cyclic {
+                    if current_palette_iteration_span == data.palette_iteration_span && current_palette_offset == data.palette_offset && current_cyclic == data.palette_cyclic && current_stripe_scale == data.stripe_scale {
                         return;
                     }
 
                     settings.set("palette_iteration_span", data.palette_iteration_span).unwrap();
                     settings.set("palette_offset", data.palette_offset).unwrap();
                     settings.set("palette_cyclic", data.palette_cyclic).unwrap();
+                    settings.set("stripe_scale", data.stripe_scale as f64).unwrap();
 
                     renderer.data_export.lock().change_palette(None, data.palette_iteration_span as f32, data.palette_offset as f32, data.palette_cyclic);
-                    renderer.data_export.lock().regenerate();
-
-                    ctx.submit_command(UPDATE_PALETTE);
-                    ctx.submit_command(REPAINT);
+                    
+                    if current_stripe_scale == data.stripe_scale {
+                        renderer.data_export.lock().regenerate();
+                        ctx.submit_command(UPDATE_PALETTE);
+                        ctx.submit_command(REPAINT);
+                    } else {
+                        renderer.stripe_scale = data.stripe_scale;
+                        ctx.submit_command(UPDATE_PALETTE);
+                        ctx.submit_command(RESET_RENDERER_FAST);
+                    }
 
                     return;
                 }
@@ -807,7 +826,9 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     }
 
                     renderer.pixel_data_type = match settings.get_str("coloring_type").unwrap().to_ascii_uppercase().as_ref() {
-                        "SMOOTH_ITERATION" | "SMOOTH" | "STEP_ITERATION" | "STEP" | "STRIPE" => DataType::Iteration,
+                        "SMOOTH_ITERATION" | "SMOOTH" | "STEP_ITERATION" | "STEP" => DataType::Iteration,
+                        "STRIPE" => DataType::Stripe,
+                        "DISTANCE_STRIPE" => DataType::DistanceStripe,
                         _ => DataType::Distance
                     };
 
@@ -1343,6 +1364,7 @@ pub fn main() {
             root_zoom_factor: 0.5,
             center_reference_zoom: extended_to_string_long(center_reference_zoom),
             reference_count: 1,
+            stripe_scale: settings.get_float("stripe_scale").unwrap() as f32,
         })
         .expect("launch failed");
 }

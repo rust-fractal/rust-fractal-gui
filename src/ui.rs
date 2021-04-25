@@ -269,6 +269,9 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             .with_spacer(4.0)
             .with_child(create_checkbox_row("Cyclic palette").lens(FractalData::palette_cyclic))
             .with_spacer(4.0)
+            .with_child(create_label_textbox_row("Stripe Scale:", 160.0)
+                .lens(FractalData::stripe_scale))
+            .with_spacer(4.0)
             .with_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
                     ctx.submit_command(SET_OFFSET_SPAN);
                 }).expand_width().fix_height(36.0));
@@ -535,6 +538,7 @@ pub fn make_menu(_: Option<WindowId>, _state: &FractalData, _: &Env) -> Menu<Fra
             .entry(MenuItem::new(LocalizedString::new("Step Iteration")).command(SET_COLORING_METHOD.with(ColoringType::StepIteration)))
             .entry(MenuItem::new(LocalizedString::new("Distance")).command(SET_COLORING_METHOD.with(ColoringType::Distance)))
             .entry(MenuItem::new(LocalizedString::new("Stripe")).command(SET_COLORING_METHOD.with(ColoringType::Stripe)))
+            .entry(MenuItem::new(LocalizedString::new("Distance Stripe")).command(SET_COLORING_METHOD.with(ColoringType::DistanceStripe)))
     )
 }
 
