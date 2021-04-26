@@ -12,6 +12,7 @@ use druid::theme::{PRIMARY_DARK, BACKGROUND_DARK};
 
 use parking_lot::Mutex;
 use std::sync::Arc;
+use std::f64::consts::PI;
 use rust_fractal::{
     renderer::FractalRenderer,
     util::{string_to_extended, extended_to_string_short, FloatExtended}
@@ -274,6 +275,78 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             .with_spacer(4.0)
             .with_child(create_label_textbox_row("Distance Transition:", 160.0)
                 .lens(FractalData::distance_transition))
+            .with_spacer(4.0)
+            .with_child(create_checkbox_row("Lighting").lens(FractalData::lighting))
+            .with_spacer(4.0)
+            .with_child(Flex::row()
+                .with_child(Label::new("Lighting Direction:").fix_width(100.0))
+                .with_flex_child(Slider::new()
+                    .with_range(0.0, 360.0)
+                    .expand_width()
+                    .lens(FractalData::lighting_direction.map(|val| val * 180.0 / PI, |new, val| {*new = val * PI / 180.0})), 1.0)
+                .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
+                    format!("{:>.3}", *data)
+                }).lens(FractalData::lighting_direction.map(|val| val * 180.0 / PI, |new, val| {*new = val * PI / 180.0}))))
+            .with_spacer(4.0)
+            .with_child(Flex::row()
+                .with_child(Label::new("Lighting Azimuth:").fix_width(100.0))
+                .with_flex_child(Slider::new()
+                    .with_range(0.0, 90.0)
+                    .expand_width()
+                    .lens(FractalData::lighting_azimuth.map(|val| val * 180.0 / PI, |new, val| {*new = val * PI / 180.0})), 1.0)
+                .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
+                    format!("{:>.3}", *data)
+                }).lens(FractalData::lighting_azimuth.map(|val| val * 180.0 / PI, |new, val| {*new = val * PI / 180.0}))))
+            .with_spacer(4.0)
+            .with_child(Flex::row()
+                .with_child(Label::new("Lighting Opacity:").fix_width(100.0))
+                .with_flex_child(Slider::new()
+                    .with_range(0.0, 1.0)
+                    .expand_width()
+                    .lens(FractalData::lighting_opacity), 1.0)
+                .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
+                    format!("{:>.3}", *data)
+                }).lens(FractalData::lighting_opacity)))
+            .with_spacer(4.0)
+            .with_child(Flex::row()
+                .with_child(Label::new("Lighting Ambient:").fix_width(100.0))
+                .with_flex_child(Slider::new()
+                    .with_range(0.0, 1.0)
+                    .expand_width()
+                    .lens(FractalData::lighting_ambient), 1.0)
+                .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
+                    format!("{:>.3}", *data)
+                }).lens(FractalData::lighting_ambient)))
+            .with_spacer(4.0)
+            .with_child(Flex::row()
+                .with_child(Label::new("Lighting Diffuse:").fix_width(100.0))
+                .with_flex_child(Slider::new()
+                    .with_range(0.0, 1.0)
+                    .expand_width()
+                    .lens(FractalData::lighting_diffuse), 1.0)
+                .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
+                    format!("{:>.3}", *data)
+                }).lens(FractalData::lighting_diffuse)))
+            .with_spacer(4.0)
+            .with_child(Flex::row()
+                .with_child(Label::new("Lighting Specular:").fix_width(100.0))
+                .with_flex_child(Slider::new()
+                    .with_range(0.0, 1.0)
+                    .expand_width()
+                    .lens(FractalData::lighting_specular), 1.0)
+                .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
+                    format!("{:>.3}", *data)
+                }).lens(FractalData::lighting_specular)))
+            .with_spacer(4.0)
+            .with_child(Flex::row()
+                .with_child(Label::new("Lighting Shininess:").fix_width(100.0))
+                .with_flex_child(Slider::new()
+                    .with_range(0.0, 20.0)
+                    .expand_width()
+                    .lens(FractalData::lighting_shininess.map(|val| *val as f64, |new, val| *new = val as i64)), 1.0)
+                .with_child(Label::<i64>::new(|data: &i64, _env: &_| {
+                    format!("{:>3}", *data)
+                }).lens(FractalData::lighting_shininess)))
             .with_spacer(4.0)
             .with_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
                     ctx.submit_command(SET_OFFSET_SPAN);

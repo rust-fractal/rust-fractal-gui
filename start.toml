@@ -38,4 +38,14 @@ palette_offset = 0
 palette_cyclic = true
 
 stripe_scale = 1.0
-distance_transition = 1.0
+distance_transition = 10.0
+
+lighting = true
+
+lighting_direction = 0.125
+lighting_azimuth = 0.5
+lighting_opacity = 0.75
+lighting_ambient = 0.2
+lighting_diffuse = 0.5
+lighting_specular = 0.5
+lighting_shininess = 20

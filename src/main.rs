@@ -112,6 +112,14 @@ pub struct FractalData {
     reference_count: usize,
     stripe_scale: f32,
     distance_transition: f32,
+    lighting: bool,
+    lighting_direction: f64,
+    lighting_azimuth: f64,
+    lighting_opacity: f64,
+    lighting_ambient: f64,
+    lighting_diffuse: f64,
+    lighting_specular: f64,
+    lighting_shininess: i64,
 }
 
 impl<'a> Widget<FractalData> for FractalWidget<'a> {
@@ -793,27 +801,65 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     let current_stripe_scale = settings.get_float("stripe_scale").unwrap() as f32;
                     let current_distance_transition = settings.get_float("distance_transition").unwrap() as f32;
 
-                    if current_palette_iteration_span == data.palette_iteration_span 
-                        && current_palette_offset == data.palette_offset 
-                        && current_cyclic == data.palette_cyclic 
-                        && current_stripe_scale == data.stripe_scale 
-                        && current_distance_transition == data.distance_transition {
+                    let current_lighting = settings.get_bool("lighting").unwrap();
+                    let current_lighting_direction = settings.get_float("lighting_direction").unwrap();
+                    let current_lighting_azimuth = settings.get_float("lighting_azimuth").unwrap();
+                    let current_lighting_opacity = settings.get_float("lighting_opacity").unwrap();
+                    let current_lighting_ambient = settings.get_float("lighting_ambient").unwrap();
+                    let current_lighting_diffuse = settings.get_float("lighting_diffuse").unwrap();
+                    let current_lighting_specular = settings.get_float("lighting_specular").unwrap();
+                    let current_lighting_shininess = settings.get_int("lighting_shininess").unwrap();
+
+                    let mut changed = false;
+
+                    if current_palette_iteration_span != data.palette_iteration_span 
+                        || current_palette_offset != data.palette_offset 
+                        || current_cyclic != data.palette_cyclic 
+                        || current_stripe_scale != data.stripe_scale 
+                        || current_distance_transition != data.distance_transition 
+                        || current_lighting != data.lighting {
+                        settings.set("palette_iteration_span", data.palette_iteration_span).unwrap();
+                        settings.set("palette_offset", data.palette_offset).unwrap();
+                        settings.set("palette_cyclic", data.palette_cyclic).unwrap();
+                        settings.set("stripe_scale", data.stripe_scale as f64).unwrap();
+                        settings.set("distance_transition", data.distance_transition as f64).unwrap();
+                        settings.set("lighting", data.lighting).unwrap();
+                        
+                        renderer.data_export.lock().change_palette(None, data.palette_iteration_span as f32, data.palette_offset as f32, data.distance_transition, data.palette_cyclic, data.lighting);
+
+                        changed = true;
+                    }
+
+                    if current_lighting_direction != data.lighting_direction 
+                        || current_lighting_azimuth != data.lighting_azimuth 
+                        || current_lighting_opacity != data.lighting_opacity 
+                        || current_lighting_ambient != data.lighting_ambient 
+                        || current_lighting_diffuse != data.lighting_diffuse 
+                        || current_lighting_specular != data.lighting_specular 
+                        || current_lighting_shininess != data.lighting_shininess {
+                        settings.set("lighting_direction", data.lighting_direction).unwrap();
+                        settings.set("lighting_azimuth", data.lighting_azimuth).unwrap();
+                        settings.set("lighting_opacity", data.lighting_opacity).unwrap();
+                        settings.set("lighting_ambient", data.lighting_ambient).unwrap();
+                        settings.set("lighting_diffuse", data.lighting_diffuse).unwrap();
+                        settings.set("lighting_specular", data.lighting_specular).unwrap();
+                        settings.set("lighting_shininess", data.lighting_shininess).unwrap();
+
+                        renderer.data_export.lock().change_lighting(data.lighting_direction as f32, data.lighting_azimuth as f32, data.lighting_opacity as f32, data.lighting_ambient as f32, data.lighting_diffuse as f32, data.lighting_specular as f32, data.lighting_shininess as i32);
+
+                        changed = true;
+                    }
+
+                    if !changed {
                         return;
                     }
 
-                    settings.set("palette_iteration_span", data.palette_iteration_span).unwrap();
-                    settings.set("palette_offset", data.palette_offset).unwrap();
-                    settings.set("palette_cyclic", data.palette_cyclic).unwrap();
-                    settings.set("stripe_scale", data.stripe_scale as f64).unwrap();
-                    settings.set("distance_transition", data.distance_transition as f64).unwrap();
-
-                    renderer.data_export.lock().change_palette(None, data.palette_iteration_span as f32, data.palette_offset as f32, data.distance_transition, data.palette_cyclic);
-                    
                     if current_stripe_scale == data.stripe_scale {
                         renderer.data_export.lock().regenerate();
                         ctx.submit_command(UPDATE_PALETTE);
                         ctx.submit_command(REPAINT);
                     } else {
+                        // If this value is changed we need to recalculate
                         renderer.stripe_scale = data.stripe_scale;
                         ctx.submit_command(UPDATE_PALETTE);
                         ctx.submit_command(RESET_RENDERER_FAST);
@@ -1116,7 +1162,18 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             settings.get_float("palette_iteration_span").unwrap() as f32,
                             settings.get_float("palette_offset").unwrap() as f32,
                             settings.get_float("distance_transition").unwrap() as f32,
-                            settings.get_bool("palette_cyclic").unwrap()
+                            settings.get_bool("palette_cyclic").unwrap(),
+                            settings.get_bool("lighting").unwrap()
+                        );
+
+                        renderer.data_export.lock().change_lighting(
+                            settings.get_float("lighting_direction").unwrap() as f32,
+                            settings.get_float("lighting_azimuth").unwrap() as f32,
+                            settings.get_float("lighting_opacity").unwrap() as f32,
+                            settings.get_float("lighting_ambient").unwrap() as f32,
+                            settings.get_float("lighting_diffuse").unwrap() as f32,
+                            settings.get_float("lighting_specular").unwrap() as f32,
+                            settings.get_float("lighting_shininess").unwrap() as i32
                         );
 
                         data.palette_source = file_name.to_string();
@@ -1374,6 +1431,14 @@ pub fn main() {
             reference_count: 1,
             stripe_scale: settings.get_float("stripe_scale").unwrap() as f32,
             distance_transition: settings.get_float("distance_transition").unwrap() as f32,
+            lighting: settings.get_bool("lighting").unwrap(),
+            lighting_direction: settings.get_float("lighting_direction").unwrap(),
+            lighting_azimuth: settings.get_float("lighting_azimuth").unwrap(),
+            lighting_opacity: settings.get_float("lighting_opacity").unwrap(),
+            lighting_ambient: settings.get_float("lighting_ambient").unwrap(),
+            lighting_diffuse: settings.get_float("lighting_diffuse").unwrap(),
+            lighting_specular: settings.get_float("lighting_specular").unwrap(),
+            lighting_shininess: settings.get_int("lighting_shininess").unwrap(),
         })
         .expect("launch failed");
 }
