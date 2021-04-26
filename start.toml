@@ -42,10 +42,10 @@ distance_transition = 10.0
 
 lighting = true
 
-lighting_direction = 0.125
-lighting_azimuth = 0.5
+lighting_direction = 30.0
+lighting_azimuth = 35.0
 lighting_opacity = 0.75
-lighting_ambient = 0.2
+lighting_ambient = 0.4
 lighting_diffuse = 0.5
 lighting_specular = 0.5
 lighting_shininess = 20

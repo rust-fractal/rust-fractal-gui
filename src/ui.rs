@@ -12,7 +12,6 @@ use druid::theme::{PRIMARY_DARK, BACKGROUND_DARK};
 
 use parking_lot::Mutex;
 use std::sync::Arc;
-use std::f64::consts::PI;
 use rust_fractal::{
     renderer::FractalRenderer,
     util::{string_to_extended, extended_to_string_short, FloatExtended}
@@ -283,20 +282,20 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                 .with_flex_child(Slider::new()
                     .with_range(0.0, 360.0)
                     .expand_width()
-                    .lens(FractalData::lighting_direction.map(|val| val * 180.0 / PI, |new, val| {*new = val * PI / 180.0})), 1.0)
+                    .lens(FractalData::lighting_direction), 1.0)
                 .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
                     format!("{:>.3}", *data)
-                }).lens(FractalData::lighting_direction.map(|val| val * 180.0 / PI, |new, val| {*new = val * PI / 180.0}))))
+                }).lens(FractalData::lighting_direction)))
             .with_spacer(4.0)
             .with_child(Flex::row()
                 .with_child(Label::new("Lighting Azimuth:").fix_width(100.0))
                 .with_flex_child(Slider::new()
                     .with_range(0.0, 90.0)
                     .expand_width()
-                    .lens(FractalData::lighting_azimuth.map(|val| val * 180.0 / PI, |new, val| {*new = val * PI / 180.0})), 1.0)
+                    .lens(FractalData::lighting_azimuth), 1.0)
                 .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
                     format!("{:>.3}", *data)
-                }).lens(FractalData::lighting_azimuth.map(|val| val * 180.0 / PI, |new, val| {*new = val * PI / 180.0}))))
+                }).lens(FractalData::lighting_azimuth)))
             .with_spacer(4.0)
             .with_child(Flex::row()
                 .with_child(Label::new("Lighting Opacity:").fix_width(100.0))
