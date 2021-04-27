@@ -204,9 +204,16 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         let element = ComplexExtended::new(element, -renderer.zoom.exponent);
                         let mut zoom = renderer.zoom;
                     
+                        println!("before {}", zoom);
+
                         zoom.mantissa *= data.zoom_scale_factor;
+
+                        println!("middle {}", zoom);
+
                         zoom.reduce();
-    
+
+                        println!("after {}", zoom);
+
                         let mut location = renderer.center_reference.c.clone();
                         let precision = location.real().prec();
     
@@ -688,8 +695,15 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 }
 
                 if let Some(factor) = command.get(MULTIPLY_ZOOM) {
+                    println!("before {}", renderer.zoom);
+
                     renderer.zoom.mantissa *= factor;
+
+                    println!("middle {}", renderer.zoom);
+
                     renderer.zoom.reduce();
+
+                    println!("after {}", renderer.zoom);
 
                     data.zoom = extended_to_string_long(renderer.zoom);
                     settings.set("zoom", data.zoom.clone()).unwrap();
