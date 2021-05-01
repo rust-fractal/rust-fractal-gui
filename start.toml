@@ -40,6 +40,8 @@ palette_cyclic = true
 stripe_scale = 1.0
 distance_transition = 10.0
 
+distance_color = false
+
 lighting = true
 
 lighting_direction = 30.0

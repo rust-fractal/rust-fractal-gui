@@ -269,6 +269,8 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             .with_spacer(4.0)
             .with_child(create_checkbox_row("Cyclic palette").lens(FractalData::palette_cyclic))
             .with_spacer(4.0)
+            .with_child(create_checkbox_row("Distance color").lens(FractalData::distance_color))
+            .with_spacer(4.0)
             .with_child(create_label_textbox_row("Stripe Scale:", 160.0)
                 .lens(FractalData::stripe_scale))
             .with_spacer(4.0)

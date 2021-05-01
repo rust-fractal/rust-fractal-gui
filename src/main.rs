@@ -112,6 +112,7 @@ pub struct FractalData {
     reference_count: usize,
     stripe_scale: f32,
     distance_transition: f32,
+    distance_color: bool,
     lighting: bool,
     lighting_direction: f64,
     lighting_azimuth: f64,
@@ -800,6 +801,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     let current_cyclic = settings.get_bool("palette_cyclic").unwrap();
                     let current_stripe_scale = settings.get_float("stripe_scale").unwrap() as f32;
                     let current_distance_transition = settings.get_float("distance_transition").unwrap() as f32;
+                    let current_distance_color = settings.get_bool("distance_color").unwrap();
 
                     let current_lighting = settings.get_bool("lighting").unwrap();
                     let current_lighting_direction = settings.get_float("lighting_direction").unwrap();
@@ -817,15 +819,17 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         || current_cyclic != data.palette_cyclic 
                         || current_stripe_scale != data.stripe_scale 
                         || current_distance_transition != data.distance_transition 
-                        || current_lighting != data.lighting {
+                        || current_lighting != data.lighting 
+                        || current_distance_color != data.distance_color {
                         settings.set("palette_iteration_span", data.palette_iteration_span).unwrap();
                         settings.set("palette_offset", data.palette_offset).unwrap();
                         settings.set("palette_cyclic", data.palette_cyclic).unwrap();
                         settings.set("stripe_scale", data.stripe_scale as f64).unwrap();
                         settings.set("distance_transition", data.distance_transition as f64).unwrap();
+                        settings.set("distance_color", data.distance_color).unwrap();
                         settings.set("lighting", data.lighting).unwrap();
                         
-                        renderer.data_export.lock().change_palette(None, data.palette_iteration_span as f32, data.palette_offset as f32, data.distance_transition, data.palette_cyclic, data.lighting);
+                        renderer.data_export.lock().change_palette(None, data.palette_iteration_span as f32, data.palette_offset as f32, data.distance_transition, data.distance_color, data.palette_cyclic, data.lighting);
 
                         changed = true;
                     }
@@ -1163,6 +1167,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             settings.get_float("palette_offset").unwrap() as f32,
                             settings.get_float("distance_transition").unwrap() as f32,
                             settings.get_bool("palette_cyclic").unwrap(),
+                            settings.get_bool("distance_color").unwrap(),
                             settings.get_bool("lighting").unwrap()
                         );
 
@@ -1431,6 +1436,7 @@ pub fn main() {
             reference_count: 1,
             stripe_scale: settings.get_float("stripe_scale").unwrap() as f32,
             distance_transition: settings.get_float("distance_transition").unwrap() as f32,
+            distance_color: settings.get_bool("distance_color").unwrap(),
             lighting: settings.get_bool("lighting").unwrap(),
             lighting_direction: settings.get_float("lighting_direction").unwrap(),
             lighting_azimuth: settings.get_float("lighting_azimuth").unwrap(),
