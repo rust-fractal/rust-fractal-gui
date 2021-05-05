@@ -864,7 +864,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         ctx.submit_command(REPAINT);
                     } else {
                         // If this value is changed we need to recalculate
-                        renderer.stripe_scale = data.stripe_scale;
+                        renderer.data_export.lock().stripe_scale = data.stripe_scale;
                         ctx.submit_command(UPDATE_PALETTE);
                         ctx.submit_command(RESET_RENDERER_FAST);
                     }
