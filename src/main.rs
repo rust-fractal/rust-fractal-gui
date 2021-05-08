@@ -86,7 +86,8 @@ pub struct FractalData {
     glitch_tolerance: f64,
     glitch_percentage: f64,
     iteration_interval: i64,
-    experimental: bool,
+    series_approximation_tiled: bool,
+    series_approximation_enabled: bool,
     probe_sampling: i64,
     jitter: bool,
     jitter_factor: f64,
@@ -473,7 +474,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                 // Handles setting the advanced options
                 if command.is(SET_ADVANCED_OPTIONS) {
-                    // println!("{} {} {}", data.remove_centre, renderer.remove_centre, renderer.data_export.lock().centre_removed);
+                    let mut refresh_type = 0;
 
                     // These options require the entire renderer to be refreshed
                     if renderer.center_reference.data_storage_interval != data.iteration_interval as usize ||
@@ -486,14 +487,11 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             data.glitch_tolerance = 0.0;
                         }
 
-
-                        ctx.submit_command(RESET_RENDERER_FULL);
-
-                        // println!("interval or glitch tolerance changed");
+                        refresh_type = 1;
                     } else if renderer.series_approximation.order != data.order as usize ||
                         renderer.series_approximation.probe_sampling != data.probe_sampling as usize ||
-                        renderer.series_approximation.experimental != data.experimental {
-                        // apply limits to the values 
+                        renderer.series_approximation.tiled != data.series_approximation_tiled || 
+                        renderer.series_approximation.enabled != data.series_approximation_enabled {
 
                         if (data.order as usize) > 128 {
                             data.order = 128;
@@ -509,9 +507,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                         renderer.progress.reset_series_approximation();
 
-                        ctx.submit_command(RESET_RENDERER_FAST);
-
-                        // println!("order or probe sampling or experimental changed");
+                        refresh_type = 2;
                     } else if renderer.glitch_percentage != data.glitch_percentage || 
                         renderer.jitter != data.jitter ||
                         renderer.remove_centre != data.remove_centre ||
@@ -537,28 +533,22 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             renderer.data_export.lock().clear_buffers();
                         }
 
-                        ctx.submit_command(RESET_RENDERER_FAST);
-
-                        // println!("glitch percentage or jitter or remove centre changed");
+                        refresh_type = 2;
                     } else if renderer.data_export.lock().display_glitches != data.display_glitches {
                         renderer.data_export.lock().display_glitches = data.display_glitches;
                         renderer.data_export.lock().regenerate();
-                        ctx.submit_command(REPAINT);
-
-                        // println!("display glitches changed");
-                    } else if renderer.auto_adjust_iterations != data.auto_adjust_iterations {
-                        // println!("auto adjust iterations changed");
-                    } else {
-                        // println!("nothing changed");
-                        return;
-                    }
+                        refresh_type = 3;
+                    };
 
                     // set all the config to be updated
                     settings.set("data_storage_interval", data.iteration_interval).unwrap();
                     settings.set("glitch_tolerance", data.glitch_tolerance).unwrap();
                     settings.set("approximation_order", data.order).unwrap();
                     settings.set("probe_sampling", data.probe_sampling).unwrap();
-                    settings.set("experimental", data.experimental).unwrap();
+
+                    settings.set("series_approximation_tiled", data.series_approximation_tiled).unwrap();
+                    settings.set("series_approximation_enabled", data.series_approximation_enabled).unwrap();
+
                     settings.set("glitch_percentage", data.glitch_percentage).unwrap();
                     settings.set("jitter", data.jitter).unwrap();
                     settings.set("jitter_factor", data.jitter_factor).unwrap();
@@ -569,23 +559,36 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     renderer.center_reference.data_storage_interval = data.iteration_interval as usize;
                     renderer.center_reference.glitch_tolerance = data.glitch_tolerance;
 
+                    renderer.series_approximation.enabled = data.series_approximation_enabled;
+
                     renderer.series_approximation.order = data.order as usize;
                     renderer.series_approximation.probe_sampling = data.probe_sampling as usize;
-                    renderer.series_approximation.experimental = data.experimental;
+                    renderer.series_approximation.tiled = data.series_approximation_tiled;
 
                     renderer.glitch_percentage = data.glitch_percentage;
                     renderer.jitter = data.jitter;
                     renderer.jitter_factor = data.jitter_factor;
 
                     renderer.zoom_scale_factor = data.zoom_scale_factor;
-
-                    // println!("setting to {}", data.remove_centre);
                     renderer.remove_centre = data.remove_centre;
-                    // renderer.data_export.lock().centre_removed = false;
 
                     renderer.data_export.lock().display_glitches = data.display_glitches;
 
                     renderer.auto_adjust_iterations = data.auto_adjust_iterations;
+
+                    match refresh_type {
+                        1 => {
+                            ctx.submit_command(RESET_RENDERER_FULL);
+                        }
+                        2 => {
+                            ctx.submit_command(RESET_RENDERER_FAST);
+                        }
+                        3 => {
+                            ctx.submit_command(REPAINT);
+                        }
+                        _ => {}
+                    }
+
                     return;
                 }
 
@@ -676,10 +679,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.zoom = extended_to_string_long(renderer.zoom);
                     settings.set("zoom", data.zoom.clone()).unwrap();
 
-                    // if there is no zoom in
                     if string_to_extended(&data.zoom) > string_to_extended(&data.center_reference_zoom) {
-                        // println!("resetting fast");
-                        // println!("zoom pattern need rerender");
                         data.need_full_rerender = true;
                     };
 
@@ -699,9 +699,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
                     data.iteration_limit = renderer.maximum_iteration as i64;
-                    
+
                     if string_to_extended(&data.zoom) > string_to_extended(&data.center_reference_zoom) {
-                        // println!("zoom quick need rerender");
                         data.need_full_rerender = true;
                     };
 
@@ -1238,7 +1237,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             let palette_offset = settings.get_float("palette_offset").unwrap();
 
                             let output = format!(
-                                "version = \"{}\"\n\nreal = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}\n\nimage_width = {}\nimage_height = {}\nglitch_percentage = {}\napproximation_order = {}\ncoloring_type = {}\nframes = 1\nframe_offset = 0\nzoom_scale = 2.0\ndisplay_glitches = false\nauto_adjust_iterations = true\nremove_centre = false\nglitch_tolerance = 1.4e-6\nprobe_sampling = 15\ndata_storage_interval = 100\nvalid_iteration_frame_multiplier = 0.10\nvalid_iteration_probe_multiplier = 0.01\nexperimental = true\njitter = false\nexport = \"png\"\n\npalette = {:?}\npalette_iteration_span = {}\npalette_offset = {}", 
+                                "version = \"{}\"\n\nreal = \"{}\"\nimag = \"{}\"\nzoom = \"{}\"\niterations = {}\nrotate = {}\n\nimage_width = {}\nimage_height = {}\nglitch_percentage = {}\napproximation_order = {}\ncoloring_type = {}\nframes = 1\nframe_offset = 0\nzoom_scale = 2.0\ndisplay_glitches = false\nauto_adjust_iterations = true\nremove_centre = false\nglitch_tolerance = 1.4e-6\nprobe_sampling = 15\ndata_storage_interval = 100\nvalid_iteration_frame_multiplier = 0.10\nvalid_iteration_probe_multiplier = 0.01\nseries_approximation_tiled = true\njitter = false\nexport = \"png\"\n\npalette = {:?}\npalette_iteration_span = {}\npalette_offset = {}", 
                                 env!("CARGO_PKG_VERSION"),
                                 real, 
                                 imag, 
@@ -1409,7 +1408,8 @@ pub fn main() {
             glitch_tolerance: settings.get_float("glitch_tolerance").unwrap(),
             glitch_percentage: settings.get_float("glitch_percentage").unwrap(),
             iteration_interval: settings.get_int("data_storage_interval").unwrap(),
-            experimental: settings.get_bool("experimental").unwrap(),
+            series_approximation_tiled: settings.get_bool("series_approximation_tiled").unwrap(),
+            series_approximation_enabled: settings.get_bool("series_approximation_enabled").unwrap(),
             probe_sampling: settings.get_int("probe_sampling").unwrap(),
             jitter: settings.get_bool("jitter").unwrap(),
             jitter_factor: settings.get_float("jitter_factor").unwrap(),
