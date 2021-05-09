@@ -1167,8 +1167,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                             settings.get_float("palette_iteration_span").unwrap() as f32,
                             settings.get_float("palette_offset").unwrap() as f32,
                             settings.get_float("distance_transition").unwrap() as f32,
-                            settings.get_bool("palette_cyclic").unwrap(),
                             settings.get_bool("distance_color").unwrap(),
+                            settings.get_bool("palette_cyclic").unwrap(),
                             settings.get_bool("lighting").unwrap()
                         );
 
