@@ -14,6 +14,8 @@ use druid::commands::{
     SHOW_SAVE_PANEL
 };
 
+use float_eq::float_eq;
+
 use rust_fractal::{renderer::FractalRenderer};
 use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom};
 use rust_fractal::util::data_export::{DataExport, DataType, ColoringType};
@@ -478,7 +480,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     // These options require the entire renderer to be refreshed
                     if renderer.center_reference.data_storage_interval != data.iteration_interval as usize ||
-                        renderer.center_reference.glitch_tolerance != data.glitch_tolerance {
+                        !float_eq!(renderer.center_reference.glitch_tolerance, data.glitch_tolerance, ulps <= 4) {
                         if data.iteration_interval < 1 {
                             data.iteration_interval = 1;
                         }
@@ -508,10 +510,10 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         renderer.progress.reset_series_approximation();
 
                         refresh_type = 2;
-                    } else if renderer.glitch_percentage != data.glitch_percentage || 
+                    } else if !float_eq!(renderer.glitch_percentage, data.glitch_percentage, ulps <= 4) || 
                         renderer.jitter != data.jitter ||
                         renderer.remove_centre != data.remove_centre ||
-                        (renderer.jitter && renderer.jitter_factor != data.jitter_factor) {
+                        (renderer.jitter && !float_eq!(renderer.jitter_factor, data.jitter_factor, ulps <= 4)) {
 
                         if data.glitch_percentage > 100.0 {
                             data.glitch_percentage = 100.0;
@@ -604,7 +606,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         // Check if the zoom has decreased or is near to the current level
                         if current_zoom.to_uppercase() == data.zoom.to_uppercase() {
                             // nothing has changed
-                            if current_rotation == data.rotation && current_iterations == data.iteration_limit {
+                            if float_eq!(current_rotation, data.rotation, ulps <= 4) && current_iterations == data.iteration_limit {
                                 // println!("nothing");
                                 return;
                             }
@@ -616,7 +618,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                                 return;
                             }
 
-                            if current_rotation == data.rotation {
+                            if float_eq!(current_rotation, data.rotation, ulps <= 4) {
                                 // println!("iterations");
                                 ctx.submit_command(SET_ITERATIONS.with(data.iteration_limit));
                                 return;
@@ -813,11 +815,11 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     let mut changed = false;
 
-                    if current_palette_iteration_span != data.palette_iteration_span 
-                        || current_palette_offset != data.palette_offset 
+                    if !float_eq!(current_palette_iteration_span, data.palette_iteration_span, ulps <= 4)
+                        || !float_eq!(current_palette_offset, data.palette_offset, ulps <= 4)
                         || current_cyclic != data.palette_cyclic 
-                        || current_stripe_scale != data.stripe_scale 
-                        || current_distance_transition != data.distance_transition 
+                        || !float_eq!(current_stripe_scale, data.stripe_scale, ulps <= 4)
+                        || !float_eq!(current_distance_transition, data.distance_transition, ulps <= 4)
                         || current_lighting != data.lighting 
                         || current_distance_color != data.distance_color {
                         settings.set("palette_iteration_span", data.palette_iteration_span).unwrap();
@@ -833,12 +835,12 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         changed = true;
                     }
 
-                    if current_lighting_direction != data.lighting_direction 
-                        || current_lighting_azimuth != data.lighting_azimuth 
-                        || current_lighting_opacity != data.lighting_opacity 
-                        || current_lighting_ambient != data.lighting_ambient 
-                        || current_lighting_diffuse != data.lighting_diffuse 
-                        || current_lighting_specular != data.lighting_specular 
+                    if !float_eq!(current_lighting_direction, data.lighting_direction, ulps <= 4)
+                        || !float_eq!(current_lighting_azimuth, data.lighting_azimuth, ulps <= 4)
+                        || !float_eq!(current_lighting_opacity, data.lighting_opacity, ulps <= 4)
+                        || !float_eq!(current_lighting_ambient, data.lighting_ambient, ulps <= 4)
+                        || !float_eq!(current_lighting_diffuse, data.lighting_diffuse, ulps <= 4)
+                        || !float_eq!(current_lighting_specular, data.lighting_specular, ulps <= 4)
                         || current_lighting_shininess != data.lighting_shininess {
                         settings.set("lighting_direction", data.lighting_direction).unwrap();
                         settings.set("lighting_azimuth", data.lighting_azimuth).unwrap();
@@ -857,7 +859,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         return;
                     }
 
-                    if current_stripe_scale == data.stripe_scale {
+                    if float_eq!(current_stripe_scale, data.stripe_scale, ulps <= 4) {
                         renderer.data_export.lock().regenerate();
                         ctx.submit_command(UPDATE_PALETTE);
                         ctx.submit_command(REPAINT);

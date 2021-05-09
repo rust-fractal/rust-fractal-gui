@@ -187,7 +187,7 @@ pub fn testing_renderer(
                                 },
                                 Err(_) => {
                                     // do some processing to get back to the original coordinates
-                                    test.submit_command(UPDATE_ROOT_PROGRESS, (thread_counter_1.load(Ordering::Relaxed), thread_counter_2.load(Ordering::Relaxed), current_estimate_difference_1.lock().clone()), Target::Auto).unwrap();
+                                    test.submit_command(UPDATE_ROOT_PROGRESS, (thread_counter_1.load(Ordering::Relaxed), thread_counter_2.load(Ordering::Relaxed), *current_estimate_difference_1.lock()), Target::Auto).unwrap();
                                 }
                             }
                             

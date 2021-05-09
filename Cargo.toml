@@ -12,6 +12,7 @@ druid = { git = "https://github.com/linebender/druid.git" }
 rust_fractal = {path = "../rust-fractal-core"}
 config = "^0.9"
 parking_lot = { version = "0.11", features = ["nightly"] }
+float_eq = "^0.6.0"
 
 [build-dependencies]
 vergen = "4.2.0"

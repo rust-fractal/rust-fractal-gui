@@ -15,7 +15,8 @@ use druid::theme::{
     BUTTON_BORDER_RADIUS,
     BUTTON_BORDER_WIDTH,
     BUTTON_LIGHT,
-    BUTTON_DARK
+    BUTTON_DARK,
+    // BASIC_WIDGET_HEIGHT
 };
 
 pub fn configure_env(env: &mut Env) {
@@ -30,6 +31,8 @@ pub fn configure_env(env: &mut Env) {
     env.set(TEXTBOX_BORDER_WIDTH, 1.5);
 
     env.set(BORDERED_WIDGET_HEIGHT, 12.0);
+
+    // env.set(BASIC_WIDGET_HEIGHT, 10.0);
 
     // env.set(BORDER_DARK, Color::from_hex_str("#191414").unwrap());
 

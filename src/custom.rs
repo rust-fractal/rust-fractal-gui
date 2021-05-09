@@ -23,10 +23,10 @@ impl NoUpdateLabel {
         }
     }
 
-    fn make_layout_if_needed(&mut self, value: &String, t: &mut PietText, env: &Env) {
+    fn make_layout_if_needed(&mut self, value: &str, t: &mut PietText, env: &Env) {
         if self.needs_update {
             self.text
-                .set_text(value.clone().into());
+                .set_text(value.into());
             self.text
                 .set_font(FontDescriptor::new(FontFamily::MONOSPACE).with_size(self.font_size));
             self.text.set_text_color(Color::WHITE);

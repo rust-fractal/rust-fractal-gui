@@ -149,7 +149,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             .with_child(Label::new("Root Zoom:").with_text_size(14.0))
             .with_flex_spacer(1.0)
             .with_child(NoUpdateLabel::new(24.0).lens(FractalData::root_zoom.map(|val| {
-                let output = if val.len() > 0 {
+                let output = if !val.is_empty() {
                     extended_to_string_short(string_to_extended(val))
                 } else {
                     String::new()
@@ -282,11 +282,11 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             .with_child(Flex::row()
                 .with_child(Label::new("Direction:").fix_width(100.0))
                 .with_flex_child(Slider::new()
-                    .with_range(0.0, 360.0)
+                    .with_range(0.0, 180.0)
                     .expand_width()
-                    .lens(FractalData::lighting_direction), 1.0)
+                    .lens(FractalData::lighting_direction.map(|val| *val / 2.0, |new, val| *new = 2.0 * val.round())), 1.0)
                 .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
-                    format!("{:>.3}", *data)
+                    format!("{:>3.0}°", *data)
                 }).lens(FractalData::lighting_direction)))
             .with_spacer(4.0)
             .with_child(Flex::row()
@@ -294,9 +294,9 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                 .with_flex_child(Slider::new()
                     .with_range(0.0, 90.0)
                     .expand_width()
-                    .lens(FractalData::lighting_azimuth), 1.0)
+                    .lens(FractalData::lighting_azimuth.map(|val| *val, |new, val| *new = val.round())), 1.0)
                 .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
-                    format!("{:>.3}", *data)
+                    format!("{:>3.0}°", *data)
                 }).lens(FractalData::lighting_azimuth)))
             .with_spacer(4.0)
             .with_child(Flex::row()
@@ -306,7 +306,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                     .expand_width()
                     .lens(FractalData::lighting_opacity), 1.0)
                 .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
-                    format!("{:>.3}", *data)
+                    format!("{:>4.1}%", 100.0 * *data)
                 }).lens(FractalData::lighting_opacity)))
             .with_spacer(4.0)
             .with_child(Flex::row()
@@ -316,7 +316,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                     .expand_width()
                     .lens(FractalData::lighting_ambient), 1.0)
                 .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
-                    format!("{:>.3}", *data)
+                    format!("{:>4.1}%", 100.0 * *data)
                 }).lens(FractalData::lighting_ambient)))
             .with_spacer(4.0)
             .with_child(Flex::row()
@@ -326,7 +326,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                     .expand_width()
                     .lens(FractalData::lighting_diffuse), 1.0)
                 .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
-                    format!("{:>.3}", *data)
+                    format!("{:>4.1}%", 100.0 * *data)
                 }).lens(FractalData::lighting_diffuse)))
             .with_spacer(4.0)
             .with_child(Flex::row()
@@ -336,17 +336,17 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                     .expand_width()
                     .lens(FractalData::lighting_specular), 1.0)
                 .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
-                    format!("{:>.3}", *data)
+                    format!("{:>4.1}%", 100.0 * *data)
                 }).lens(FractalData::lighting_specular)))
             .with_spacer(4.0)
             .with_child(Flex::row()
                 .with_child(Label::new("Shininess:").fix_width(100.0))
                 .with_flex_child(Slider::new()
-                    .with_range(0.0, 20.0)
+                    .with_range(0.0, 50.0)
                     .expand_width()
                     .lens(FractalData::lighting_shininess.map(|val| *val as f64, |new, val| *new = val as i64)), 1.0)
                 .with_child(Label::<i64>::new(|data: &i64, _env: &_| {
-                    format!("{:>3}", *data)
+                    format!("{:>4}", *data)
                 }).lens(FractalData::lighting_shininess)))
             .with_spacer(4.0)
             .with_child(Button::new("SET").on_click(|ctx, _data: &mut FractalData, _env| {
@@ -451,25 +451,33 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         .with_child(Label::new(format!("{} {} {}", env!("VERGEN_GIT_SHA_SHORT"), env!("VERGEN_GIT_COMMIT_DATE"), env!("VERGEN_GIT_COMMIT_TIME"))))
         .with_child(Label::new(format!("{} {}", env!("VERGEN_RUSTC_SEMVER"), env!("VERGEN_RUSTC_HOST_TRIPLE"))));
 
-    let button_save_advanced_options = Button::new("SAVE & UPDATE").on_click(|ctx, _data, _env| {
-        ctx.submit_command(SET_ADVANCED_OPTIONS);
-    }).expand_width().fix_height(40.0);
-
     let group_advanced_options = Flex::column()
-        .with_child(create_checkbox_row("Show glitched pixels").lens(FractalData::display_glitches))
-        .with_spacer(4.0)
-        .with_child(create_checkbox_row("Enable series approximation").lens(FractalData::series_approximation_enabled))
-        .with_spacer(4.0)
-        .with_child(create_checkbox_row("Tiled series approximation").lens(FractalData::series_approximation_tiled))
-        .with_spacer(4.0)
-        .with_child(create_checkbox_row("Jitter pixels").lens(FractalData::jitter))
-        .with_spacer(4.0)
         .with_child(create_checkbox_row("Automatically adjust iterations").lens(FractalData::auto_adjust_iterations))
         .with_spacer(4.0)
         .with_child(create_checkbox_row("Remove image centre").lens(FractalData::remove_centre))
         .with_spacer(4.0)
+        .with_child(create_checkbox_row("Show glitched pixels").lens(FractalData::display_glitches))
+        .with_spacer(4.0)
         .with_child(Flex::row()
-            .with_child(Label::new("S.A. Order:").fix_width(100.0))
+            .with_child(Label::new("Glitch tolerance:"))
+            .with_flex_child(Slider::new()
+                .with_range(-8.0, -3.0)
+                .expand_width()
+                .lens(FractalData::glitch_tolerance.map(
+                    |val| (*val).log10(), 
+                    |val, new| *val = 10.0f64.powf(new.floor() + ((10.0 * 10.0f64.powf(new - new.floor())).round() / 10.0).log10()  ))), 1.0)
+            .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
+                let temp = data.log10();
+                let exponent = temp.floor();
+                let mantissa = 10.0f64.powf(temp - exponent);
+
+                format!("{:.2}E{:1}", mantissa, exponent)
+            }).lens(FractalData::glitch_tolerance)))
+        .with_spacer(4.0)
+        .with_child(create_checkbox_row("Series approximation").lens(FractalData::series_approximation_enabled))
+        .with_spacer(4.0)
+        .with_child(Flex::row()
+            .with_child(Label::new("Series order:"))
             .with_flex_child(Slider::new()
                 .with_range(1.0, 16.0)
                 .expand_width()
@@ -480,11 +488,36 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                 format!("{:>3}", *data)
             }).lens(FractalData::order)))
         .with_spacer(4.0)
-        .with_child(create_label_textbox_row("GLITCH TOL:", 120.0).lens(FractalData::glitch_tolerance))
+        .with_child(create_checkbox_row("Tiled series approximation").lens(FractalData::series_approximation_tiled))
         .with_spacer(4.0)
-        .with_child(create_label_textbox_row("GLITCH %:", 120.0).lens(FractalData::glitch_percentage))
         .with_child(Flex::row()
-            .with_child(Label::new("Data Int.:").fix_width(100.0))
+            .with_child(Label::new("Tiled sampling:"))
+            .with_flex_child(Slider::new()
+                .with_range(1.0, 100.0)
+                .expand_width()
+                .lens(FractalData::probe_sampling.map(
+                    |val| *val as f64, 
+                    |val, new| *val = new as i64)), 1.0)
+            .with_child(Label::<i64>::new(|data: &i64, _env: &_| {
+                format!("{:>3}", *data)
+            }).lens(FractalData::probe_sampling)))
+        .with_spacer(4.0)
+        .with_child(create_checkbox_row("Jitter pixels").lens(FractalData::jitter))
+        .with_spacer(4.0)
+        .with_child(Flex::row()
+            .with_child(Label::new("Jitter spread:"))
+            .with_flex_child(Slider::new()
+                .with_range(0.0, 1.0)
+                .expand_width()
+                .lens(FractalData::jitter_factor.map(
+                    |val| *val, 
+                    |val, new| *val = new)), 1.0)
+            .with_child(Label::<f64>::new(|data: &f64, _env: &_| {
+                format!("{:>3.2}", *data)
+            }).lens(FractalData::jitter_factor)))
+        .with_spacer(4.0)
+        .with_child(Flex::row()
+            .with_child(Label::new("Data interval:"))
             .with_flex_child(Slider::new()
                 .with_range(0.0, 5.0)
                 .expand_width()
@@ -495,13 +528,9 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                 format!("{:>6}", *data)
             }).lens(FractalData::iteration_interval)))
         .with_spacer(4.0)
-        .with_child(create_label_textbox_row("PROBE SAMPLING:", 100.0).lens(FractalData::probe_sampling))
-        .with_spacer(4.0)
-        .with_child(create_label_textbox_row("JITTER FACTOR:", 100.0).lens(FractalData::jitter_factor));
-
-    let group_extra = Flex::column()
-        .with_child(button_save_advanced_options)
-        .with_child(group_advanced_options);
+        .with_child(Button::new("SET").on_click(|ctx, _data, _env| {
+            ctx.submit_command(SET_ADVANCED_OPTIONS);
+        }).expand_width().fix_height(40.0));
 
     let tabs_menu = Either::new(|data: &FractalData, _env| data.current_tab)
         .add_branch(Flex::column()
@@ -510,7 +539,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             .with_child(group_palette)
         )
         .add_branch(group_location)
-        .add_branch(group_extra);
+        .add_branch(group_advanced_options);
 
     let tabs_selector = Flex::row()
         .with_flex_child(Button::from_label(Label::new("IMAGE").with_text_size(16.0)).on_click(|_ctx, data: &mut FractalData, _env| {
