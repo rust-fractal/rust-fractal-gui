@@ -487,7 +487,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         .with_child(Flex::row()
             .with_child(Label::new("Tiled sampling:"))
             .with_flex_child(Slider::new()
-                .with_range(1.0, 100.0)
+                .with_range(2.0, 100.0)
                 .expand_width()
                 .lens(FractalData::probe_sampling.map(
                     |val| *val as f64, 
