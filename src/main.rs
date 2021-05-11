@@ -212,6 +212,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         zoom.reduce();
 
                         let mut location = renderer.center_reference.c.clone();
+
                         let precision = location.real().prec();
     
                         let temp = FloatArbitrary::with_val(precision, element.exponent).exp2();
@@ -874,7 +875,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 }
 
                 if command.is(RESET_RENDERER_FAST) {
-                    // renderer.maximum_iteration = renderer.data_export.lock().maximum_iteration;
+                    renderer.maximum_iteration = settings.get_int("iterations").unwrap() as usize;
 
                     if data.need_full_rerender {
                         // println!("needs full rerender");
@@ -1349,7 +1350,7 @@ pub fn main() {
     settings.merge(File::with_name("start.toml")).unwrap();
 
     if settings.get_bool("show_output").unwrap() {
-        println!("{:<15}| {:<15}| {:<15}| {:<6}| {:<15}| {:<15}| {:<15}| {:<6}| {:<15}", "Zoom", "Approx [ms]", "Skipped [it]", "Order", "Maximum [it]", "Iteration [ms]", "Correct [ms]", "Ref", "Frame [ms]");
+        println!(" {:<15}| {:<15}| {:<15}| {:<6}| {:<15}| {:<15}| {:<15}| {:<6}| {:<15}", "Zoom", "Approx [ms]", "Skipped [it]", "Order", "Maximum [it]", "Iteration [ms]", "Correct [ms]", "Ref", "Frame [ms]");
     };
 
     let shared_settings = Arc::new(Mutex::new(settings.clone()));
