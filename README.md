@@ -19,7 +19,7 @@ A GUI frontend for the rust-fractal library based on the Druid library. rust-fra
 - Utilises scaling and mantissa-exponent based extended precision to allow for arbitrary zoom, whilst maintaining good performance. Verified to be working at depths exceeding E50000. This is theoretically only limited by MPFR's precision.
 
 ## Compiling
-You need to be able to compile the 'rug' crate which requires a rust GNU toolchain. Look in the documentation for rug for more information on how to do this. Once all required dependencies have been installed, build the crate with:
+You need to be able to compile the 'rug' crate which requires a rust GNU toolchain. A nightly toolchain is also required. Look in the documentation for rug for more information on how to do this. Once all required dependencies have been installed, build the crate with:
 
 ```cargo build --release```
 
