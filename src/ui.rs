@@ -29,8 +29,8 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         image_width: 0,
         image_height: 0,
         save_type: 0,
-        newton_pos1: (0.0, 0.0),
-        newton_pos2: (0.0, 0.0),
+        pos1: (0.0, 0.0),
+        pos2: (0.0, 0.0),
         root_pos_start: (0.0, 0.0),
         root_pos_current: (0.0, 0.0),
         cached_image: None,
@@ -216,7 +216,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                     }
                 }).on_click(|_ctx, data: &mut usize, _env| {
                     *data = if *data == 0 {
-                        1
+                        2
                     } else {
                         0
                     };

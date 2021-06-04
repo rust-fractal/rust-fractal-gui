@@ -45,8 +45,8 @@ struct FractalWidget<'a> {
     image_width: usize,
     image_height: usize,
     save_type: usize,
-    newton_pos1: (f64, f64),
-    newton_pos2: (f64, f64),
+    pos1: (f64, f64),
+    pos2: (f64, f64),
     root_pos_start: (f64, f64),
     root_pos_current: (f64, f64),
     cached_image: Option<<D2DRenderContext<'a> as RenderContext>::Image>,
@@ -142,16 +142,19 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
             }
             // TODO this section sometimes blocks. Needs to be fixed
             Event::MouseMove(e) => {
+                // if data.mouse_mode != 0 {
                 if data.mouse_mode != 0 {
-                    self.newton_pos2 = (e.pos.x, e.pos.y);
+                    self.pos2 = (e.pos.x, e.pos.y);
                     
-                    let top_left = (self.newton_pos1.0.min(self.newton_pos2.0), self.newton_pos1.1.min(self.newton_pos2.1));
-                    let bottom_right = (self.newton_pos1.0.max(self.newton_pos2.0), self.newton_pos1.1.max(self.newton_pos2.1));
+                    let top_left = (self.pos1.0.min(self.pos2.0), self.pos1.1.min(self.pos2.1));
+                    let bottom_right = (self.pos1.0.max(self.pos2.0), self.pos1.1.max(self.pos2.1));
 
                     self.root_pos_current = (0.5 * (top_left.0 + bottom_right.0), 0.5 * (top_left.1 + bottom_right.1));
 
                     ctx.request_paint();
                 }
+
+
                 // if data.rendering_stage == 0 {
                 //     let size = ctx.size().to_rect();
 
@@ -185,14 +188,36 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                 // Zoom in, use the mouse position
                 if e.button == MouseButton::Left {
-                    if data.mouse_mode == 0 {
+                    self.pos1 = (e.pos.x, e.pos.y);
+                    self.pos2 = (e.pos.x, e.pos.y);
+
+                    if data.mouse_mode == 2 {
+                        self.show_selecting_box = true;
+                    } else {
+                        data.mouse_mode = 1;
+                    }
+                }
+
+                if e.button == MouseButton::Right {
+                    ctx.submit_command(MULTIPLY_ZOOM.with(1.0 / data.zoom_scale_factor));
+                }
+            },
+            Event::MouseUp(e) => {
+                if e.button == MouseButton::Left {
+                    if data.mouse_mode == 2 {
+                        self.pos2 = (e.pos.x, e.pos.y);
+
+                        ctx.submit_command(CALCULATE_ROOT);
+                    } else {
+                        data.mouse_mode = 0;
+
                         let mut settings = data.settings.lock();
                         let mut renderer = data.renderer.lock();
     
                         let size = ctx.size().to_rect();
     
-                        let i = e.pos.x * renderer.image_width as f64 / size.width();
-                        let j = e.pos.y * renderer.image_height as f64 / size.height();
+                        let i = renderer.image_width as f64 / 2.0 - (self.pos2.0 - self.pos1.0) * renderer.image_width as f64 / size.width();
+                        let j = renderer.image_height as f64 / 2.0 - (self.pos2.1 - self.pos1.1) * renderer.image_height as f64 / size.height();
     
                         let cos_rotate = renderer.rotate.cos();
                         let sin_rotate = renderer.rotate.sin();
@@ -236,24 +261,12 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
     
                         settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
                         data.iteration_limit = renderer.maximum_iteration as i64;
-    
+                        
+                        self.pos1 = (0.0, 0.0);
+                        self.pos2 = (0.0, 0.0);
+
                         ctx.submit_command(RESET_RENDERER_FULL);
-                    } else {
-                        self.show_selecting_box = true;
-                        self.newton_pos1 = (e.pos.x, e.pos.y);
                     }
-                }
-
-                if e.button == MouseButton::Right {
-                    ctx.submit_command(MULTIPLY_ZOOM.with(1.0 / data.zoom_scale_factor));
-                }
-            },
-            Event::MouseUp(e) => {
-                if e.button == MouseButton::Left && data.mouse_mode != 0 {
-                    data.mouse_mode = 0;
-                    self.newton_pos2 = (e.pos.x, e.pos.y);
-
-                    ctx.submit_command(CALCULATE_ROOT);
                 }
             }
             Event::KeyUp(e) => {
@@ -929,8 +942,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     let size = ctx.size().to_rect();
 
-                    let top_left = (self.newton_pos1.0.min(self.newton_pos2.0), self.newton_pos1.1.min(self.newton_pos2.1));
-                    let bottom_right = (self.newton_pos1.0.max(self.newton_pos2.0), self.newton_pos1.1.max(self.newton_pos2.1));
+                    let top_left = (self.pos1.0.min(self.pos2.0), self.pos1.1.min(self.pos2.1));
+                    let bottom_right = (self.pos1.0.max(self.pos2.0), self.pos1.1.max(self.pos2.1));
 
                     self.root_pos_current = (0.5 * (top_left.0 + bottom_right.0), 0.5 * (top_left.1 + bottom_right.1));
                     self.root_pos_start = self.root_pos_current;
@@ -1312,7 +1325,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 self.needs_buffer_refresh = false;
             }
 
-            let size = ctx.size().to_rect();
+            let mut size = ctx.size().to_rect();
 
             let interpolation_mode = if self.image_width > size.width() as usize || self.image_height > size.height() as usize {
                 InterpolationMode::Bilinear
@@ -1320,10 +1333,29 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 InterpolationMode::NearestNeighbor
             };
 
-            ctx.draw_image(self.cached_image.as_ref().unwrap(), size, interpolation_mode);
+            let mut image_position = Rect::new(0.0, 0.0, self.image_width as f64, self.image_height as f64);
+
+            if !self.show_selecting_box {
+                let x_delta = self.pos2.0 - self.pos1.0;
+                let y_delta = self.pos2.1 - self.pos1.1;
+    
+                image_position.x0 -= x_delta.min(0.0) * self.image_width as f64 / size.x1;
+                image_position.y0 -= y_delta.min(0.0) * self.image_height as f64 / size.y1;
+
+                image_position.x1 -= x_delta.max(0.0) * self.image_width as f64 / size.x1;
+                image_position.y1 -= y_delta.max(0.0) * self.image_height as f64 / size.y1;
+    
+                size.x0 += x_delta.max(0.0);
+                size.y0 += y_delta.max(0.0);
+
+                size.x1 += x_delta.min(0.0);
+                size.y1 += y_delta.min(0.0);
+            }
+
+            ctx.draw_image_area(self.cached_image.as_ref().unwrap(), image_position, size, interpolation_mode);
 
             if self.show_selecting_box {
-                let rect = Rect::from_origin_size(self.newton_pos1, (self.newton_pos2.0 - self.newton_pos1.0, self.newton_pos2.1 - self.newton_pos1.1));
+                let rect = Rect::from_origin_size(self.pos1, (self.pos2.0 - self.pos1.0, self.pos2.1 - self.pos1.1));
                 let fill_color = Color::rgba8(0, 0, 0, 150);
                 ctx.fill(rect, &fill_color);
 
