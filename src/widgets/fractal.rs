@@ -383,6 +383,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                 if let Some(root_zoom) = command.get(ROOT_FINDING_COMPLETE) {
                     self.mouse_mode = MouseMode::None;
+                    self.pos1 = self.pos2;
 
                     data.root_progress = 1.0;
                     data.root_iteration = 64;
@@ -756,16 +757,18 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 if let Some(factor) = command.get(MULTIPLY_PATTERN) {
                     let new_zoom = linear_interpolation_between_zoom(renderer.zoom, string_to_extended(&data.root_zoom), *factor);
 
-                    renderer.zoom = new_zoom;
+                    if new_zoom.exponent > -1 {
+                        renderer.zoom = new_zoom;
 
-                    data.zoom = extended_to_string_long(renderer.zoom);
-                    settings.set("zoom", data.zoom.clone()).unwrap();
+                        data.zoom = extended_to_string_long(renderer.zoom);
+                        settings.set("zoom", data.zoom.clone()).unwrap();
 
-                    if string_to_extended(&data.zoom) > string_to_extended(&data.center_reference_zoom) {
-                        data.need_full_rerender = true;
-                    };
-
-                    ctx.submit_command(RESET_RENDERER_FAST);
+                        if string_to_extended(&data.zoom) > string_to_extended(&data.center_reference_zoom) {
+                            data.need_full_rerender = true;
+                        };
+    
+                        ctx.submit_command(RESET_RENDERER_FAST);
+                    }
 
                     return;
                 }

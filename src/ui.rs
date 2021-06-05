@@ -163,7 +163,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         .with_child(Flex::row()
             .with_child(Label::new("Pattern Zoom: ").with_text_size(14.0))
             .with_flex_child(Slider::new()
-                .with_range(-1.0,4.0).expand_width()
+                .with_range(0.0,4.0).expand_width()
                 .lens(FractalData::root_zoom_factor.map(
                     |val| (1.0 / (1.0 - val)).log2(), 
                     |val, new| *val = 1.0 - (1.0 / 2.0_f64.powf(new.round())))), 1.0)
@@ -217,12 +217,12 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                     };
                 }).lens(FractalData::mouse_mode).expand_width().fix_height(24.0), 1.0)
             .with_spacer(4.0)
-            .with_flex_child(Button::new("CENTRAL OUT").on_click(|ctx, _data: &mut FractalData, _env| {
-                ctx.submit_command(MULTIPLY_PATTERN.with(-1.0));
+            .with_flex_child(Button::new("CENTRAL OUT").on_click(|ctx, data: &mut FractalData, _env| {
+                ctx.submit_command(MULTIPLY_PATTERN.with(1.0 - 1.0 / (1.0 - data.root_zoom_factor)));
             }).expand_width().fix_height(24.0), 1.0)
             .with_spacer(4.0)
-            .with_flex_child(Button::new("CENTRAL IN").on_click(|ctx, _data: &mut FractalData, _env| {
-                ctx.submit_command(MULTIPLY_PATTERN.with(0.5));
+            .with_flex_child(Button::new("CENTRAL IN").on_click(|ctx, data: &mut FractalData, _env| {
+                ctx.submit_command(MULTIPLY_PATTERN.with(data.root_zoom_factor));
             }).expand_width().fix_height(24.0), 1.0));
 
     let group_palette = Flex::column()
