@@ -4,4 +4,4 @@ mod fractal;
 
 pub use no_update_label::NoUpdateLabel;
 pub use either::Either;
-pub use fractal::{FractalData, FractalWidget};
+pub use fractal::{FractalData, FractalWidget, MouseMode};

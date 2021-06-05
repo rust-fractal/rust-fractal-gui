@@ -29,6 +29,13 @@ use std::cmp::min;
 
 use crate::commands::*;
 
+#[derive(PartialEq, Clone, Copy)]
+pub enum MouseMode {
+    None,
+    Panning,
+    RootFinding
+}
+
 pub struct FractalWidget<'a> {
     pub image_width: usize,
     pub image_height: usize,
@@ -39,7 +46,7 @@ pub struct FractalWidget<'a> {
     pub root_pos_current: (f64, f64),
     pub cached_image: Option<<D2DRenderContext<'a> as RenderContext>::Image>,
     pub needs_buffer_refresh: bool,
-    pub show_selecting_box: bool,
+    pub mouse_mode: MouseMode,
     pub renderer_zoom: FloatExtended,
     pub renderer_rotate: (f64, f64)
 }
@@ -128,20 +135,30 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                 data.sender.lock().send(THREAD_RESET_RENDERER_FULL).unwrap();
             }
-            // TODO this section sometimes blocks. Needs to be fixed
             Event::MouseMove(e) => {
-                // if data.mouse_mode != 0 {
-                if data.mouse_mode != 0 {
-                    self.pos2 = (e.pos.x, e.pos.y);
-                    
-                    let top_left = (self.pos1.0.min(self.pos2.0), self.pos1.1.min(self.pos2.1));
-                    let bottom_right = (self.pos1.0.max(self.pos2.0), self.pos1.1.max(self.pos2.1));
-
-                    self.root_pos_current = (0.5 * (top_left.0 + bottom_right.0), 0.5 * (top_left.1 + bottom_right.1));
-
-                    ctx.request_paint();
+                // If the rendering / root finding has not completed, stop
+                if data.rendering_stage != 0 || data.root_stage == 1 {
+                    return;
                 }
 
+                match self.mouse_mode {
+                    MouseMode::RootFinding => {
+                        self.pos2 = (e.pos.x, e.pos.y);
+
+                        let top_left = (self.pos1.0.min(self.pos2.0), self.pos1.1.min(self.pos2.1));
+                        let bottom_right = (self.pos1.0.max(self.pos2.0), self.pos1.1.max(self.pos2.1));
+
+                        self.root_pos_current = (0.5 * (top_left.0 + bottom_right.0), 0.5 * (top_left.1 + bottom_right.1));
+
+                        ctx.request_paint();
+                    }
+                    MouseMode::Panning => {
+                        self.pos2 = (e.pos.x, e.pos.y);
+
+                        ctx.request_paint();
+                    },
+                    MouseMode::None => {},
+                }
 
                 // if data.rendering_stage == 0 {
                 //     let size = ctx.size().to_rect();
@@ -174,90 +191,151 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     return;
                 }
 
-                // Zoom in, use the mouse position
                 if e.button == MouseButton::Left {
                     self.pos1 = (e.pos.x, e.pos.y);
                     self.pos2 = (e.pos.x, e.pos.y);
 
-                    if data.mouse_mode == 2 {
-                        self.show_selecting_box = true;
+                    self.mouse_mode = if data.mouse_mode == 2 {
+                        MouseMode::RootFinding
                     } else {
-                        data.mouse_mode = 1;
+                        MouseMode::Panning
                     }
-                }
-
-                if e.button == MouseButton::Right {
-                    ctx.submit_command(MULTIPLY_ZOOM.with(1.0 / data.zoom_scale_factor));
                 }
             },
             Event::MouseUp(e) => {
+                // If the rendering / root finding has not completed, stop
+                if data.rendering_stage != 0 || data.root_stage == 1 {
+                    return;
+                }
+
                 if e.button == MouseButton::Left {
-                    if data.mouse_mode == 2 {
-                        self.pos2 = (e.pos.x, e.pos.y);
+                    match self.mouse_mode {
+                        MouseMode::RootFinding => {
+                            self.pos2 = (e.pos.x, e.pos.y);
 
-                        ctx.submit_command(CALCULATE_ROOT);
-                    } else {
-                        data.mouse_mode = 0;
+                            ctx.submit_command(CALCULATE_ROOT);
+                        },
+                        MouseMode::Panning => {
+                            self.pos2 = (e.pos.x, e.pos.y);
 
-                        let mut settings = data.settings.lock();
-                        let mut renderer = data.renderer.lock();
+                            let mut settings = data.settings.lock();
+                            let renderer = data.renderer.lock();
+        
+                            let size = ctx.size().to_rect();
+        
+                            let i = renderer.image_width as f64 / 2.0 - (self.pos2.0 - self.pos1.0) * renderer.image_width as f64 / size.width();
+                            let j = renderer.image_height as f64 / 2.0 - (self.pos2.1 - self.pos1.1) * renderer.image_height as f64 / size.height();
+        
+                            let cos_rotate = renderer.rotate.cos();
+                            let sin_rotate = renderer.rotate.sin();
+        
+                            let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
+                            let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
+        
+                            let element = ComplexFixed::new(
+                                i * delta_pixel * cos_rotate - j * delta_pixel * sin_rotate + delta_top_left.re, 
+                                i * delta_pixel * sin_rotate + j * delta_pixel * cos_rotate + delta_top_left.im
+                            );
+        
+                            let element = ComplexExtended::new(element, -renderer.zoom.exponent);
     
-                        let size = ctx.size().to_rect();
+                            let mut location = renderer.center_reference.c.clone();
     
-                        let i = renderer.image_width as f64 / 2.0 - (self.pos2.0 - self.pos1.0) * renderer.image_width as f64 / size.width();
-                        let j = renderer.image_height as f64 / 2.0 - (self.pos2.1 - self.pos1.1) * renderer.image_height as f64 / size.height();
-    
-                        let cos_rotate = renderer.rotate.cos();
-                        let sin_rotate = renderer.rotate.sin();
-    
-                        let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
-                        let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
-    
-                        let element = ComplexFixed::new(
-                            i * delta_pixel * cos_rotate - j * delta_pixel * sin_rotate + delta_top_left.re, 
-                            i * delta_pixel * sin_rotate + j * delta_pixel * cos_rotate + delta_top_left.im
-                        );
-    
-                        let element = ComplexExtended::new(element, -renderer.zoom.exponent);
-                        let mut zoom = renderer.zoom;
+                            let precision = location.real().prec();
+        
+                            let temp = FloatArbitrary::with_val(precision, element.exponent).exp2();
+                            let temp2 = FloatArbitrary::with_val(precision, element.mantissa.re);
+                            let temp3 = FloatArbitrary::with_val(precision, element.mantissa.im);
+        
+                            *location.mut_real() += &temp2 * &temp;
+                            *location.mut_imag() += &temp3 * &temp;
+        
+                            // Set the overrides for the current location
+                            settings.set("real", location.real().to_string()).unwrap();
+                            settings.set("imag", location.imag().to_string()).unwrap();
+        
+                            data.real = settings.get_str("real").unwrap();
+                            data.imag = settings.get_str("imag").unwrap();
 
-                        zoom.mantissa *= data.zoom_scale_factor;
-                        zoom.reduce();
-
-                        let mut location = renderer.center_reference.c.clone();
-
-                        let precision = location.real().prec();
+                            self.mouse_mode = MouseMode::None;
     
-                        let temp = FloatArbitrary::with_val(precision, element.exponent).exp2();
-                        let temp2 = FloatArbitrary::with_val(precision, element.mantissa.re);
-                        let temp3 = FloatArbitrary::with_val(precision, element.mantissa.im);
-    
-                        *location.mut_real() += &temp2 * &temp;
-                        *location.mut_imag() += &temp3 * &temp;
-    
-                        data.zoom = extended_to_string_long(zoom);
-    
-                        // Set the overrides for the current location
-                        settings.set("real", location.real().to_string()).unwrap();
-                        settings.set("imag", location.imag().to_string()).unwrap();
-                        settings.set("zoom", data.zoom.clone()).unwrap();
-    
-                        data.real = settings.get_str("real").unwrap();
-                        data.imag = settings.get_str("imag").unwrap();
-    
-                        renderer.adjust_iterations();
-    
-                        settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
-                        data.iteration_limit = renderer.maximum_iteration as i64;
-                        
-                        self.pos1 = (0.0, 0.0);
-                        self.pos2 = (0.0, 0.0);
-
-                        ctx.submit_command(RESET_RENDERER_FULL);
+                            ctx.submit_command(RESET_RENDERER_FULL);
+                        },
+                        MouseMode::None => {},
                     }
                 }
             }
+            Event::Wheel(e) => {
+                if e.wheel_delta.y > 0.0 {
+                    ctx.submit_command(MULTIPLY_ZOOM.with(1.0 / data.zoom_scale_factor));
+                } else {
+                    // If the rendering / root finding has not completed, stop
+                    if data.rendering_stage != 0 || data.root_stage == 1 {
+                        return;
+                    }
+
+                    let mut settings = data.settings.lock();
+                    let mut renderer = data.renderer.lock();
+
+                    let size = ctx.size().to_rect();
+
+                    let i = e.pos.x * renderer.image_width as f64 / size.width();
+                    let j = e.pos.y * renderer.image_height as f64 / size.height();
+
+                    let cos_rotate = renderer.rotate.cos();
+                    let sin_rotate = renderer.rotate.sin();
+
+                    let delta_pixel =  4.0 / ((renderer.image_height - 1) as f64 * renderer.zoom.mantissa);
+                    let delta_top_left = get_delta_top_left(delta_pixel, renderer.image_width, renderer.image_height, cos_rotate, sin_rotate);
+
+                    let element = ComplexFixed::new(
+                        i * delta_pixel * cos_rotate - j * delta_pixel * sin_rotate + delta_top_left.re, 
+                        i * delta_pixel * sin_rotate + j * delta_pixel * cos_rotate + delta_top_left.im
+                    );
+
+                    let element = ComplexExtended::new(element, -renderer.zoom.exponent);
+                    let mut zoom = renderer.zoom;
+
+                    zoom.mantissa *= data.zoom_scale_factor;
+                    zoom.reduce();
+
+                    let mut location = renderer.center_reference.c.clone();
+
+                    let precision = location.real().prec();
+
+                    let temp = FloatArbitrary::with_val(precision, element.exponent).exp2();
+                    let temp2 = FloatArbitrary::with_val(precision, element.mantissa.re);
+                    let temp3 = FloatArbitrary::with_val(precision, element.mantissa.im);
+
+                    *location.mut_real() += &temp2 * &temp;
+                    *location.mut_imag() += &temp3 * &temp;
+
+                    data.zoom = extended_to_string_long(zoom);
+
+                    // Set the overrides for the current location
+                    settings.set("real", location.real().to_string()).unwrap();
+                    settings.set("imag", location.imag().to_string()).unwrap();
+                    settings.set("zoom", data.zoom.clone()).unwrap();
+
+                    data.real = settings.get_str("real").unwrap();
+                    data.imag = settings.get_str("imag").unwrap();
+
+                    renderer.adjust_iterations();
+
+                    settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
+                    data.iteration_limit = renderer.maximum_iteration as i64;
+
+                    self.mouse_mode = MouseMode::None;
+
+                    ctx.submit_command(RESET_RENDERER_FULL);
+                }
+            }
             Event::KeyUp(e) => {
+                // If the rendering / root finding has not completed, stop
+                if data.rendering_stage != 0 || data.root_stage == 1 {
+                    return;
+                }
+
                 // Shortcut keys
                 if e.key == KbKey::Character("Z".to_string()) || e.key == KbKey::Character("z".to_string()) {
                     ctx.submit_command(MULTIPLY_ZOOM.with(2.0));
@@ -304,7 +382,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                 }
 
                 if let Some(root_zoom) = command.get(ROOT_FINDING_COMPLETE) {
-                    self.show_selecting_box = false;
+                    self.mouse_mode = MouseMode::None;
 
                     data.root_progress = 1.0;
                     data.root_iteration = 64;
@@ -1310,6 +1388,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     .make_image(self.image_width, self.image_height, &temporary_image, ImageFormat::Rgb)
                     .unwrap());
 
+                self.pos1 = self.pos2;
+
                 self.needs_buffer_refresh = false;
             }
 
@@ -1323,16 +1403,16 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
             let mut image_position = Rect::new(0.0, 0.0, self.image_width as f64, self.image_height as f64);
 
-            if !self.show_selecting_box {
+            if self.mouse_mode != MouseMode::RootFinding {
                 let x_delta = self.pos2.0 - self.pos1.0;
                 let y_delta = self.pos2.1 - self.pos1.1;
-    
+
                 image_position.x0 -= x_delta.min(0.0) * self.image_width as f64 / size.x1;
                 image_position.y0 -= y_delta.min(0.0) * self.image_height as f64 / size.y1;
 
                 image_position.x1 -= x_delta.max(0.0) * self.image_width as f64 / size.x1;
                 image_position.y1 -= y_delta.max(0.0) * self.image_height as f64 / size.y1;
-    
+
                 size.x0 += x_delta.max(0.0);
                 size.y0 += y_delta.max(0.0);
 
@@ -1342,7 +1422,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
             ctx.draw_image_area(self.cached_image.as_ref().unwrap(), image_position, size, interpolation_mode);
 
-            if self.show_selecting_box {
+            if self.mouse_mode == MouseMode::RootFinding {
                 let rect = Rect::from_origin_size(self.pos1, (self.pos2.0 - self.pos1.0, self.pos2.1 - self.pos1.1));
                 let fill_color = Color::rgba8(0, 0, 0, 150);
                 ctx.fill(rect, &fill_color);

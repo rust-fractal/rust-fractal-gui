@@ -30,7 +30,7 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
         root_pos_current: (0.0, 0.0),
         cached_image: None,
         needs_buffer_refresh: true,
-        show_selecting_box: false,
+        mouse_mode: MouseMode::None,
         renderer_zoom: FloatExtended::new(0.0, 0),
         renderer_rotate: (0.0, 0.0),
     });
