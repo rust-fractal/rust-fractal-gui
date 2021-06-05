@@ -1,8 +1,6 @@
 use druid::Selector;
 
-use rust_fractal::util::{ComplexExtended, FloatExtended};
-
-use crate::ColoringType;
+use rust_fractal::util::{ComplexExtended, FloatExtended, data_export::ColoringType};
 
 pub const RESET_RENDERER_FAST: Selector<()> = Selector::new("reset_renderer_fast");
 pub const RESET_RENDERER_FULL: Selector<()> = Selector::new("reset_renderer_full");

@@ -1,6 +1,6 @@
 use druid::Lens;
 
-use crate::FractalData;
+use crate::widgets::FractalData;
 pub struct RealLens;
 
 impl Lens<FractalData, String> for RealLens {

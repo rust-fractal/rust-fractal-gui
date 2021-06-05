@@ -12,15 +12,10 @@ use druid::theme::{PRIMARY_DARK, BACKGROUND_DARK};
 
 use parking_lot::Mutex;
 use std::sync::Arc;
-use rust_fractal::{
-    renderer::FractalRenderer,
-    util::{string_to_extended, extended_to_string_short, FloatExtended}
-};
+use rust_fractal::{renderer::FractalRenderer, util::{FloatExtended, data_export::ColoringType, extended_to_string_short, string_to_extended}};
 
-use crate::{FractalData, FractalWidget, ColoringType};
+use crate::widgets::*;
 use crate::custom::*;
-
-
 use crate::commands::*;
 use crate::lens;
 

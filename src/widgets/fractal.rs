@@ -4,7 +4,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use druid::{widget::prelude::*};
-use druid::{AppLauncher, LocalizedString, Widget, WindowDesc, MouseButton, KbKey, FileDialogOptions, FileSpec, Data, Lens, Rect};
+use druid::{Widget, MouseButton, KbKey, FileDialogOptions, FileSpec, Data, Lens, Rect};
 use druid::piet::{ImageFormat, InterpolationMode, D2DRenderContext, Color};
 use druid::kurbo::Circle;
 use druid::commands::{
@@ -23,107 +23,95 @@ use rust_fractal::math::BoxPeriod;
 
 use config::{Config, File};
 
-use std::thread;
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::cmp::min;
 
-mod ui;
-pub mod lens;
-mod saving;
-pub mod custom;
-pub mod render_thread;
-pub mod commands;
-pub mod theme;
-
 use crate::commands::*;
-use crate::theme::*;
 
-use render_thread::testing_renderer;
-
-struct FractalWidget<'a> {
-    image_width: usize,
-    image_height: usize,
-    save_type: usize,
-    pos1: (f64, f64),
-    pos2: (f64, f64),
-    root_pos_start: (f64, f64),
-    root_pos_current: (f64, f64),
-    cached_image: Option<<D2DRenderContext<'a> as RenderContext>::Image>,
-    needs_buffer_refresh: bool,
-    show_selecting_box: bool,
-    renderer_zoom: FloatExtended,
-    renderer_rotate: (f64, f64)
+pub struct FractalWidget<'a> {
+    pub image_width: usize,
+    pub image_height: usize,
+    pub save_type: usize,
+    pub pos1: (f64, f64),
+    pub pos2: (f64, f64),
+    pub root_pos_start: (f64, f64),
+    pub root_pos_current: (f64, f64),
+    pub cached_image: Option<<D2DRenderContext<'a> as RenderContext>::Image>,
+    pub needs_buffer_refresh: bool,
+    pub show_selecting_box: bool,
+    pub renderer_zoom: FloatExtended,
+    pub renderer_rotate: (f64, f64)
 }
 
 #[derive(Clone, Data, Lens)]
 pub struct FractalData {
-    image_width: i64,
-    image_height: i64,
-    real: String,
-    imag: String,
-    zoom: String,
-    root_zoom: String,
-    iteration_limit: i64,
-    rotation: f64,
-    order: i64,
-    period: usize,
-    palette_source: String,
-    palette_cyclic: bool,
-    palette_iteration_span: f64,
-    palette_offset: f64,
+    pub image_width: i64,
+    pub image_height: i64,
+    pub real: String,
+    pub imag: String,
+    pub zoom: String,
+    pub root_zoom: String,
+    pub iteration_limit: i64,
+    pub rotation: f64,
+    pub order: i64,
+    pub period: usize,
+    pub palette_source: String,
+    pub palette_cyclic: bool,
+    pub palette_iteration_span: f64,
+    pub palette_offset: f64,
     #[data(same_fn = "PartialEq::eq")]
-    coloring_type: ColoringType,
-    rendering_progress: f64,
-    root_progress: f64,
-    rendering_stage: usize,
-    rendering_time: usize,
-    root_iteration: usize,
-    root_stage: usize,
-    min_valid_iterations: usize,
-    max_valid_iterations: usize,
-    min_iterations: usize,
-    max_iterations: usize,
-    display_glitches: bool,
-    glitch_tolerance: f64,
-    glitch_percentage: f64,
-    iteration_interval: i64,
-    series_approximation_tiled: bool,
-    series_approximation_enabled: bool,
-    probe_sampling: i64,
-    jitter: bool,
-    jitter_factor: f64,
-    auto_adjust_iterations: bool,
-    remove_centre: bool,
-    renderer: Arc<Mutex<FractalRenderer>>,
-    settings: Arc<Mutex<Config>>,
-    sender: Arc<Mutex<mpsc::Sender<usize>>>,
-    stop_flag: Arc<AtomicBool>,
-    repeat_flag: Arc<AtomicBool>,
-    buffer: Arc<Mutex<DataExport>>,
-    need_full_rerender: bool,
-    zoom_out_enabled: bool,
-    pixel_pos: [u32; 2],
-    pixel_iterations: u32,
-    pixel_smooth: f32,
-    pixel_rgb: Arc<Mutex<Vec<u8>>>,
-    mouse_mode: usize,
-    current_tab: usize,
-    zoom_scale_factor: f64,
-    root_zoom_factor: f64,
-    center_reference_zoom: String,
-    reference_count: usize,
-    stripe_scale: f32,
-    distance_transition: f32,
-    distance_color: bool,
-    lighting: bool,
-    lighting_direction: f64,
-    lighting_azimuth: f64,
-    lighting_opacity: f64,
-    lighting_ambient: f64,
-    lighting_diffuse: f64,
-    lighting_specular: f64,
-    lighting_shininess: i64,
+    pub coloring_type: ColoringType,
+    pub rendering_progress: f64,
+    pub root_progress: f64,
+    pub rendering_stage: usize,
+    pub rendering_time: usize,
+    pub root_iteration: usize,
+    pub root_stage: usize,
+    pub min_valid_iterations: usize,
+    pub max_valid_iterations: usize,
+    pub min_iterations: usize,
+    pub max_iterations: usize,
+    pub display_glitches: bool,
+    pub glitch_tolerance: f64,
+    pub glitch_percentage: f64,
+    pub iteration_interval: i64,
+    pub series_approximation_tiled: bool,
+    pub series_approximation_enabled: bool,
+    pub probe_sampling: i64,
+    pub jitter: bool,
+    pub jitter_factor: f64,
+    pub auto_adjust_iterations: bool,
+    pub remove_centre: bool,
+    pub renderer: Arc<Mutex<FractalRenderer>>,
+    pub settings: Arc<Mutex<Config>>,
+    pub sender: Arc<Mutex<mpsc::Sender<usize>>>,
+    pub stop_flag: Arc<AtomicBool>,
+    pub repeat_flag: Arc<AtomicBool>,
+    pub buffer: Arc<Mutex<DataExport>>,
+    pub need_full_rerender: bool,
+    pub zoom_out_enabled: bool,
+    pub pixel_pos: [u32; 2],
+    pub pixel_iterations: u32,
+    pub pixel_smooth: f32,
+    pub pixel_rgb: Arc<Mutex<Vec<u8>>>,
+    pub mouse_mode: usize,
+    pub current_tab: usize,
+    pub zoom_scale_factor: f64,
+    pub root_zoom_factor: f64,
+    pub center_reference_zoom: String,
+    pub reference_count: usize,
+    pub stripe_scale: f32,
+    pub distance_transition: f32,
+    pub distance_color: bool,
+    pub lighting: bool,
+    pub lighting_direction: f64,
+    pub lighting_azimuth: f64,
+    pub lighting_opacity: f64,
+    pub lighting_ambient: f64,
+    pub lighting_diffuse: f64,
+    pub lighting_specular: f64,
+    pub lighting_shininess: i64,
 }
 
 impl<'a> Widget<FractalData> for FractalWidget<'a> {
@@ -1374,112 +1362,4 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
     fn type_name(&self) -> &'static str {
         std::any::type_name::<Self>()
     }
-}
-
-pub fn main() {
-    // Setup the default settings. These are stored in start.toml file
-    let mut settings = Config::default();
-    settings.merge(File::with_name("start.toml")).unwrap();
-
-    if settings.get_bool("show_output").unwrap() {
-        println!(" {:<15}| {:<15}| {:<15}| {:<6}| {:<15}| {:<15}| {:<15}| {:<6}| {:<15}", "Zoom", "Approx [ms]", "Skipped [it]", "Order", "Maximum [it]", "Iteration [ms]", "Correct [ms]", "Ref", "Frame [ms]");
-    };
-
-    let shared_settings = Arc::new(Mutex::new(settings.clone()));
-    let shared_renderer = Arc::new(Mutex::new(FractalRenderer::new(settings.clone())));
-    let shared_stop_flag = Arc::new(AtomicBool::new(false));
-    let shared_repeat_flag = Arc::new(AtomicBool::new(false));
-
-    let thread_settings = shared_settings.clone();
-    let thread_renderer = shared_renderer.clone();
-    let thread_stop_flag = shared_stop_flag.clone();
-    let thread_repeat_flag = shared_repeat_flag.clone();
-
-    let buffer = shared_renderer.lock().data_export.clone();
-
-    let window = WindowDesc::new(ui::window_main(shared_renderer.clone())).title(
-        LocalizedString::new("rust-fractal"),
-    ).window_size((1392.0, 830.0)).resizable(true).menu(ui::make_menu);
-
-    let launcher = AppLauncher::with_window(window);
-
-    let event_sink = launcher.get_external_handle();
-
-    let (sender, reciever) = mpsc::channel();
-
-    let mut center_reference_zoom = string_to_extended(&settings.get_str("zoom").unwrap());
-    center_reference_zoom.exponent += 40;
-
-    thread::spawn(move || testing_renderer(event_sink, reciever, thread_settings, thread_renderer, thread_stop_flag, thread_repeat_flag));
-
-    launcher
-        .configure_env(|env, _| configure_env(env))
-        .launch(FractalData {
-            image_width: settings.get_int("image_width").unwrap(),
-            image_height: settings.get_int("image_height").unwrap(),
-            real: settings.get_str("real").unwrap(),
-            imag: settings.get_str("imag").unwrap(),
-            zoom: settings.get_str("zoom").unwrap(),
-            root_zoom: "1E0".to_string(),
-            iteration_limit: settings.get_int("iterations").unwrap(),
-            rotation: settings.get_float("rotate").unwrap(),
-            order: settings.get_int("approximation_order").unwrap(),
-            period: 0,
-            palette_source: "default".to_string(),
-            palette_cyclic: settings.get_bool("palette_cyclic").unwrap(),
-            palette_iteration_span: settings.get_float("palette_iteration_span").unwrap(),
-            palette_offset: settings.get_float("palette_offset").unwrap(),
-            rendering_progress: 0.0,
-            root_progress: 1.0,
-            rendering_stage: 1,
-            rendering_time: 0,
-            root_iteration: 64,
-            root_stage: 0,
-            min_valid_iterations: 1,
-            max_valid_iterations: 1,
-            min_iterations: 1,
-            max_iterations: 1,
-            display_glitches: settings.get_bool("display_glitches").unwrap(),
-            glitch_tolerance: settings.get_float("glitch_tolerance").unwrap(),
-            glitch_percentage: settings.get_float("glitch_percentage").unwrap(),
-            iteration_interval: settings.get_int("data_storage_interval").unwrap(),
-            series_approximation_tiled: settings.get_bool("series_approximation_tiled").unwrap(),
-            series_approximation_enabled: settings.get_bool("series_approximation_enabled").unwrap(),
-            probe_sampling: settings.get_int("probe_sampling").unwrap(),
-            jitter: settings.get_bool("jitter").unwrap(),
-            jitter_factor: settings.get_float("jitter_factor").unwrap(),
-            auto_adjust_iterations: settings.get_bool("auto_adjust_iterations").unwrap(),
-            remove_centre: settings.get_bool("remove_centre").unwrap(),
-            renderer: shared_renderer,
-            settings: shared_settings,
-            sender: Arc::new(Mutex::new(sender)),
-            stop_flag: shared_stop_flag,
-            repeat_flag: shared_repeat_flag,
-            buffer,
-            need_full_rerender: false,
-            zoom_out_enabled: false,
-            pixel_pos: [0, 0],
-            pixel_iterations: 1,
-            pixel_smooth: 0.0,
-            pixel_rgb: Arc::new(Mutex::new(vec![0u8; 255 * 3])),
-            coloring_type: ColoringType::SmoothIteration,
-            mouse_mode: 0,
-            current_tab: 0,
-            zoom_scale_factor: settings.get_float("zoom_scale").unwrap(),
-            root_zoom_factor: 0.5,
-            center_reference_zoom: extended_to_string_long(center_reference_zoom),
-            reference_count: 1,
-            stripe_scale: settings.get_float("stripe_scale").unwrap() as f32,
-            distance_transition: settings.get_float("distance_transition").unwrap() as f32,
-            distance_color: settings.get_bool("distance_color").unwrap(),
-            lighting: settings.get_bool("lighting").unwrap(),
-            lighting_direction: settings.get_float("lighting_direction").unwrap(),
-            lighting_azimuth: settings.get_float("lighting_azimuth").unwrap(),
-            lighting_opacity: settings.get_float("lighting_opacity").unwrap(),
-            lighting_ambient: settings.get_float("lighting_ambient").unwrap(),
-            lighting_diffuse: settings.get_float("lighting_diffuse").unwrap(),
-            lighting_specular: settings.get_float("lighting_specular").unwrap(),
-            lighting_shininess: settings.get_int("lighting_shininess").unwrap(),
-        })
-        .expect("launch failed");
 }
