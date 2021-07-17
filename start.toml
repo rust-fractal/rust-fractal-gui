@@ -25,7 +25,7 @@ data_storage_interval = 100
 valid_iteration_probe_multiplier = 0.01
 
 series_approximation_tiled = true
-series_approximation_enabled = true
+series_approximation_enabled = false
 
 coloring_type = "smooth_iteration"
 
