@@ -5,7 +5,7 @@ use parking_lot::Mutex;
 use druid::{AppLauncher, LocalizedString, WindowDesc};
 
 use rust_fractal::{renderer::FractalRenderer};
-use rust_fractal::util::{extended_to_string_long, string_to_extended};
+use rust_fractal::util::{extended_to_string_long, string_to_extended, FractalType};
 use rust_fractal::util::data_export::ColoringType;
 
 use config::{Config, File};
@@ -17,7 +17,7 @@ use std::sync::atomic::AtomicBool;
 use rust_fractal_gui::theme::*;
 use rust_fractal_gui::render_thread::testing_renderer;
 use rust_fractal_gui::ui;
-use rust_fractal_gui::widgets::FractalData;
+use rust_fractal_gui::widgets::{FractalTypeData, FractalData};
 
 pub fn main() {
     // Setup the default settings. These are stored in start.toml file
@@ -58,15 +58,15 @@ pub fn main() {
     launcher
         .configure_env(|env, _| configure_env(env))
         .launch(FractalData {
-            image_width: settings.get_int("image_width").unwrap(),
-            image_height: settings.get_int("image_height").unwrap(),
+            image_width: settings.get_int("image_width").unwrap() as usize,
+            image_height: settings.get_int("image_height").unwrap() as usize,
             real: settings.get_str("real").unwrap(),
             imag: settings.get_str("imag").unwrap(),
             zoom: settings.get_str("zoom").unwrap(),
             root_zoom: "1E0".to_string(),
-            iteration_limit: settings.get_int("iterations").unwrap(),
+            iteration_limit: settings.get_int("iterations").unwrap() as usize,
             rotation: settings.get_float("rotate").unwrap(),
-            order: settings.get_int("approximation_order").unwrap(),
+            order: settings.get_int("approximation_order").unwrap() as usize,
             period: 0,
             palette_source: "default".to_string(),
             palette_cyclic: settings.get_bool("palette_cyclic").unwrap(),
@@ -123,6 +123,7 @@ pub fn main() {
             lighting_diffuse: settings.get_float("lighting_diffuse").unwrap(),
             lighting_specular: settings.get_float("lighting_specular").unwrap(),
             lighting_shininess: settings.get_int("lighting_shininess").unwrap(),
+            fractal_type: FractalTypeData {data: FractalType::Mandelbrot(2)}
         })
         .expect("launch failed");
 }

@@ -1,6 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 use druid::{commands::CLOSE_WINDOW, 
-    widget::{Align, Button, 
+    widget::{Align, Button, RadioGroup,
         Checkbox, CrossAxisAlignment, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, Painter}, 
     Command, Target, RenderContext};
 use druid::{Widget, ImageBuf, Data, LensExt, Menu, LocalizedString, MenuItem, SysMods, Env, WindowId, WindowDesc};
@@ -12,7 +12,7 @@ use druid::theme::{PRIMARY_DARK, BACKGROUND_DARK};
 
 use parking_lot::Mutex;
 use std::sync::Arc;
-use rust_fractal::{renderer::FractalRenderer, util::{FloatExtended, data_export::ColoringType, extended_to_string_short, string_to_extended}};
+use rust_fractal::{renderer::FractalRenderer, util::{FloatExtended, data_export::ColoringType, extended_to_string_short, string_to_extended, FractalType}};
 
 use crate::widgets::*;
 use crate::custom::*;
@@ -226,8 +226,29 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
             }).expand_width().fix_height(24.0), 1.0));
 
     let group_palette = Flex::column()
+            .with_child(Label::new("FRACTAL").with_text_size(20.0).expand_width())
+            .with_child(Dropdown::new(Flex::row()
+                .with_child(Label::new(|data: &FractalTypeData, _env: &_| {
+                    match data.data {
+                        FractalType::Mandelbrot(power) => {
+                            format!("Mandelbrot {}", power)
+                        },
+                        FractalType::BurningShip(power) => {
+                            format!("Burning Ship {}", power)
+                        }
+                    }
+                }))
+                .with_flex_spacer(1.0)
+                .with_child(Button::new("V").on_click(|ctx, _, _| ctx.submit_command(DROP))),
+        |_, _| {
+                    RadioGroup::new(vec![
+                        ("Mandelbrot 2", FractalTypeData {data: FractalType::Mandelbrot(2)}),
+                        ("Burning Ship 2", FractalTypeData {data: FractalType::BurningShip(2)}),
+                        ("Mandelbrot 3", FractalTypeData {data: FractalType::Mandelbrot(3)}),
+                    ])
+                }).lens(FractalData::fractal_type))
         .with_child(Flex::row()
-            .with_flex_child(Label::new("COLOURING").with_text_size(20.0).expand_width(), 0.5)
+            .with_flex_child(Label::new("COLORING").with_text_size(20.0).expand_width(), 0.5)
             .with_flex_child(Label::new(|data: &FractalData, _env: &_| {
                 data.palette_source.clone()
             }).align_right().expand_width(), 0.5))
@@ -479,8 +500,8 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
                 .expand_width()
                 .lens(FractalData::order.map(
                     |val| (*val / 4) as f64, 
-                    |val, new| *val = 4 * new as i64)), 1.0)
-            .with_child(Label::<i64>::new(|data: &i64, _env: &_| {
+                    |val, new| *val = 4 * new as usize)), 1.0)
+            .with_child(Label::<usize>::new(|data: &usize, _env: &_| {
                 format!("{:>3}", *data)
             }).lens(FractalData::order)))
         .with_spacer(4.0)

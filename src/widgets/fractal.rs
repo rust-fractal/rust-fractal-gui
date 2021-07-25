@@ -17,7 +17,7 @@ use druid::commands::{
 use float_eq::float_eq;
 
 use rust_fractal::{renderer::FractalRenderer};
-use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom};
+use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatExtended, FloatArbitrary, FractalType, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom};
 use rust_fractal::util::data_export::{DataExport, DataType, ColoringType};
 use rust_fractal::math::BoxPeriod;
 
@@ -34,6 +34,12 @@ pub enum MouseMode {
     None,
     Panning,
     RootFinding
+}
+
+#[derive(Clone, Data, PartialEq)]
+pub struct FractalTypeData {
+    #[data(same_fn = "PartialEq::eq")]
+    pub data: FractalType,
 }
 
 pub struct FractalWidget<'a> {
@@ -53,15 +59,15 @@ pub struct FractalWidget<'a> {
 
 #[derive(Clone, Data, Lens)]
 pub struct FractalData {
-    pub image_width: i64,
-    pub image_height: i64,
+    pub image_width: usize,
+    pub image_height: usize,
     pub real: String,
     pub imag: String,
     pub zoom: String,
     pub root_zoom: String,
-    pub iteration_limit: i64,
+    pub iteration_limit: usize,
     pub rotation: f64,
-    pub order: i64,
+    pub order: usize,
     pub period: usize,
     pub palette_source: String,
     pub palette_cyclic: bool,
@@ -119,6 +125,7 @@ pub struct FractalData {
     pub lighting_diffuse: f64,
     pub lighting_specular: f64,
     pub lighting_shininess: i64,
+    pub fractal_type: FractalTypeData
 }
 
 impl<'a> Widget<FractalData> for FractalWidget<'a> {
@@ -130,8 +137,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
             Event::WindowConnected => {
                 let settings = data.settings.lock();
 
-                data.image_width = settings.get_int("image_width").unwrap();
-                data.image_height = settings.get_int("image_height").unwrap();
+                data.image_width = settings.get_int("image_width").unwrap() as usize;
+                data.image_height = settings.get_int("image_height").unwrap() as usize;
 
                 data.sender.lock().send(THREAD_RESET_RENDERER_FULL).unwrap();
             }
@@ -323,7 +330,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     renderer.adjust_iterations();
 
                     settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
-                    data.iteration_limit = renderer.maximum_iteration as i64;
+                    data.iteration_limit = renderer.maximum_iteration;
 
                     self.mouse_mode = MouseMode::None;
 
@@ -496,13 +503,13 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     let new_width = settings.get_int("image_width").unwrap() as f64 * factor;
                     let new_height = settings.get_int("image_height").unwrap() as f64 * factor;
 
-                    ctx.submit_command(SET_SIZE.with((new_width as i64, new_height as i64)));
+                    ctx.submit_command(SET_SIZE.with((new_width as usize, new_height as usize)));
                     return;
                 }
 
                 if command.is(NATIVE_SIZE) {
-                    data.image_width = settings.get_float("window_width").unwrap() as i64;
-                    data.image_height = settings.get_float("window_height").unwrap() as i64;
+                    data.image_width = settings.get_float("window_width").unwrap() as usize;
+                    data.image_height = settings.get_float("window_height").unwrap() as usize;
                     return;
                 }
 
@@ -540,7 +547,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         return;
                     }
 
-                    settings.set("iterations", *iterations).unwrap();
+                    settings.set("iterations", *iterations as i64).unwrap();
                     data.iteration_limit = *iterations;
 
                     if *iterations as usize <= renderer.maximum_iteration {
@@ -626,7 +633,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     // set all the config to be updated
                     settings.set("data_storage_interval", data.iteration_interval).unwrap();
                     settings.set("glitch_tolerance", data.glitch_tolerance).unwrap();
-                    settings.set("approximation_order", data.order).unwrap();
+                    settings.set("approximation_order", data.order as i64).unwrap();
                     settings.set("probe_sampling", data.probe_sampling).unwrap();
 
                     settings.set("series_approximation_tiled", data.series_approximation_tiled).unwrap();
@@ -680,7 +687,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     let current_imag = settings.get_str("imag").unwrap();
                     let current_zoom = settings.get_str("zoom").unwrap();
 
-                    let current_iterations = settings.get_int("iterations").unwrap();
+                    let current_iterations = settings.get_int("iterations").unwrap() as usize;
                     let current_rotation = settings.get_float("rotate").unwrap();
 
                     if current_real == data.real && current_imag == data.imag {
@@ -707,7 +714,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                             // println!("rotation & iterations");
 
-                            settings.set("iterations", data.iteration_limit).unwrap();
+                            settings.set("iterations", data.iteration_limit as i64).unwrap();
 
                             if (data.iteration_limit as usize) < renderer.maximum_iteration {
                                 // TODO needs to make it so that pixels are only iterated to the right level
@@ -738,7 +745,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     settings.set("imag", data.imag.clone()).unwrap();
                     settings.set("zoom",  data.zoom.clone()).unwrap();
                     settings.set("rotate", data.rotation).unwrap();
-                    settings.set("iterations", data.iteration_limit).unwrap();
+                    settings.set("iterations", data.iteration_limit as i64).unwrap();
 
                     ctx.submit_command(RESET_RENDERER_FULL);
                     return;
@@ -749,7 +756,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.real = settings.get_str("real").unwrap();
                     data.imag = settings.get_str("imag").unwrap();
                     data.zoom = settings.get_str("zoom").unwrap();
-                    data.iteration_limit = settings.get_int("iterations").unwrap();
+                    data.iteration_limit = settings.get_int("iterations").unwrap() as usize;
 
                     // let current_rotation = settings.get_float("rotate").unwrap();
                 }
@@ -783,7 +790,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.need_full_rerender &= renderer.adjust_iterations();
 
                     settings.set("iterations", renderer.maximum_iteration as i64).unwrap();
-                    data.iteration_limit = renderer.maximum_iteration as i64;
+                    data.iteration_limit = renderer.maximum_iteration;
 
                     if string_to_extended(&data.zoom) > string_to_extended(&data.center_reference_zoom) {
                         data.need_full_rerender = true;
@@ -847,7 +854,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                         renderer.data_export.lock().data_type = pixel_data_type;
 
-                        if renderer.pixel_data_type == DataType::DistanceStripe {
+                        if renderer.data_type == DataType::DistanceStripe {
                             renderer.data_export.lock().regenerate();
                             ctx.submit_command(REPAINT);
                             data.coloring_type = *coloring_method;
@@ -855,7 +862,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         }
 
                         if (pixel_data_type == DataType::DistanceStripe) ||
-                            ((pixel_data_type == DataType::Distance && renderer.pixel_data_type != DataType::Distance) || (pixel_data_type == DataType::Stripe && renderer.pixel_data_type != DataType::Stripe)) {
+                            ((pixel_data_type == DataType::Distance && renderer.data_type != DataType::Distance) || (pixel_data_type == DataType::Stripe && renderer.data_type != DataType::Stripe)) {
                             ctx.submit_command(RESET_RENDERER_FAST);
                         } else {
                             renderer.data_export.lock().regenerate();
@@ -966,7 +973,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                         return;
                     }
 
-                    renderer.pixel_data_type = match settings.get_str("coloring_type").unwrap().to_ascii_uppercase().as_ref() {
+                    renderer.data_type = match settings.get_str("coloring_type").unwrap().to_ascii_uppercase().as_ref() {
                         "SMOOTH_ITERATION" | "SMOOTH" | "STEP_ITERATION" | "STEP" => DataType::Iteration,
                         "STRIPE" => DataType::Stripe,
                         "DISTANCE_STRIPE" => DataType::DistanceStripe,
@@ -976,8 +983,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     let sender = data.sender.lock();
                     sender.send(THREAD_RESET_RENDERER_FAST).unwrap();
 
-                    data.image_width = settings.get_int("image_width").unwrap();
-                    data.image_height = settings.get_int("image_height").unwrap();
+                    data.image_width = settings.get_int("image_width").unwrap() as usize;
+                    data.image_height = settings.get_int("image_height").unwrap() as usize;
                     data.min_valid_iterations = 1;
                     data.max_valid_iterations = 1;
                     data.min_iterations = 1;
@@ -990,8 +997,8 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     let sender = data.sender.lock();
                     sender.send(THREAD_RESET_RENDERER_FULL).unwrap();
 
-                    data.image_width = settings.get_int("image_width").unwrap();
-                    data.image_height = settings.get_int("image_height").unwrap();
+                    data.image_width = settings.get_int("image_width").unwrap() as usize;
+                    data.image_height = settings.get_int("image_height").unwrap() as usize;
                     data.min_valid_iterations = 1;
                     data.max_valid_iterations = 1;
                     data.min_iterations = 1;
@@ -1125,7 +1132,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     data.real = settings.get_str("real").unwrap();
                     data.imag = settings.get_str("imag").unwrap();
                     data.zoom = settings.get_str("zoom").unwrap().to_uppercase();
-                    data.iteration_limit = settings.get_int("iterations").unwrap();
+                    data.iteration_limit = settings.get_int("iterations").unwrap() as usize;
                     data.rotation = settings.get_float("rotate").unwrap();
 
                     ctx.submit_command(RESET_RENDERER_FULL);
@@ -1163,7 +1170,7 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
 
                     if let Ok(iterations) = new_settings.get_int("iterations") {
                         settings.set("iterations", iterations).unwrap();
-                        data.iteration_limit = iterations;
+                        data.iteration_limit = iterations as usize;
                         reset_renderer = true;
                     }
 
@@ -1177,19 +1184,19 @@ impl<'a> Widget<FractalData> for FractalWidget<'a> {
                     }
 
                     if let Ok(width) = new_settings.get_int("image_width") {
-                        data.image_width = width;
+                        data.image_width = width as usize;
                         settings.set("image_width", width).unwrap();
                         quick_reset = true;
                     }
 
                     if let Ok(height) = new_settings.get_int("image_height") {
-                        data.image_height = height;
+                        data.image_height = height as usize;
                         settings.set("image_height", height).unwrap();
                         quick_reset = true;
                     }
 
                     if let Ok(order) = new_settings.get_int("approximation_order") {
-                        data.order = order;
+                        data.order = order as usize;
                         settings.set("approximation_order", order).unwrap();
                         quick_reset = true;
                     }

@@ -15,12 +15,12 @@ pub const SAVE_IMAGE: Selector<()> = Selector::new("save_image");
 
 pub const NATIVE_SIZE: Selector<()> = Selector::new("native_image_size");
 pub const MULTIPLY_SIZE: Selector<f64> = Selector::new("multiply_image_size");
-pub const SET_SIZE: Selector<(i64, i64)> = Selector::new("set_image_size");
+pub const SET_SIZE: Selector<(usize, usize)> = Selector::new("set_image_size");
 
 pub const MULTIPLY_PATTERN: Selector<f64> = Selector::new("multiply_pattern");
 
 pub const SET_ROTATION: Selector<f64> = Selector::new("set_rotation");
-pub const SET_ITERATIONS: Selector<i64> = Selector::new("set_iterations");
+pub const SET_ITERATIONS: Selector<usize> = Selector::new("set_iterations");
 pub const SET_LOCATION: Selector<()> = Selector::new("set_location");
 
 pub const REVERT_LOCATION: Selector<()> = Selector::new("revert_location");
