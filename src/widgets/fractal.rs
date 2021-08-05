@@ -5,7 +5,7 @@ use parking_lot::Mutex;
 
 use druid::{widget::prelude::*};
 use druid::{Widget, MouseButton, KbKey, FileDialogOptions, FileSpec, Data, Lens, Rect};
-use druid::piet::{ImageFormat, InterpolationMode, D2DRenderContext, Color};
+use druid::piet::{ImageFormat, InterpolationMode, Color};
 use druid::kurbo::Circle;
 use druid::commands::{
     OPEN_FILE,
@@ -37,7 +37,7 @@ pub enum MouseMode {
     RootFinding
 }
 
-pub struct FractalWidget<'a> {
+pub struct FractalWidget {
     pub image_width: usize,
     pub image_height: usize,
     pub save_type: usize,
@@ -45,7 +45,7 @@ pub struct FractalWidget<'a> {
     pub pos2: (f64, f64),
     pub root_pos_start: (f64, f64),
     pub root_pos_current: (f64, f64),
-    pub cached_image: Option<<D2DRenderContext<'a> as RenderContext>::Image>,
+    pub cached_image: Option<druid::piet::PietImage>,
     pub needs_buffer_refresh: bool,
     pub mouse_mode: MouseMode,
     pub renderer_zoom: FloatExtended,
@@ -124,7 +124,7 @@ pub struct FractalData {
     pub fractal_type: FractalType
 }
 
-impl<'a> Widget<FractalData> for FractalWidget<'a> {
+impl Widget<FractalData> for FractalWidget {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut FractalData, _env: &Env) {
         ctx.request_focus();
         // println!("{:?}", event);
