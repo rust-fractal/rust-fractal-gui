@@ -7,8 +7,15 @@ build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[dependencies.druid]
+git = "https://github.com/linebender/druid"
+# rev = "f19ddf1" # update this when upgrading to newer druid
+rev = "399c454"
+
+
 [dependencies]
-druid = { git = "https://github.com/linebender/druid.git" }
+# druid = { git = "https://github.com/linebender/druid.git" }
+druid-widget-nursery = { git = "https://github.com/linebender/druid-widget-nursery.git" }
 rust_fractal = {path = "../rust-fractal-core"}
 config = "^0.9"
 parking_lot = { version = "0.11.1", features = ["nightly"] }

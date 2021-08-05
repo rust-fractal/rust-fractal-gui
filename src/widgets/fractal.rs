@@ -17,7 +17,7 @@ use druid::commands::{
 use float_eq::float_eq;
 
 use rust_fractal::{renderer::FractalRenderer};
-use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatExtended, FloatArbitrary, FractalType, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom};
+use rust_fractal::util::{ComplexFixed, ComplexExtended, FloatExtended, FloatArbitrary, get_delta_top_left, extended_to_string_long, string_to_extended, linear_interpolation_between_zoom};
 use rust_fractal::util::data_export::{DataExport, DataType, ColoringType};
 use rust_fractal::math::BoxPeriod;
 
@@ -28,18 +28,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::cmp::min;
 
 use crate::commands::*;
+use crate::ui::FractalType;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum MouseMode {
     None,
     Panning,
     RootFinding
-}
-
-#[derive(Clone, Data, PartialEq)]
-pub struct FractalTypeData {
-    #[data(same_fn = "PartialEq::eq")]
-    pub data: FractalType,
 }
 
 pub struct FractalWidget<'a> {
@@ -57,7 +52,7 @@ pub struct FractalWidget<'a> {
     pub renderer_rotate: (f64, f64)
 }
 
-#[derive(Clone, Data, Lens)]
+#[derive(Data, Clone, Lens)]
 pub struct FractalData {
     pub image_width: usize,
     pub image_height: usize,
@@ -125,7 +120,8 @@ pub struct FractalData {
     pub lighting_diffuse: f64,
     pub lighting_specular: f64,
     pub lighting_shininess: i64,
-    pub fractal_type: FractalTypeData
+    #[data(same_fn = "PartialEq::eq")]
+    pub fractal_type: FractalType
 }
 
 impl<'a> Widget<FractalData> for FractalWidget<'a> {

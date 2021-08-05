@@ -5,7 +5,7 @@ use parking_lot::Mutex;
 use druid::{AppLauncher, LocalizedString, WindowDesc};
 
 use rust_fractal::{renderer::FractalRenderer};
-use rust_fractal::util::{extended_to_string_long, string_to_extended, FractalType};
+use rust_fractal::util::{extended_to_string_long, string_to_extended};
 use rust_fractal::util::data_export::ColoringType;
 
 use config::{Config, File};
@@ -17,7 +17,8 @@ use std::sync::atomic::AtomicBool;
 use rust_fractal_gui::theme::*;
 use rust_fractal_gui::render_thread::testing_renderer;
 use rust_fractal_gui::ui;
-use rust_fractal_gui::widgets::{FractalTypeData, FractalData};
+use rust_fractal_gui::widgets::{FractalData};
+use rust_fractal_gui::ui::FractalType;
 
 pub fn main() {
     // Setup the default settings. These are stored in start.toml file
@@ -123,7 +124,7 @@ pub fn main() {
             lighting_diffuse: settings.get_float("lighting_diffuse").unwrap(),
             lighting_specular: settings.get_float("lighting_specular").unwrap(),
             lighting_shininess: settings.get_int("lighting_shininess").unwrap(),
-            fractal_type: FractalTypeData {data: FractalType::Mandelbrot(2)}
+            fractal_type: FractalType::A
         })
         .expect("launch failed");
 }

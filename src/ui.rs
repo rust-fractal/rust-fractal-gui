@@ -1,23 +1,31 @@
 use std::{fmt::Display, str::FromStr};
 use druid::{commands::CLOSE_WINDOW, 
-    widget::{Align, Button, RadioGroup,
+    widget::{Align, Button,
         Checkbox, CrossAxisAlignment, FillStrat, Flex, Image, Label, ProgressBar, Slider, Split, TextBox, WidgetExt, Painter}, 
     Command, Target, RenderContext};
 use druid::{Widget, ImageBuf, Data, LensExt, Menu, LocalizedString, MenuItem, SysMods, Env, WindowId, WindowDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::text::ParseFormatter;
 use druid::commands::CLOSE_ALL_WINDOWS;
-
 use druid::theme::{PRIMARY_DARK, BACKGROUND_DARK};
+
+use druid_widget_nursery::DropdownSelect;
 
 use parking_lot::Mutex;
 use std::sync::Arc;
-use rust_fractal::{renderer::FractalRenderer, util::{FloatExtended, data_export::ColoringType, extended_to_string_short, string_to_extended, FractalType}};
+use rust_fractal::{renderer::FractalRenderer, util::{FloatExtended, data_export::ColoringType, extended_to_string_short, string_to_extended}};
 
 use crate::widgets::*;
 use crate::custom::*;
 use crate::commands::*;
 use crate::lens;
+
+#[derive(Data, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub enum FractalType {
+    A,
+    B,
+    C
+}
 
 pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<FractalData> {
     let render_screen = Align::centered(FractalWidget {
@@ -227,26 +235,11 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
 
     let group_palette = Flex::column()
             .with_child(Label::new("FRACTAL").with_text_size(20.0).expand_width())
-            .with_child(Dropdown::new(Flex::row()
-                .with_child(Label::new(|data: &FractalTypeData, _env: &_| {
-                    match data.data {
-                        FractalType::Mandelbrot(power) => {
-                            format!("Mandelbrot {}", power)
-                        },
-                        FractalType::BurningShip(power) => {
-                            format!("Burning Ship {}", power)
-                        }
-                    }
-                }))
-                .with_flex_spacer(1.0)
-                .with_child(Button::new("V").on_click(|ctx, _, _| ctx.submit_command(DROP))),
-        |_, _| {
-                    RadioGroup::new(vec![
-                        ("Mandelbrot 2", FractalTypeData {data: FractalType::Mandelbrot(2)}),
-                        ("Burning Ship 2", FractalTypeData {data: FractalType::BurningShip(2)}),
-                        ("Mandelbrot 3", FractalTypeData {data: FractalType::Mandelbrot(3)}),
-                    ])
-                }).lens(FractalData::fractal_type))
+            .with_child(DropdownSelect::new(vec![
+                ("Mandelbrot 2", FractalType::A),
+                ("Burning Ship 2", FractalType::B),
+                ("Mandelbrot 3", FractalType::C),
+            ]).align_left().lens(FractalData::fractal_type))
         .with_child(Flex::row()
             .with_flex_child(Label::new("COLORING").with_text_size(20.0).expand_width(), 0.5)
             .with_flex_child(Label::new(|data: &FractalData, _env: &_| {
