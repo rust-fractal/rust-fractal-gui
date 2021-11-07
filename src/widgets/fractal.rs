@@ -120,8 +120,6 @@ pub struct FractalData {
     pub lighting_diffuse: f64,
     pub lighting_specular: f64,
     pub lighting_shininess: i64,
-    #[data(same_fn = "PartialEq::eq")]
-    pub fractal_type: FractalType
 }
 
 impl Widget<FractalData> for FractalWidget {

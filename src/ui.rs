@@ -235,11 +235,11 @@ pub fn window_main(renderer: Arc<Mutex<FractalRenderer>>) -> impl Widget<Fractal
 
     let group_palette = Flex::column()
             .with_child(Label::new("FRACTAL").with_text_size(20.0).expand_width())
-            .with_child(DropdownSelect::new(vec![
-                ("Mandelbrot 2", FractalType::A),
-                ("Burning Ship 2", FractalType::B),
-                ("Mandelbrot 3", FractalType::C),
-            ]).align_left().lens(FractalData::fractal_type))
+            // .with_child(DropdownSelect::new(vec![
+            //     ("Mandelbrot 2", FractalType::A),
+            //     ("Burning Ship 2", FractalType::B),
+            //     ("Mandelbrot 3", FractalType::C),
+            // ]).align_left().lens(FractalData::fractal_type))
         .with_child(Flex::row()
             .with_flex_child(Label::new("COLORING").with_text_size(20.0).expand_width(), 0.5)
             .with_flex_child(Label::new(|data: &FractalData, _env: &_| {

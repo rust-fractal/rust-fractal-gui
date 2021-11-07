@@ -10,7 +10,7 @@ build = "build.rs"
 [dependencies.druid]
 git = "https://github.com/linebender/druid"
 # rev = "f19ddf1" # update this when upgrading to newer druid
-rev = "399c454"
+# rev = "399c454"
 
 
 [dependencies]

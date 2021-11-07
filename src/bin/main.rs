@@ -124,7 +124,7 @@ pub fn main() {
             lighting_diffuse: settings.get_float("lighting_diffuse").unwrap(),
             lighting_specular: settings.get_float("lighting_specular").unwrap(),
             lighting_shininess: settings.get_int("lighting_shininess").unwrap(),
-            fractal_type: FractalType::A
+            // fractal_type: FractalType::A
         })
         .expect("launch failed");
 }
