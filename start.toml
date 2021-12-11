@@ -52,3 +52,6 @@ lighting_ambient = 0.4
 lighting_diffuse = 0.5
 lighting_specular = 0.5
 lighting_shininess = 20
+
+fractal_power = 3
+fractal_type = "mandelbrot"
